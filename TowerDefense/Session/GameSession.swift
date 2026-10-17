@@ -582,7 +582,9 @@ final class GameSession {
             record(.skill(index))
             Haptics.impact(.heavy)
         } else {
-            if commander.skillLevels[index] == 0 {
+            if index == CommanderKind.researchableSkills && commander.skillLevels[index] == 0 {
+                showToast("REACH LEVEL \(CommanderKind.maxLevel) FIRST")
+            } else if commander.skillLevels[index] == 0 {
                 showToast("UNLOCK IT IN THE RESEARCH LAB")
             } else if commander.skillCooldowns[index] <= 0 {
                 showToast("NO ENEMIES IN RANGE")

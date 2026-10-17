@@ -65,16 +65,19 @@ enum CommanderKind: String, CaseIterable, Codable, Identifiable {
             CommanderSkill(name: "Shield Bash", detail: "Hits and stuns villains next to it.", cooldown: 14),
             CommanderSkill(name: "Rally Cry", detail: "Nearby heroes attack faster for 6s.", cooldown: 25),
             CommanderSkill(name: "Whirlwind", detail: "Big damage all around it.", cooldown: 30),
+            CommanderSkill(name: "Earthquake", detail: "Stuns every villain on the ground for 3s.", cooldown: 60),
         ]
         case .mage: [
             CommanderSkill(name: "Fireball", detail: "Big hit on the toughest villain in range.", cooldown: 12),
             CommanderSkill(name: "Frost Nova", detail: "Slows villains around it for 5s.", cooldown: 22),
             CommanderSkill(name: "Meteor", detail: "Hits the three villains closest to the crystal.", cooldown: 40),
+            CommanderSkill(name: "Armageddon", detail: "Meteors hit the eight villains closest to the crystal.", cooldown: 60),
         ]
         case .ranger: [
             CommanderSkill(name: "Volley", detail: "Hits several villains at once.", cooldown: 12),
             CommanderSkill(name: "Hunter's Mark", detail: "Shows cloaked villains and removes armor.", cooldown: 18),
             CommanderSkill(name: "Snipe", detail: "A huge shot at the toughest villain on the map.", cooldown: 35),
+            CommanderSkill(name: "Arrow Storm", detail: "Hits every villain on the map.", cooldown: 60),
         ]
         }
     }
@@ -82,6 +85,8 @@ enum CommanderKind: String, CaseIterable, Codable, Identifiable {
     // MARK: In-match levels
 
     static let maxLevel = 10
+    /// Skills you research in the lab; the last skill is the ultimate, unlocked at max level in a match.
+    static let researchableSkills = 3
 
     /// XP needed to go from `level` to the next one.
     static func xpToNext(level: Int) -> Int { 8 + level * 6 }

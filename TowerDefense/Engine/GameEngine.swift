@@ -353,6 +353,33 @@ final class GameEngine {
                 enemy.revealed = true
                 apply(hit, to: enemy, from: nil, showNumber: false)
             }
+        case (.knight, 3):
+            radius = 3
+            let targets = enemies.filter { $0.isTargetable && !$0.kind.isFlying }
+            guard !targets.isEmpty else { return false }
+            hit.damage = 200 * power
+            hit.stunChance = 1
+            hit.stunDuration = 3
+            for enemy in targets { commanderStrike(hit, on: enemy, showNumber: true) }
+        case (.mage, 3):
+            let targets = enemies.filter(\.isTargetable).sorted { remaining($0) < remaining($1) }.prefix(8)
+            guard !targets.isEmpty else { return false }
+            hit.damage = 600 * power
+            hit.type = .explosive
+            let points = targets.map(\.position)
+            for point in points {
+                for enemy in enemies where enemy.isTargetable && enemy.position.distance(to: point) <= 1.2 {
+                    commanderStrike(hit, on: enemy, showNumber: true)
+                }
+            }
+            events.append(.powerStrikes(points: points, splash: 1.2))
+        case (.ranger, 3):
+            radius = 3
+            let targets = enemies.filter { $0.isTargetable && (!$0.isHidden || commander.kind.detectsCamo) }
+            guard !targets.isEmpty else { return false }
+            hit.damage = 250 * power
+            for enemy in targets { commanderStrike(hit, on: enemy, showNumber: true) }
+            events.append(.powerStrikes(points: targets.prefix(16).map(\.position), splash: 0.4))
         default:
             let visible = enemies.filter { $0.isTargetable && (!$0.isHidden || commander.kind.detectsCamo) }
             guard let target = visible.max(by: { $0.health + $0.shield < $1.health + $1.shield }) else { return false }
@@ -811,6 +838,7 @@ final class GameEngine {
         if commander.xp >= needed {
             commander.xp -= needed
             commander.level += 1
+            if commander.level == CommanderKind.maxLevel { commander.skillLevels[CommanderKind.researchableSkills] = 1 }
             events.append(.commanderLevelUp(level: commander.level, at: commander.position))
         }
     }

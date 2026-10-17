@@ -214,7 +214,7 @@ private struct CommanderResearchCard: View {
                 .font(Theme.body(11, weight: .regular))
                 .foregroundStyle(Theme.secondaryText)
                 .fixedSize(horizontal: false, vertical: true)
-            ForEach(Array(kind.skills.enumerated()), id: \.offset) { index, skill in
+            ForEach(Array(kind.skills.prefix(CommanderKind.researchableSkills).enumerated()), id: \.offset) { index, skill in
                 HStack(spacing: 8) {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("\(skill.name.uppercased())  LV \(levels[index])/\(CommanderSkill.maxLevel)")

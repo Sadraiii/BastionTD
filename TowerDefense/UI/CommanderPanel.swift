@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// The selected commander: level, XP and its three skills.
+/// The selected commander: level, XP, its three skills and the ultimate.
 struct CommanderPanel: View {
     let session: GameSession
     let commander: CommanderSnapshot
