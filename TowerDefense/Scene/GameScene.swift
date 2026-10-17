@@ -44,6 +44,7 @@ final class GameScene: SKScene {
     private var flowOffset: CGFloat = 0
     private var lastNumberTime: TimeInterval = 0
 
+    private var pinchStartScale: CGFloat = 1
     private var touchStartedOnPending = false
     private var touchMoved = false
     private var touchCell: GridPoint?
@@ -338,6 +339,11 @@ final class GameScene: SKScene {
     // MARK: Touch input
 
     override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
+        // A second finger means a pinch or pan, not a tap.
+        guard event?.allTouches?.count ?? 1 == 1 else {
+            touchMoved = true
+            return
+        }
         guard let touch = touches.first, let session, let layout else { return }
         let cell = layout.cell(atWorld: touch.location(in: world))
         touchCell = cell
@@ -350,7 +356,7 @@ final class GameScene: SKScene {
     }
 
     override func touchesMoved(_ touches: Set<UITouch>, with event: UIEvent?) {
-        guard let touch = touches.first, let session, let layout else { return }
+        guard event?.allTouches?.count ?? 1 == 1, let touch = touches.first, let session, let layout else { return }
         let cell = layout.cell(atWorld: touch.location(in: world))
         guard cell != touchCell else { return }
         touchCell = cell
@@ -369,6 +375,55 @@ final class GameScene: SKScene {
 
     override func touchesCancelled(_ touches: Set<UITouch>, with event: UIEvent?) {
         touchMoved = true
+    }
+
+    // MARK: Zoom and pan
+
+    @objc func handlePinch(_ gesture: UIPinchGestureRecognizer) {
+        guard let view else { return }
+        if gesture.state == .began { pinchStartScale = world.xScale }
+        zoom(to: pinchStartScale * gesture.scale, around: convertPoint(fromView: gesture.location(in: view)))
+    }
+
+    @objc func handlePan(_ gesture: UIPanGestureRecognizer) {
+        guard let view else { return }
+        let translation = gesture.translation(in: view)
+        gesture.setTranslation(.zero, in: view)
+        world.removeAction(forKey: "shake")
+        world.position = world.position + CGPoint(x: translation.x, y: -translation.y)
+        clampWorld()
+    }
+
+    @objc func resetZoom() {
+        guard let layout else { return }
+        zoom(to: layout.pixelSize, around: .zero)
+    }
+
+    /// Zooms between the fitted size and 3x, keeping `anchor` (scene coordinates) still.
+    /// The scale snaps to whole device pixels per art pixel so the art stays crisp.
+    private func zoom(to scale: CGFloat, around anchor: CGPoint) {
+        guard let layout else { return }
+        let screenScale = view?.contentScaleFactor ?? 3
+        let snapped = (min(max(scale, layout.pixelSize), layout.pixelSize * 3) * screenScale).rounded() / screenScale
+        let focus = world.convert(anchor, from: self)
+        world.removeAction(forKey: "shake")
+        world.setScale(snapped)
+        world.position = anchor - focus * snapped
+        clampWorld()
+    }
+
+    /// Keeps a zoomed board covering the view, or centered along an axis where it fits.
+    private func clampWorld() {
+        guard let layout else { return }
+        let screenScale = view?.contentScaleFactor ?? 3
+        func clamp(_ value: CGFloat, board: CGFloat, view: CGFloat) -> CGFloat {
+            let position = board <= view ? (view - board) / 2 : min(0, max(view - board, value))
+            return (position * screenScale).rounded() / screenScale
+        }
+        world.position = CGPoint(
+            x: clamp(world.position.x, board: layout.worldSize.width * world.xScale, view: size.width),
+            y: clamp(world.position.y, board: layout.worldSize.height * world.yScale, view: size.height)
+        )
     }
 
     // MARK: Event handling
@@ -618,5 +673,12 @@ final class GameScene: SKScene {
             SoundEngine.shared.play(.defeat)
             Haptics.notify(.error)
         }
+    }
+}
+
+extension GameScene: UIGestureRecognizerDelegate {
+    func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer,
+                           shouldRecognizeSimultaneouslyWith other: UIGestureRecognizer) -> Bool {
+        true
     }
 }

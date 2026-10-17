@@ -9,10 +9,20 @@ struct GameSceneView: UIViewRepresentable {
     func makeUIView(context: Context) -> SKView {
         let view = SKView()
         view.ignoresSiblingOrder = true
-        view.isMultipleTouchEnabled = false
+        view.isMultipleTouchEnabled = true
         view.preferredFramesPerSecond = 60
         view.backgroundColor = Pal.ink.uiColor
         view.presentScene(scene)
+
+        let pinch = UIPinchGestureRecognizer(target: scene, action: #selector(GameScene.handlePinch))
+        let pan = UIPanGestureRecognizer(target: scene, action: #selector(GameScene.handlePan))
+        pan.minimumNumberOfTouches = 2
+        let reset = UITapGestureRecognizer(target: scene, action: #selector(GameScene.resetZoom))
+        reset.numberOfTouchesRequired = 2
+        for gesture in [pinch, pan, reset] as [UIGestureRecognizer] {
+            gesture.delegate = scene
+            view.addGestureRecognizer(gesture)
+        }
         return view
     }
 

@@ -151,9 +151,9 @@ extension GameScene {
 
     /// Jolts the battlefield by whole art pixels.
     func shake(intensity: CGFloat) {
-        guard let layout, world.action(forKey: "shake") == nil else { return }
-        let origin = layout.origin
-        let px = layout.pixelSize * intensity
+        guard world.action(forKey: "shake") == nil else { return }
+        let origin = world.position
+        let px = world.xScale * intensity
         let offsets = [CGPoint(x: px, y: 0), CGPoint(x: -px, y: px), CGPoint(x: 0, y: -px), .zero]
         let moves = offsets.map { SKAction.sequence([.move(to: origin + $0, duration: 0), .wait(forDuration: 0.035)]) }
         world.run(.sequence(moves + [.move(to: origin, duration: 0)]), withKey: "shake")
