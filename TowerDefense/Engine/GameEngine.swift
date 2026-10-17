@@ -832,7 +832,9 @@ final class GameEngine {
     }
 
     private func gainXP(_ amount: Int) {
-        guard let commander, commander.level < CommanderKind.maxLevel else { return }
+        guard let commander else { return }
+        commander.earnedXP += amount
+        guard commander.level < CommanderKind.maxLevel else { return }
         commander.xp += amount
         let needed = CommanderKind.xpToNext(level: commander.level)
         if commander.xp >= needed {

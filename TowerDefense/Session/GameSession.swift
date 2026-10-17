@@ -173,6 +173,7 @@ final class GameSession {
     @ObservationIgnored private var isDemo = false
     @ObservationIgnored private var demoClock: Double = 0
     @ObservationIgnored private var save: SavedMatch
+    @ObservationIgnored private var bankedCommanderXP = 0
 
     private static let fixedStep = 1.0 / 60.0
 
@@ -368,6 +369,10 @@ final class GameSession {
             PlayerProgress.recordEndless(on: map, wave: cleared)
         }
         PlayerProgress.researchPoints += earned
+        if let commander = engine.commander {
+            PlayerProgress.addCommanderXP(commander.kind, commander.earnedXP - bankedCommanderXP)
+            bankedCommanderXP = commander.earnedXP
+        }
         rewards = RunRewards(
             researchPoints: rewards.researchPoints + earned + medals.reduce(0) { $0 + $1.reward },
             medals: rewards.medals + medals

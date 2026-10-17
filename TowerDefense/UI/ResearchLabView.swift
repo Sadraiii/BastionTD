@@ -210,7 +210,14 @@ private struct CommanderResearchCard: View {
                     .accessibilityLabel("\(option.name)\(option == kind ? ", selected" : "")")
                 }
             }
-            Text(kind.role + " Levels up from kills during a match.")
+            let xp = PlayerProgress.commanderXP(kind)
+            let rank = CommanderKind.rank(forXP: xp)
+            Text(rank < CommanderKind.maxRank
+                 ? "RANK \(rank) · \(xp)/\(CommanderKind.xpForRank(rank + 1)) XP · +\(rank * 2)% POWER"
+                 : "RANK \(rank) (MAX) · +\(rank * 2)% POWER")
+                .font(Theme.body(10))
+                .foregroundStyle(Color(pixel: Pal.commander(kind)))
+            Text(kind.role + " Levels up from kills during a match, and its XP adds to its rank.")
                 .font(Theme.body(11, weight: .regular))
                 .foregroundStyle(Theme.secondaryText)
                 .fixedSize(horizontal: false, vertical: true)

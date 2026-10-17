@@ -11,6 +11,7 @@ enum StorageKey {
     static let medals = "progress.medals"
     static let savedMatch = "progress.savedMatch"
     static let commander = "progress.commander"
+    static func commanderXP(_ kind: CommanderKind) -> String { "progress.commanderXP.\(kind.rawValue)" }
     static func bestStars(_ mapID: String) -> String { "progress.stars.\(mapID)" }
     static func bestEndless(_ mapID: String) -> String { "progress.endless.\(mapID)" }
     static func daily(_ day: Int) -> String { "progress.daily.\(day)" }
@@ -52,6 +53,21 @@ enum PlayerProgress {
     static var commander: CommanderProgress {
         get { defaults.data(forKey: StorageKey.commander).flatMap { try? JSONDecoder().decode(CommanderProgress.self, from: $0) } ?? CommanderProgress() }
         set { defaults.set(try? JSONEncoder().encode(newValue), forKey: StorageKey.commander) }
+    }
+
+    /// The selected commander with its skills and permanent rank, for the next match.
+    static var commanderLoadout: CommanderLoadout {
+        var loadout = commander.loadout
+        loadout.rank = CommanderKind.rank(forXP: commanderXP(loadout.kind))
+        return loadout
+    }
+
+    static func commanderXP(_ kind: CommanderKind) -> Int {
+        defaults.integer(forKey: StorageKey.commanderXP(kind))
+    }
+
+    static func addCommanderXP(_ kind: CommanderKind, _ amount: Int) {
+        defaults.set(commanderXP(kind) + amount, forKey: StorageKey.commanderXP(kind))
     }
 
     /// Spends points to raise a commander skill one level. Returns false if not possible.

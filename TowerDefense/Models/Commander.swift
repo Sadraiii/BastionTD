@@ -91,8 +91,21 @@ enum CommanderKind: String, CaseIterable, Codable, Identifiable {
     /// XP needed to go from `level` to the next one.
     static func xpToNext(level: Int) -> Int { 8 + level * 6 }
 
-    /// Damage and skill strength grow with each level.
-    static func power(level: Int) -> Double { 1 + 0.12 * Double(level - 1) }
+    /// Damage and skill strength grow with each level, plus 2% per permanent rank.
+    static func power(level: Int, rank: Int) -> Double { (1 + 0.12 * Double(level - 1)) * (1 + 0.02 * Double(rank)) }
+
+    // MARK: Permanent rank
+
+    static let maxRank = 20
+
+    /// Total XP needed to reach `rank`: 100, 300, 600, ...
+    static func xpForRank(_ rank: Int) -> Int { 50 * rank * (rank + 1) }
+
+    static func rank(forXP xp: Int) -> Int {
+        var rank = 0
+        while rank < maxRank && xp >= xpForRank(rank + 1) { rank += 1 }
+        return rank
+    }
 }
 
 struct CommanderSkill {
@@ -110,6 +123,7 @@ struct CommanderSkill {
 struct CommanderLoadout: Codable, Equatable {
     var kind: CommanderKind
     var skillLevels: [Int]
+    var rank = 0
 }
 
 /// Saved between matches: the chosen commander and the skill levels of each.
