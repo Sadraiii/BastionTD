@@ -6,6 +6,7 @@ struct ResearchLabView: View {
 
     @State private var points = PlayerProgress.researchPoints
     @State private var research = PlayerProgress.research
+    @State private var commander = PlayerProgress.commander
     @State private var selection: Selection?
     @State private var celebrate: Medal?
 
@@ -20,6 +21,7 @@ struct ResearchLabView: View {
             header
             ScrollView(.vertical, showsIndicators: false) {
                 LazyVStack(spacing: 12) {
+                    CommanderResearchCard(progress: commander, points: points, onSelect: selectCommander, onUpgrade: upgradeSkill)
                     ForEach(TowerKind.allCases) { kind in
                         HeroResearchCard(kind: kind, research: research, points: points, selection: $selection) {
                             recruit(kind)
@@ -144,6 +146,24 @@ struct ResearchLabView: View {
         }
     }
 
+    private func selectCommander(_ kind: CommanderKind) {
+        playTap()
+        commander.selected = kind
+        PlayerProgress.commander = commander
+    }
+
+    private func upgradeSkill(_ kind: CommanderKind, _ skill: Int) {
+        guard PlayerProgress.upgradeSkill(kind, skill: skill) else {
+            SoundEngine.shared.play(.error)
+            Haptics.notify(.warning)
+            return
+        }
+        SoundEngine.shared.play(.research)
+        Haptics.notify(.success)
+        commander = PlayerProgress.commander
+        points = PlayerProgress.researchPoints
+    }
+
     private func research(_ selection: Selection) {
         guard PlayerProgress.research(selection.kind, path: selection.path) else {
             SoundEngine.shared.play(.error)
@@ -159,6 +179,74 @@ struct ResearchLabView: View {
             SoundEngine.shared.play(.medal)
             withAnimation(.spring(duration: 0.3)) { celebrate = medal }
         }
+    }
+}
+
+/// Pick the commander for your matches and research its skills.
+private struct CommanderResearchCard: View {
+    let progress: CommanderProgress
+    let points: Int
+    let onSelect: (CommanderKind) -> Void
+    let onUpgrade: (CommanderKind, Int) -> Void
+
+    var body: some View {
+        let kind = progress.selected
+        let levels = progress.skillLevels(kind)
+        VStack(alignment: .leading, spacing: 8) {
+            PixelText("COMMANDER", pixel: 2, color: Theme.highlight)
+            HStack(spacing: 8) {
+                ForEach(CommanderKind.allCases) { option in
+                    Button {
+                        onSelect(option)
+                    } label: {
+                        VStack(spacing: 2) {
+                            PixelImage(image: Art.commanderIcon(option), scale: 2)
+                            Text(option.name.uppercased()).font(Theme.body(10))
+                        }
+                        .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(option == kind ? PixelButtonStyle.gold
+                                 : PixelButtonStyle(color: Theme.panel, highlight: Theme.panelLight, shade: Theme.border, minHeight: 44))
+                    .accessibilityLabel("\(option.name)\(option == kind ? ", selected" : "")")
+                }
+            }
+            Text(kind.role + " Levels up to \(CommanderKind.maxLevel) during a match from kills.")
+                .font(Theme.body(11, weight: .regular))
+                .foregroundStyle(Theme.secondaryText)
+                .fixedSize(horizontal: false, vertical: true)
+            ForEach(Array(kind.skills.enumerated()), id: \.offset) { index, skill in
+                HStack(spacing: 8) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("\(skill.name.uppercased())  LV \(levels[index])/\(CommanderSkill.maxLevel)")
+                            .font(Theme.body(11))
+                            .foregroundStyle(levels[index] > 0 ? Theme.text : Theme.secondaryText)
+                        Text(skill.detail)
+                            .font(Theme.body(10, weight: .regular))
+                            .foregroundStyle(Theme.secondaryText)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    Spacer(minLength: 0)
+                    if levels[index] < CommanderSkill.maxLevel {
+                        let cost = CommanderSkill.cost(level: levels[index] + 1)
+                        Button {
+                            onUpgrade(kind, index)
+                        } label: {
+                            HStack(spacing: 4) {
+                                PixelIcon(icon: .flask, scale: 1)
+                                PixelText("\(cost)", pixel: 1, shadow: nil)
+                            }
+                        }
+                        .buttonStyle(points >= cost ? PixelButtonStyle.blue : PixelButtonStyle.neutral)
+                        .accessibilityLabel("\(levels[index] == 0 ? "Unlock" : "Upgrade") \(skill.name) for \(cost) points")
+                    } else {
+                        PixelText("MAX", pixel: 1, color: Theme.highlight)
+                    }
+                }
+            }
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .pixelPanel()
     }
 }
 

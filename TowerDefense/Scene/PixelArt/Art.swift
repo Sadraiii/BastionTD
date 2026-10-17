@@ -382,6 +382,25 @@ enum Art {
 
     // MARK: Enemies
 
+    // MARK: Commanders
+
+    static func commanderCanvas(_ kind: CommanderKind, frame: Int) -> PixelCanvas {
+        let maps = SpriteMaps.commanderFrames(kind)
+        var canvas = PixelCanvas(map: maps[frame % maps.count]).padded(1)
+        canvas.outline()
+        return canvas
+    }
+
+    static func commanderFrames(_ kind: CommanderKind) -> [SKTexture] {
+        frames("commander.\(kind.rawValue)") {
+            (0..<SpriteMaps.commanderFrames(kind).count).map { commanderCanvas(kind, frame: $0) }
+        }
+    }
+
+    static func commanderIcon(_ kind: CommanderKind) -> UIImage {
+        image("commanderIcon.\(kind.rawValue)") { commanderCanvas(kind, frame: 0) }
+    }
+
     static func enemyCanvas(_ kind: EnemyKind, frame: Int) -> PixelCanvas {
         let maps = SpriteMaps.enemyFrames(kind)
         var canvas = PixelCanvas(map: maps[frame % maps.count]).padded(1)

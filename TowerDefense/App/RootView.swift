@@ -99,6 +99,8 @@ struct RootView: View {
     }
 
     private func start(_ map: MapDefinition, _ setup: MatchSetup = MatchSetup()) {
+        var setup = setup
+        setup.commander = PlayerProgress.commander.loadout
         PlayerProgress.savedMatch = nil
         withAnimation(.easeInOut(duration: 0.25)) {
             session = GameSession(map: map, setup: setup)

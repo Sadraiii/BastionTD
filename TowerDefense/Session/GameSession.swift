@@ -46,6 +46,26 @@ struct TowerSnapshot: Equatable {
     let isDisabled: Bool
 }
 
+struct SkillSnapshot: Equatable {
+    let index: Int
+    let name: String
+    let detail: String
+    /// Researched level; 0 means locked.
+    let level: Int
+    let isReady: Bool
+    let charge: Double
+    let secondsLeft: Int
+}
+
+/// What the commander panel shows.
+struct CommanderSnapshot: Equatable {
+    let kind: CommanderKind
+    let level: Int
+    /// Progress to the next level in steps of 5%; 1 at the top level.
+    let xp: Double
+    let skills: [SkillSnapshot]
+}
+
 /// A hero power in the quick-cast bar.
 struct PowerBarItem: Equatable, Identifiable {
     let id: Int
@@ -80,6 +100,8 @@ struct SavedMatch: Codable {
         case power(towerID: Int)
         case startWave
         case continueEndless
+        case moveCommander(GridPoint)
+        case skill(Int)
     }
 
     struct Entry: Codable {
@@ -123,6 +145,8 @@ final class GameSession {
     private(set) var towerCount = 0
     private(set) var selectedTower: TowerSnapshot?
     private(set) var powers: [PowerBarItem] = []
+    private(set) var commander: CommanderSnapshot?
+    private(set) var isCommanderSelected = false
     private(set) var buildKind: TowerKind?
     private(set) var pendingCell: GridPoint?
     private(set) var pendingResult: PlacementResult?
@@ -195,6 +219,8 @@ final class GameSession {
             case let .power(id): engine.activatePower(towerID: id)
             case .startWave: engine.startNextWave()
             case .continueEndless: engine.continueEndless()
+            case let .moveCommander(cell): engine.moveCommander(to: cell)
+            case let .skill(index): engine.useSkill(index)
             }
             save.entries.append(entry)
         }
@@ -283,7 +309,7 @@ final class GameSession {
                 if towerID == selectedTowerID { selectedTowerID = nil }
             case let .towerUpgraded(_, _, tier):
                 highestTier = max(highestTier, tier)
-            case let .powerActivated(_, _, name):
+            case let .powerActivated(_, _, name), let .commanderSkill(_, name, _, _):
                 showToast(name.uppercased() + "!")
             case .victory:
                 victoryStars = Self.stars(lives: engine.lives, starting: engine.startingLives)
@@ -382,6 +408,9 @@ final class GameSession {
         }
         if powers != bar { powers = bar }
 
+        let commanderSnapshot = engine.commander.map(Self.snapshot)
+        if commander != commanderSnapshot { commander = commanderSnapshot }
+
         if let kind = buildKind, let cell = pendingCell {
             let result = engine.placementCheck(kind, at: cell)
             if pendingResult != result { pendingResult = result }
@@ -392,6 +421,20 @@ final class GameSession {
         guard let power = tower.power else { return 0 }
         let raw = 1 - tower.powerCooldown / power.cooldown
         return (raw * 20).rounded(.down) / 20
+    }
+
+    private static func snapshot(of commander: Commander) -> CommanderSnapshot {
+        let skills = commander.kind.skills.enumerated().map { index, skill in
+            let left = commander.skillCooldowns[index]
+            return SkillSnapshot(
+                index: index, name: skill.name, detail: skill.detail, level: commander.skillLevels[index],
+                isReady: commander.skillLevels[index] > 0 && left <= 0,
+                charge: ((1 - left / skill.cooldown) * 20).rounded(.down) / 20, secondsLeft: Int(left.rounded(.up))
+            )
+        }
+        let xp = commander.level >= CommanderKind.maxLevel
+            ? 1 : (Double(commander.xp) / Double(CommanderKind.xpToNext(level: commander.level)) * 20).rounded(.down) / 20
+        return CommanderSnapshot(kind: commander.kind, level: commander.level, xp: xp, skills: skills)
     }
 
     private func makeSnapshot(_ id: Int) -> TowerSnapshot? {
@@ -440,6 +483,7 @@ final class GameSession {
             return
         }
         selectedTowerID = nil
+        isCommanderSelected = false
         buildKind = kind
         pendingCell = nil
         pendingResult = nil
@@ -483,6 +527,20 @@ final class GameSession {
 
     func tapCell(_ cell: GridPoint?) {
         guard outcome == nil else { return }
+        if let cell, cell == engine.commander?.cell {
+            if isCommanderSelected { deselectCommander() } else { selectCommander() }
+            return
+        }
+        if isCommanderSelected, let cell, engine.tower(at: cell) == nil {
+            if engine.moveCommander(to: cell) {
+                record(.moveCommander(cell))
+                SoundEngine.shared.play(.tap)
+            } else {
+                deselectCommander()
+            }
+            return
+        }
+        isCommanderSelected = false
         guard let cell, let tower = engine.tower(at: cell) else {
             if selectedTowerID != nil { deselectTower() }
             return
@@ -499,6 +557,38 @@ final class GameSession {
 
     func deselectTower() {
         selectedTowerID = nil
+        sync()
+    }
+
+    // MARK: Commander
+
+    func selectCommander() {
+        guard outcome == nil, engine.commander != nil else { return }
+        cancelBuild()
+        selectedTowerID = nil
+        isCommanderSelected = true
+        SoundEngine.shared.play(.tap)
+        sync()
+    }
+
+    func deselectCommander() {
+        isCommanderSelected = false
+        sync()
+    }
+
+    func useSkill(_ index: Int) {
+        guard outcome == nil, !isPaused, let commander = engine.commander else { return }
+        if engine.useSkill(index) {
+            record(.skill(index))
+            Haptics.impact(.heavy)
+        } else {
+            if commander.skillLevels[index] == 0 {
+                showToast("UNLOCK IT IN THE RESEARCH LAB")
+            } else if commander.skillCooldowns[index] <= 0 {
+                showToast("NO ENEMIES IN RANGE")
+            }
+            SoundEngine.shared.play(.error)
+        }
         sync()
     }
 

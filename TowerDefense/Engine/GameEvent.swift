@@ -43,6 +43,10 @@ enum GameEvent {
     case bossSummon(at: CGPoint)
     case towersDisrupted(center: CGPoint, radius: CGFloat)
 
+    case commanderAttack(kind: CommanderKind, from: CGPoint, to: CGPoint)
+    case commanderSkill(kind: CommanderKind, name: String, center: CGPoint, radius: CGFloat)
+    case commanderLevelUp(level: Int, at: CGPoint)
+
     case victory
     case defeat
 }

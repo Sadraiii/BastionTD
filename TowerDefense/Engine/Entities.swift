@@ -226,3 +226,30 @@ final class PowerField {
         self.remaining = duration
     }
 }
+
+/// The player's commander: walks between grass tiles, attacks on its own and gains levels.
+final class Commander {
+    let kind: CommanderKind
+    /// Researched level of each skill; 0 means locked.
+    let skillLevels: [Int]
+    /// The tile it stands on or is walking to.
+    var cell: GridPoint
+    var position: CGPoint
+    var aim = CGPoint(x: 0, y: -1)
+    var level = 1
+    var xp = 0
+    var cooldown: Double = 0
+    var skillCooldowns: [Double]
+
+    init(loadout: CommanderLoadout, cell: GridPoint) {
+        kind = loadout.kind
+        skillLevels = loadout.skillLevels
+        self.cell = cell
+        position = cell.center
+        skillCooldowns = Array(repeating: 0, count: loadout.skillLevels.count)
+    }
+
+    var isWalking: Bool { position != cell.center }
+    var power: Double { CommanderKind.power(level: level) }
+    var range: CGFloat { CGFloat(kind.range * (1 + 0.04 * Double(level - 1))) }
+}

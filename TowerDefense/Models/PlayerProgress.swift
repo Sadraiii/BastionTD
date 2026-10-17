@@ -10,6 +10,7 @@ enum StorageKey {
     static let researchState = "progress.research"
     static let medals = "progress.medals"
     static let savedMatch = "progress.savedMatch"
+    static let commander = "progress.commander"
     static func bestStars(_ mapID: String) -> String { "progress.stars.\(mapID)" }
     static func bestEndless(_ mapID: String) -> String { "progress.endless.\(mapID)" }
     static func daily(_ day: Int) -> String { "progress.daily.\(day)" }
@@ -46,6 +47,25 @@ enum PlayerProgress {
     static var savedMatch: SavedMatch? {
         get { defaults.data(forKey: StorageKey.savedMatch).flatMap { try? JSONDecoder().decode(SavedMatch.self, from: $0) } }
         set { defaults.set(newValue.flatMap { try? JSONEncoder().encode($0) }, forKey: StorageKey.savedMatch) }
+    }
+
+    static var commander: CommanderProgress {
+        get { defaults.data(forKey: StorageKey.commander).flatMap { try? JSONDecoder().decode(CommanderProgress.self, from: $0) } ?? CommanderProgress() }
+        set { defaults.set(try? JSONEncoder().encode(newValue), forKey: StorageKey.commander) }
+    }
+
+    /// Spends points to raise a commander skill one level. Returns false if not possible.
+    static func upgradeSkill(_ kind: CommanderKind, skill: Int) -> Bool {
+        var progress = commander
+        var levels = progress.skillLevels(kind)
+        let next = levels[skill] + 1
+        let cost = CommanderSkill.cost(level: next)
+        guard next <= CommanderSkill.maxLevel, researchPoints >= cost else { return false }
+        researchPoints -= cost
+        levels[skill] = next
+        progress.levels[kind] = levels
+        commander = progress
+        return true
     }
 
     // MARK: Research

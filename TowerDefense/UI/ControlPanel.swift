@@ -11,7 +11,10 @@ struct ControlPanel: View {
             if landscape {
                 VStack(spacing: 10) {
                     SideStats(session: session)
-                    if let tower = session.selectedTower {
+                    if let commander = session.commander, session.isCommanderSelected {
+                        CommanderPanel(session: session, commander: commander, compact: false)
+                        Spacer(minLength: 0)
+                    } else if let tower = session.selectedTower {
                         TowerInfoPanel(session: session, tower: tower, compact: false)
                         Spacer(minLength: 0)
                     } else {
@@ -23,7 +26,9 @@ struct ControlPanel: View {
                 .padding(10)
             } else {
                 VStack(spacing: 8) {
-                    if let tower = session.selectedTower {
+                    if let commander = session.commander, session.isCommanderSelected {
+                        CommanderPanel(session: session, commander: commander, compact: true)
+                    } else if let tower = session.selectedTower {
                         TowerInfoPanel(session: session, tower: tower, compact: true)
                     } else {
                         ActionBar(session: session)
@@ -162,7 +167,10 @@ struct ActionBar: View {
                 placementControls(kind)
             } else {
                 HStack(spacing: 6) {
-                    ForEach(session.powers.prefix(4)) { item in
+                    if let commander = session.commander {
+                        CommanderChip(commander: commander, action: session.selectCommander)
+                    }
+                    ForEach(session.powers.prefix(session.commander == nil ? 4 : 3)) { item in
                         PowerChip(item: item) { session.activatePower(towerID: item.id) }
                     }
                     waveControl

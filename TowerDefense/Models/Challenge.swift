@@ -46,6 +46,7 @@ struct MatchSetup: Codable, Equatable {
     var seed: UInt64 = 0x5EED
     /// The daily challenge's date, such as 20261018.
     var day: Int?
+    var commander: CommanderLoadout?
 
     var bonusPercent: Int { modifiers.reduce(0) { $0 + $1.bonus } }
 

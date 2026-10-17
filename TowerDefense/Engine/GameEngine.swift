@@ -76,6 +76,7 @@ final class GameEngine {
     static let missileSpeed: Double = 7
     static let missileSplash: Double = 0.45
     static let weaknessMultiplier: Double = 2
+    static let commanderSpeed: CGFloat = 3
 
     let map: MapDefinition
     /// One geometry per route; the first is the main path.
@@ -90,6 +91,7 @@ final class GameEngine {
     private(set) var enemies: [Enemy] = []
     private(set) var projectiles: [Projectile] = []
     private(set) var fields: [PowerField] = []
+    private(set) var commander: Commander?
     private(set) var gold: Int
     private(set) var lives: Int
     private(set) var phase: Phase = .preparing
@@ -129,6 +131,16 @@ final class GameEngine {
         self.gold = map.startingGold
         self.lives = startingLives
         self.rng = SplitMix64(seed: seed)
+        if let loadout = setup.commander {
+            commander = Commander(loadout: loadout, cell: Self.commanderStart(on: map, path: paths[0]))
+        }
+    }
+
+    /// The grass tile closest to a third of the way along the main path.
+    private static func commanderStart(on map: MapDefinition, path: PathGeometry) -> GridPoint {
+        let spot = path.point(at: path.totalLength / 3)
+        let cells = (0..<map.rows).flatMap { row in (0..<map.columns).map { GridPoint($0, row) } }.filter(map.isBuildable)
+        return cells.min { $0.center.distance(to: spot) < $1.center.distance(to: spot) }!
     }
 
     // MARK: - Queries
@@ -172,7 +184,7 @@ final class GameEngine {
         guard map.contains(cell) else { return .outOfBounds }
         if map.pathCells.contains(cell) { return .onPath }
         if map.obstacles.contains(cell) { return .blocked }
-        if towersByCell[cell] != nil { return .occupied }
+        if towersByCell[cell] != nil || commander?.cell == cell { return .occupied }
         if gold < kind.cost { return .insufficientGold }
         return .ok
     }
@@ -256,6 +268,104 @@ final class GameEngine {
             events.append(.earlyCallBonus(amount: bonus))
         }
         beginWave()
+        return true
+    }
+
+    /// Sends the commander walking to an empty grass tile.
+    @discardableResult
+    func moveCommander(to cell: GridPoint) -> Bool {
+        guard !phase.isOver, let commander, map.isBuildable(cell), towersByCell[cell] == nil else { return false }
+        commander.cell = cell
+        return true
+    }
+
+    /// Uses a commander skill. Returns false if it is locked, recharging or would hit nothing.
+    @discardableResult
+    func useSkill(_ index: Int) -> Bool {
+        guard !phase.isOver, let commander, commander.skillLevels[index] > 0, commander.skillCooldowns[index] <= 0 else { return false }
+        let level = Double(commander.skillLevels[index])
+        let power = commander.power
+        var hit = HitPayload(damage: 0, type: commander.kind.damageType, detectsCamo: commander.kind.detectsCamo)
+        var center = commander.position
+        var radius: CGFloat = 1.5
+
+        switch (commander.kind, index) {
+        case (.knight, 0):
+            let targets = commanderTargets(within: 1.5)
+            guard !targets.isEmpty else { return false }
+            hit.damage = 40 * level * power
+            hit.stunChance = 1
+            hit.stunDuration = 1 + 0.5 * level
+            for enemy in targets { commanderStrike(hit, on: enemy, showNumber: true) }
+        case (.knight, 1):
+            radius = 2.5
+            for tower in towers where tower.position.distance(to: commander.position) <= radius {
+                tower.rallyTimer = 6
+                tower.rallyRate = 1.2 + 0.1 * level
+                tower.rallyDamage = 1.1 + 0.1 * level
+            }
+        case (.knight, 2):
+            radius = 2
+            let targets = commanderTargets(within: radius)
+            guard !targets.isEmpty else { return false }
+            hit.damage = 120 * level * power
+            hit.knockback = 0.6
+            for enemy in targets { commanderStrike(hit, on: enemy, showNumber: true) }
+        case (.mage, 0):
+            guard let target = commanderTargets(within: commander.range).max(by: { $0.health < $1.health }) else { return false }
+            center = target.position
+            radius = 1
+            hit.damage = 150 * level * power
+            for enemy in commanderTargets(within: commander.range + radius) where enemy.position.distance(to: center) <= radius {
+                commanderStrike(hit, on: enemy, showNumber: true)
+            }
+        case (.mage, 1):
+            radius = 2.2
+            fields.append(PowerField(id: makeID(), center: center, radius: radius, dps: 5 * level * power,
+                                     slow: 0.3 + 0.1 * level, type: .cold, duration: 5))
+            events.append(.fieldStarted(center: center, radius: radius, duration: 5, type: .cold))
+        case (.mage, 2):
+            let targets = commanderTargets(within: commander.range * 1.5).prefix(3)
+            guard !targets.isEmpty else { return false }
+            hit.damage = 300 * level * power
+            hit.type = .explosive
+            let points = targets.map(\.position)
+            for point in points {
+                for enemy in enemies where enemy.isTargetable && enemy.position.distance(to: point) <= 1.2 {
+                    commanderStrike(hit, on: enemy, showNumber: true)
+                }
+            }
+            events.append(.powerStrikes(points: points, splash: 1.2))
+        case (.ranger, 0):
+            let targets = commanderTargets(within: commander.range).prefix(3 + 2 * Int(level))
+            guard !targets.isEmpty else { return false }
+            hit.damage = 40 * level * power
+            for enemy in targets {
+                events.append(.commanderAttack(kind: .ranger, from: commander.position, to: enemy.position))
+                commanderStrike(hit, on: enemy, showNumber: true)
+            }
+        case (.ranger, 1):
+            radius = commander.range
+            let targets = enemies.filter { $0.isTargetable && $0.position.distance(to: commander.position) <= radius }
+            guard !targets.isEmpty else { return false }
+            hit.armorShred = 2 + 2 * level
+            for enemy in targets {
+                enemy.revealed = true
+                apply(hit, to: enemy, from: nil, showNumber: false)
+            }
+        default:
+            let visible = enemies.filter { $0.isTargetable && (!$0.isHidden || commander.kind.detectsCamo) }
+            guard let target = visible.max(by: { $0.health + $0.shield < $1.health + $1.shield }) else { return false }
+            center = target.position
+            radius = 0.6
+            hit.damage = 500 * level * power
+            hit.bossMultiplier = 3
+            hit.piercesArmor = true
+            events.append(.commanderAttack(kind: .ranger, from: commander.position, to: target.position))
+            commanderStrike(hit, on: target, showNumber: true)
+        }
+        commander.skillCooldowns[index] = commander.kind.skills[index].cooldown
+        events.append(.commanderSkill(kind: commander.kind, name: commander.kind.skills[index].name, center: center, radius: radius))
         return true
     }
 
@@ -379,6 +489,7 @@ final class GameEngine {
         updateEnemies(dt)
         updateFields(dt)
         updateTowers(dt)
+        updateCommander(dt)
         updateProjectiles(dt)
         flushIncoming()
         removeResolvedEnemies()
@@ -640,6 +751,67 @@ final class GameEngine {
             tower.cooldown = stats.fireInterval / tower.rateMultiplier
             tower.recoil = 0.12
             fire(tower, targets: targets)
+        }
+    }
+
+    private func updateCommander(_ dt: Double) {
+        guard let commander else { return }
+        commander.cooldown = max(0, commander.cooldown - dt)
+        for i in commander.skillCooldowns.indices {
+            commander.skillCooldowns[i] = max(0, commander.skillCooldowns[i] - dt)
+        }
+        let offset = commander.cell.center - commander.position
+        let travel = Self.commanderSpeed * CGFloat(dt)
+        if offset.length <= travel {
+            commander.position = commander.cell.center
+        } else {
+            commander.aim = offset.normalized
+            commander.position = commander.position + offset.normalized * travel
+        }
+
+        guard commander.cooldown <= 0, let target = commanderTargets(within: commander.range).first else { return }
+        commander.cooldown = commander.kind.attackInterval
+        commander.aim = (target.position - commander.position).normalized
+        let hit = HitPayload(damage: commander.kind.damage * commander.power, type: commander.kind.damageType,
+                             detectsCamo: commander.kind.detectsCamo)
+        events.append(.commanderAttack(kind: commander.kind, from: commander.position, to: target.position))
+        if commander.kind.splash > 0 {
+            let center = target.position
+            for enemy in enemies where enemy.isTargetable && (!enemy.kind.isFlying || commander.kind.hitsAir)
+                && enemy.position.distance(to: center) <= CGFloat(commander.kind.splash) {
+                commanderStrike(hit, on: enemy, showNumber: false)
+            }
+        } else {
+            commanderStrike(hit, on: target, showNumber: false)
+        }
+    }
+
+    /// Enemies the commander can hit within `reach`, closest to the crystal first.
+    private func commanderTargets(within reach: CGFloat) -> [Enemy] {
+        guard let commander else { return [] }
+        return enemies.filter { enemy in
+            enemy.isTargetable && (!enemy.kind.isFlying || commander.kind.hitsAir)
+                && (!enemy.isHidden || commander.kind.detectsCamo)
+                && enemy.position.distance(to: commander.position) <= reach + CGFloat(enemy.kind.radius * 0.5)
+        }
+        .sorted { remaining($0) < remaining($1) }
+    }
+
+    /// Hits an enemy for the commander. Its own kills are worth extra XP on top of the usual kill XP.
+    private func commanderStrike(_ hit: HitPayload, on enemy: Enemy, showNumber: Bool) {
+        guard enemy.isTargetable else { return }
+        apply(hit, to: enemy, from: nil, showNumber: showNumber)
+        if enemy.isResolved { gainXP(2) }
+    }
+
+    private func gainXP(_ amount: Int) {
+        guard let commander, commander.level < CommanderKind.maxLevel else { return }
+        commander.xp += amount
+        let needed = CommanderKind.xpToNext(level: commander.level)
+        if commander.xp >= needed {
+            commander.xp -= needed
+            commander.level += 1
+            events.append(.commanderLevelUp(level: commander.level, at: commander.position))
         }
     }
 
@@ -974,6 +1146,7 @@ final class GameEngine {
         enemy.isResolved = true
         enemy.health = 0
         tower?.kills += 1
+        gainXP(1)
         earn(enemy.bounty)
         stats.enemiesDefeated += 1
         stats.kills[enemy.kind, default: 0] += 1

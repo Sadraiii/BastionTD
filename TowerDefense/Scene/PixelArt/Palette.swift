@@ -137,6 +137,14 @@ enum Pal {
         }
     }
 
+    static func commander(_ kind: CommanderKind) -> PixelColor {
+        switch kind {
+        case .knight: amber
+        case .mage: magenta
+        case .ranger: lime
+        }
+    }
+
     static func enemy(_ kind: EnemyKind) -> PixelColor {
         switch kind {
         case .drone: red

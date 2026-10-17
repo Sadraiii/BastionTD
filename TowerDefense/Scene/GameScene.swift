@@ -39,6 +39,11 @@ final class GameScene: SKScene {
     /// Flow markers for each route.
     private var chevrons: [[SKSpriteNode]] = []
     private var ghost: TowerNode?
+    private var commanderNode: SKNode?
+    private let commanderBody = SKSpriteNode()
+    private let commanderBadge = SKSpriteNode()
+    private let commanderRing = SKSpriteNode()
+    private var commanderLevel = 0
     private var overlayState: OverlayState?
 
     private var lastUpdateTime: TimeInterval?
@@ -211,6 +216,7 @@ final class GameScene: SKScene {
 
         for event in events { handle(event, layout: layout, now: currentTime) }
         syncTowers(layout, dt: gameDelta)
+        syncCommander(layout, now: currentTime)
         syncEnemies(layout, dt: gameDelta)
         syncProjectiles(layout)
         updateOverlays(layout)
@@ -222,6 +228,42 @@ final class GameScene: SKScene {
         for tower in engine.towers {
             towerNodes[tower.id]?.update(tower: tower, aimAngle: layout.worldAngle(of: tower.aim), dt: dt)
         }
+    }
+
+    /// Mirrors the commander: a walk cycle while moving, its level and, when selected, its range.
+    private func syncCommander(_ layout: BoardLayout, now: TimeInterval) {
+        guard let session, let commander = session.engine.commander else { return }
+        let frames = Art.commanderFrames(commander.kind)
+        let node: SKNode
+        if let commanderNode {
+            node = commanderNode
+        } else {
+            node = SKNode()
+            let shadow = SKSpriteNode(texture: Art.shadow(width: 10))
+            shadow.position = CGPoint(x: 0, y: -7)
+            commanderBody.texture = frames[0]
+            commanderBody.size = frames[0].size()
+            commanderBody.usePixelAnchor()
+            commanderBadge.position = CGPoint(x: 0, y: 11)
+            commanderRing.zPosition = -2
+            for child in [commanderRing, shadow, commanderBody, commanderBadge] { node.addChild(child) }
+            towerLayer.addChild(node)
+            commanderNode = node
+        }
+        node.position = layout.snappedWorldPoint(commander.position) + CGPoint(x: 0, y: 2)
+        node.zPosition = 1
+        commanderBody.texture = commander.isWalking ? frames[Int(now * 6) % frames.count] : frames[0]
+        commanderBody.xScale = layout.screenDX(of: commander.aim) < 0 ? -1 : 1
+        if commanderLevel != commander.level {
+            commanderLevel = commander.level
+            let badge = Art.text("\(commander.level)", color: Pal.yellow)
+            commanderBadge.texture = badge
+            commanderBadge.size = badge.size()
+            let ring = Art.rangeRing(range: Double(commander.range), color: Pal.commander(commander.kind))
+            commanderRing.texture = ring
+            commanderRing.size = ring.size()
+        }
+        commanderRing.isHidden = !session.isCommanderSelected
     }
 
     private func syncEnemies(_ layout: BoardLayout, dt: Double) {
@@ -668,6 +710,33 @@ final class GameScene: SKScene {
         case let .earlyCallBonus(amount):
             floatText("+\(amount)", color: Pal.yellow, at: portal.position + CGPoint(x: 0, y: 10))
             SoundEngine.shared.play(.coin)
+
+        case let .commanderAttack(kind, from, to):
+            switch kind {
+            case .knight:
+                sparks(at: toWorld(to), color: Pal.mist, count: 6)
+                SoundEngine.shared.play(.pulse)
+            case .mage:
+                playFrames(Art.explosionFrames(radius: 12), at: toWorld(to), timePerFrame: 0.05)
+                SoundEngine.shared.play(.flame)
+            case .ranger:
+                let (texture, origin) = Art.beam(from: toWorld(from), to: toWorld(to), glow: Pal.lime, edge: Pal.green)
+                flicker(texture, origin: origin)
+                SoundEngine.shared.play(.pulse)
+            }
+
+        case let .commanderSkill(kind, _, center, radius):
+            let color = Pal.commander(kind)
+            playFrames(Art.ringFrames(radius: max(8, Int(radius * 16)), color: color, accent: Pal.white),
+                       at: toWorld(center), timePerFrame: 0.06, z: -2)
+            sparks(at: toWorld(center), color: color, count: 20)
+            shake(intensity: 2)
+            SoundEngine.shared.play(.explosion)
+
+        case let .commanderLevelUp(level, at):
+            playFrames(Art.sparkleFrames, at: toWorld(at), timePerFrame: 0.08)
+            floatText("LEVEL \(level)", color: Pal.yellow, at: toWorld(at) + CGPoint(x: 0, y: 14))
+            SoundEngine.shared.play(.upgrade)
 
         case .victory:
             SoundEngine.shared.play(.victory)

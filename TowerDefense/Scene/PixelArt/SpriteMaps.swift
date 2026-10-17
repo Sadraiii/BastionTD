@@ -463,6 +463,67 @@ enum SpriteMaps {
         "....DDdD....",
     ]
 
+    // MARK: Commanders (two walking frames each)
+
+    static func commanderFrames(_ kind: CommanderKind) -> [[String]] {
+        switch kind {
+        case .knight: [knight(legs: "...nn.nn...."), knight(legs: "..nn...nn...")]
+        case .mage: [mage(feet: "..uu...uu..."), mage(feet: "...uu.uu....")]
+        case .ranger: [ranger(legs: "...DD.DD...."), ranger(legs: "..DD...DD...")]
+        }
+    }
+
+    private static func knight(legs: String) -> [String] {
+        [
+            ".....RR.....",
+            "....RRs.....",
+            "...swwws....",
+            "...wKwKw....",
+            "...swwws....",
+            "....sss.....",
+            "..BsSSSsY...",
+            ".BBsSwSsY...",
+            ".BBsSSSsY...",
+            ".BB.sSs.Y...",
+            "....sSs.....",
+            legs,
+        ]
+    }
+
+    private static func mage(feet: String) -> [String] {
+        [
+            ".....p......",
+            "....ppp.....",
+            "...ppppp....",
+            "..ppppppp.C.",
+            "....eee..CW.",
+            "....eKe..s..",
+            "...PpppP.s..",
+            "..PPpppPPs..",
+            "...PpppP.s..",
+            "...ppppp.s..",
+            "..ppppppp...",
+            feet,
+        ]
+    }
+
+    private static func ranger(legs: String) -> [String] {
+        [
+            "....hhh.....",
+            "...hgggh....",
+            "...geeeg..D.",
+            "...eKeKe.D..",
+            "...geeeg.Dw.",
+            "..hgGGGghDw.",
+            "..eGGGGG.Dw.",
+            "..eGGGGG.D..",
+            "...GGGG...D.",
+            "...gg.gg....",
+            "...gg.gg....",
+            legs,
+        ]
+    }
+
     /// Decoration sprites for a terrain; obstacles pick one by their cell.
     static func props(_ terrain: Terrain) -> [[String]] {
         switch terrain {
