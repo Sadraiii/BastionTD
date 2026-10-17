@@ -122,10 +122,10 @@ private struct OnboardingPage: View {
             }
         case 1:
             VStack(spacing: 10) {
-                HStack(spacing: 14) {
+                LazyVGrid(columns: Array(repeating: GridItem(.fixed(58), spacing: 6), count: landscape ? 7 : 5), spacing: 8) {
                     ForEach(TowerKind.allCases) { kind in
                         VStack(spacing: 4) {
-                            PixelImage(image: Art.towerIcon(kind), scale: 3)
+                            PixelImage(image: Art.towerIcon(kind), scale: 2)
                             Text(kind.shortName.uppercased())
                                 .font(Theme.body(10))
                                 .foregroundStyle(Theme.secondaryText)

@@ -41,9 +41,9 @@ struct StartView: View {
                 PixelText("BASTION TD", pixel: 6, color: Theme.highlight)
                 PixelText("PIXEL TOWER DEFENSE", pixel: 2, color: Theme.text)
             }
-            HStack(spacing: 10) {
+            LazyVGrid(columns: Array(repeating: GridItem(.fixed(36), spacing: 6), count: 7), spacing: 6) {
                 ForEach(TowerKind.allCases) { kind in
-                    PixelImage(image: Art.towerIcon(kind, tiers: [UpgradeRules.maxTier, 2]), scale: 3)
+                    PixelImage(image: Art.towerIcon(kind, tiers: [UpgradeRules.maxTier, 2]), scale: 2)
                 }
             }
             .padding(.vertical, landscape ? 0 : 8)
