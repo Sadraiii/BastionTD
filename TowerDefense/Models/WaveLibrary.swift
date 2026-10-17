@@ -49,6 +49,20 @@ enum WaveLibrary {
         WaveDefinition(groups: [g(.overlord, 1, every: 1, after: 2), g(.brute, 6, every: 1.3, after: 4), g(.hexer, 2, every: 3, after: 5), g(.mirage, 5, every: 0.9, after: 8), g(.pyrefiend, 8, every: 0.7, after: 10)]),
     ]
 
+    /// Ten boss waves for the Boss Rush event.
+    static let bossRush: [WaveDefinition] = [
+        WaveDefinition(groups: [g(.drone, 6, every: 0.8), g(.titan, 1, every: 1, after: 4)]),
+        WaveDefinition(groups: [g(.wisp, 6, every: 0.8), g(.dreadnought, 1, every: 1, after: 3)]),
+        WaveDefinition(groups: [g(.titan, 2, every: 6)]),
+        WaveDefinition(groups: [g(.ironclad, 6, every: 1), g(.dreadnought, 1, every: 1, after: 4), g(.titan, 1, every: 1, after: 10)]),
+        WaveDefinition(groups: [g(.overlord, 1, every: 1)]),
+        WaveDefinition(groups: [g(.dreadnought, 2, every: 8)]),
+        WaveDefinition(groups: [g(.hexer, 3, every: 2), g(.titan, 3, every: 5, after: 3)]),
+        WaveDefinition(groups: [g(.overlord, 1, every: 1), g(.dreadnought, 1, every: 1, after: 8)]),
+        WaveDefinition(groups: [g(.titan, 2, every: 4), g(.dreadnought, 2, every: 6, after: 6)]),
+        WaveDefinition(groups: [g(.overlord, 2, every: 10), g(.titan, 2, every: 5, after: 4), g(.dreadnought, 1, every: 1, after: 12)]),
+    ]
+
     /// Enemy health grows smoothly from 1x on wave 1 to about 9.5x on wave 20,
     /// then ramps up exponentially in Endless mode.
     static func healthMultiplier(wave: Int) -> Double {

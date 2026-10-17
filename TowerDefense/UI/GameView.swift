@@ -42,6 +42,9 @@ struct GameView: View {
             DamageFlash(trigger: session.damagePulse)
             // Tips sit at the top: in portrait the crystal is at the bottom of the board.
             VStack(spacing: 6) {
+                if let boss = session.bossBar {
+                    BossHealthBar(boss: boss)
+                }
                 if let message = session.coachMessage {
                     CoachBanner(message: message, onHide: session.finishCoach)
                         .transition(.opacity)
@@ -92,6 +95,28 @@ struct GameView: View {
             )
             .transition(.opacity)
         }
+    }
+}
+
+/// The toughest boss's name and remaining health.
+struct BossHealthBar: View {
+    let boss: BossBar
+
+    var body: some View {
+        VStack(spacing: 3) {
+            PixelText(boss.name, pixel: 2, color: Theme.danger)
+            GeometryReader { geo in
+                Rectangle().fill(Color(pixel: Pal.ink))
+                    .overlay(alignment: .leading) {
+                        Rectangle().fill(Theme.danger).frame(width: geo.size.width * boss.health)
+                    }
+            }
+            .frame(height: 8)
+            .overlay(Rectangle().stroke(Theme.border, lineWidth: 2))
+        }
+        .frame(maxWidth: 260)
+        .allowsHitTesting(false)
+        .accessibilityLabel("\(boss.name), \(Int(boss.health * 100)) percent health")
     }
 }
 

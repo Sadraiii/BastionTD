@@ -77,6 +77,13 @@ struct PowerBarItem: Equatable, Identifiable {
     let charge: Double
 }
 
+/// The toughest boss on the field, for the health bar.
+struct BossBar: Equatable {
+    let name: String
+    /// Health left in steps of 2%.
+    let health: Double
+}
+
 struct WaveBanner: Equatable, Identifiable {
     let id: Int
     let title: String
@@ -116,7 +123,7 @@ struct SavedMatch: Codable {
     var entries: [Entry] = []
     var steps = 0
 
-    var map: MapDefinition? { MapDefinition.all.first { $0.id == mapID } }
+    var map: MapDefinition? { (MapDefinition.all + [.arena]).first { $0.id == mapID } }
 }
 
 /// Connects the engine, the SpriteKit scene and the SwiftUI interface.
@@ -157,6 +164,7 @@ final class GameSession {
     private(set) var toast: String?
     /// Increments whenever lives are lost so views can flash.
     private(set) var damagePulse = 0
+    private(set) var bossBar: BossBar?
     private(set) var stats = GameStats()
     private(set) var rewards = RunRewards()
     private(set) var coachEnabled: Bool
@@ -183,7 +191,8 @@ final class GameSession {
         self.setup = setup
         // Daily challenges give everyone the full research tree.
         let research = saved?.research ?? (setup.day == nil ? PlayerProgress.research : .complete)
-        let engine = GameEngine(map: map, research: research, setup: setup, seed: setup.seed)
+        let engine = GameEngine(map: map, waves: setup.bossRush ? WaveLibrary.bossRush : WaveLibrary.standard,
+                                research: research, setup: setup, seed: setup.seed)
         self.engine = engine
         self.totalWaves = engine.totalWaves
         self.scene = GameScene(map: map, paths: engine.paths)
@@ -315,7 +324,7 @@ final class GameSession {
                 showToast(name.uppercased() + "!")
             case .victory:
                 victoryStars = Self.stars(lives: engine.lives, starting: engine.startingLives)
-                if setup.day == nil { PlayerProgress.recordVictory(on: map, stars: victoryStars) }
+                if !setup.isEvent { PlayerProgress.recordVictory(on: map, stars: victoryStars) }
                 PlayerProgress.savedMatch = nil
                 outcome = .victory(stars: victoryStars)
                 finishRun(victory: true)
@@ -361,10 +370,13 @@ final class GameSession {
             map: map, victory: victory, wavesCleared: cleared, livesLost: engine.stats.livesLost,
             stats: engine.stats, towerCount: engine.towers.count, highestTier: highestTier
         )
-        // Daily challenges don't count toward map progress or medals.
+        // Daily challenges don't count toward map progress or medals; events don't count toward map progress.
         var medals: [Medal] = []
         if let day = setup.day {
             PlayerProgress.recordDaily(day, wavesCleared: cleared)
+        } else if setup.bossRush {
+            PlayerProgress.recordBossRush(wavesCleared: cleared)
+            medals = PlayerProgress.awardMedals(for: run)
         } else {
             medals = PlayerProgress.awardMedals(for: run)
             PlayerProgress.recordEndless(on: map, wave: cleared)
@@ -400,6 +412,10 @@ final class GameSession {
         if waveProgress != progress { waveProgress = progress }
         if enemiesRemaining != engine.enemiesRemaining { enemiesRemaining = engine.enemiesRemaining }
         if towerCount != engine.towers.count { towerCount = engine.towers.count }
+
+        let boss = engine.enemies.filter { $0.kind.isBoss && $0.isTargetable }.max { $0.health < $1.health }
+        let bossSnapshot = boss.map { BossBar(name: $0.kind.name, health: ($0.healthFraction * 50).rounded() / 50) }
+        if bossBar != bossSnapshot { bossBar = bossSnapshot }
 
         let snapshot = selectedTowerID.flatMap(makeSnapshot)
         if snapshot == nil { selectedTowerID = nil }

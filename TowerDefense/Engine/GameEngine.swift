@@ -598,6 +598,7 @@ final class GameEngine {
     private func spawn(_ kind: EnemyKind, at distance: CGFloat, route: Int) -> Enemy {
         let wave = max(1, waveNumber)
         let health = kind.baseHealth * WaveLibrary.healthMultiplier(wave: wave) * map.difficulty.healthMultiplier
+            * (setup.bossRush ? 2 : 1)
         let goldFactor = (setup.modifiers.contains(.halfGold) ? 0.5 : 1) * (research.has(.bounty) ? 1.1 : 1)
         let bounty = max(1, Int((Double(kind.bounty) * WaveLibrary.bountyMultiplier(wave: wave) * goldFactor).rounded()))
         let lane = kind.isBoss ? 0 : CGFloat(Double.random(in: -0.14...0.14, using: &rng))

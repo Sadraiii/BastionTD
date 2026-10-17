@@ -50,6 +50,11 @@ struct MatchSetup: Codable, Equatable {
     /// The daily challenge's date, such as 20261018.
     var day: Int?
     var commander: CommanderLoadout?
+    /// The Boss Rush event: ten waves of tougher bosses on the Arena map.
+    var bossRush = false
+
+    /// Daily challenges and events don't count toward map progress.
+    var isEvent: Bool { day != nil || bossRush }
 
     var bonusPercent: Int { modifiers.reduce(0) { $0 + $1.bonus } }
 

@@ -17,7 +17,7 @@ struct RootView: View {
                 GameView(
                     session: session,
                     onRestart: { start(session.map, session.setup) },
-                    onNextMap: session.setup.day == nil ? session.map.next.map { next in { start(next, session.setup) } } : nil,
+                    onNextMap: session.setup.isEvent ? nil : session.map.next.map { next in { start(next, session.setup) } },
                     onQuit: { quit(to: .home) },
                     onResearch: { quit(to: .research) },
                     onHowToPlay: { showOnboarding = true }
@@ -34,6 +34,7 @@ struct RootView: View {
                             let daily = MatchSetup.daily(for: Date())
                             start(daily.map, daily.setup)
                         },
+                        onBossRush: { start(.arena, MatchSetup(bossRush: true)) },
                         onHowToPlay: { showOnboarding = true },
                         onResearch: { withAnimation(.easeOut(duration: 0.2)) { screen = .research } },
                         onMedals: { withAnimation(.easeOut(duration: 0.2)) { screen = .medals } },

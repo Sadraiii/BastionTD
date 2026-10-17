@@ -5,6 +5,7 @@ struct StartView: View {
     let onPlay: (MapDefinition, MatchSetup) -> Void
     let onResume: (() -> Void)?
     let onDaily: () -> Void
+    let onBossRush: () -> Void
     let onHowToPlay: () -> Void
     let onResearch: () -> Void
     let onMedals: () -> Void
@@ -81,6 +82,20 @@ struct StartView: View {
                     .frame(width: 236)
                 }
                 .buttonStyle(PixelButtonStyle.gold)
+
+                Button {
+                    playTap()
+                    onBossRush()
+                } label: {
+                    VStack(spacing: 4) {
+                        PixelText("BOSS RUSH", pixel: 2)
+                        if PlayerProgress.bestBossRush > 0 {
+                            PixelText("BEST: WAVE \(PlayerProgress.bestBossRush)/\(WaveLibrary.bossRush.count)", pixel: 1, shadow: nil)
+                        }
+                    }
+                    .frame(width: 236)
+                }
+                .buttonStyle(PixelButtonStyle.danger)
 
                 HStack(spacing: 12) {
                     Button {

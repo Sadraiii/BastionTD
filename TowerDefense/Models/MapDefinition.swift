@@ -197,6 +197,21 @@ extension MapDefinition {
         startingLives: 15
     )
 
+    /// The Boss Rush event map. It isn't part of the campaign.
+    static let arena = MapDefinition(
+        id: "arena",
+        name: "Arena",
+        tagline: "Ten waves of bosses.",
+        difficulty: .hard,
+        terrain: .volcanic,
+        columns: 16,
+        rows: 9,
+        waypoints: points([(-1, 4), (4, 4), (4, 1), (11, 1), (11, 7), (15, 7)]),
+        obstacles: Set(points([(0, 0), (7, 4), (14, 2), (2, 8), (8, 8)])),
+        startingGold: 600,
+        startingLives: 10
+    )
+
     static let all: [MapDefinition] = [circuit, switchback, overload, dunes, bayou, glacier, caldera]
 
     /// The map after this one in the campaign list, if any.
