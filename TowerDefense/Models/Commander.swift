@@ -10,9 +10,9 @@ enum CommanderKind: String, CaseIterable, Codable, Identifiable {
 
     var role: String {
         switch self {
-        case .knight: "Melee brawler. Stuns crowds and rallies nearby heroes."
-        case .mage: "Area spells. Burns groups and slows them down."
-        case .ranger: "Long range archer. Sees cloaked villains and snipes bosses."
+        case .knight: "Close combat. Stuns villains and boosts nearby heroes."
+        case .mage: "Spells that hit groups and slow them."
+        case .ranger: "Long range. Sees cloaked villains."
         }
     }
 
@@ -62,19 +62,19 @@ enum CommanderKind: String, CaseIterable, Codable, Identifiable {
     var skills: [CommanderSkill] {
         switch self {
         case .knight: [
-            CommanderSkill(name: "Shield Bash", detail: "Damages and stuns villains next to the knight.", cooldown: 14),
-            CommanderSkill(name: "Rally Cry", detail: "Nearby heroes attack faster and harder for 6s.", cooldown: 25),
-            CommanderSkill(name: "Whirlwind", detail: "Heavy damage to everything around the knight.", cooldown: 30),
+            CommanderSkill(name: "Shield Bash", detail: "Hits and stuns villains next to it.", cooldown: 14),
+            CommanderSkill(name: "Rally Cry", detail: "Nearby heroes attack faster for 6s.", cooldown: 25),
+            CommanderSkill(name: "Whirlwind", detail: "Big damage all around it.", cooldown: 30),
         ]
         case .mage: [
-            CommanderSkill(name: "Fireball", detail: "Blasts the strongest villain in range and those near it.", cooldown: 12),
-            CommanderSkill(name: "Frost Nova", detail: "Freezing field that slows and chills for 5s.", cooldown: 22),
-            CommanderSkill(name: "Meteor", detail: "Three meteors crash onto the leading villains.", cooldown: 40),
+            CommanderSkill(name: "Fireball", detail: "Big hit on the toughest villain in range.", cooldown: 12),
+            CommanderSkill(name: "Frost Nova", detail: "Slows villains around it for 5s.", cooldown: 22),
+            CommanderSkill(name: "Meteor", detail: "Hits the three villains closest to the crystal.", cooldown: 40),
         ]
         case .ranger: [
-            CommanderSkill(name: "Volley", detail: "Arrows hit several villains in range at once.", cooldown: 12),
-            CommanderSkill(name: "Hunter's Mark", detail: "Reveals cloaked villains in range and strips armor.", cooldown: 18),
-            CommanderSkill(name: "Snipe", detail: "A huge shot at the strongest villain anywhere.", cooldown: 35),
+            CommanderSkill(name: "Volley", detail: "Hits several villains at once.", cooldown: 12),
+            CommanderSkill(name: "Hunter's Mark", detail: "Shows cloaked villains and removes armor.", cooldown: 18),
+            CommanderSkill(name: "Snipe", detail: "A huge shot at the toughest villain on the map.", cooldown: 35),
         ]
         }
     }

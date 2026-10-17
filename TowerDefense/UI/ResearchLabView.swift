@@ -210,7 +210,7 @@ private struct CommanderResearchCard: View {
                     .accessibilityLabel("\(option.name)\(option == kind ? ", selected" : "")")
                 }
             }
-            Text(kind.role + " Levels up to \(CommanderKind.maxLevel) during a match from kills.")
+            Text(kind.role + " Levels up from kills during a match.")
                 .font(Theme.body(11, weight: .regular))
                 .foregroundStyle(Theme.secondaryText)
                 .fixedSize(horizontal: false, vertical: true)

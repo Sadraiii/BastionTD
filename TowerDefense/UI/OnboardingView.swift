@@ -98,13 +98,13 @@ private struct OnboardingPage: View {
     private var message: String {
         switch index {
         case 0:
-            "Villains march along the dirt path toward your crystal. Every one that reaches it costs lives. Lose them all and the bastion falls. Survive 20 waves to win."
+            "Villains walk the path to your crystal. Each one that gets there costs lives. Survive 20 waves to win."
         case 1:
-            "Pick a hero from the panel, tap a highlighted tile to preview its range, then tap again (or BUILD). Heroes fight on their own. Defeated villains drop gold."
+            "Pick a hero, tap a highlighted tile, then tap it again to build. Heroes attack on their own. Villains drop gold."
         case 2:
-            "Tap a hero to upgrade one of two paths. Tier 3 unlocks a POWER you trigger yourself. Only one path can go past tier 2. Every match earns research points: unlock deeper tiers in the Research Lab."
+            "Tap a hero to upgrade it. Tier 3 gives a power you trigger yourself. Only one path can go past tier 2. Matches earn Research Points to spend in the Lab."
         default:
-            "Some villains fly, some are cloaked, and some are immune to a damage type (Ironclads shrug off kinetic hits). Mix heroes with different damage types. The CODEX lists every villain's tricks."
+            "Some villains fly, some are cloaked, and some are immune to a damage type. Mix your heroes. The Codex lists them all."
         }
     }
 

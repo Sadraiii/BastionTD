@@ -258,7 +258,7 @@ struct MapSelectView: View {
                 .padding(.horizontal, 16)
             }
             Text(modifiers.isEmpty
-                 ? "Challenges: harder rules for more Research Points."
+                 ? "Harder rules, more Research Points."
                  : Modifier.allCases.filter(modifiers.contains).map(\.detail).joined(separator: " ")
                     + " +\(MatchSetup(modifiers: modifiers).bonusPercent)% RP.")
                 .font(Theme.body(11, weight: .regular))

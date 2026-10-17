@@ -110,7 +110,7 @@ extension MapDefinition {
     static let circuit = MapDefinition(
         id: "circuit",
         name: "Circuit",
-        tagline: "A looping trace with plenty of room to build.",
+        tagline: "An easy loop with lots of room to build.",
         difficulty: .easy,
         waypoints: points([(-1, 1), (2, 1), (2, 6), (5, 6), (5, 1), (8, 1), (8, 6), (11, 6), (11, 2), (13, 2)]),
         obstacles: Set(points([(0, 7), (4, 0), (13, 5), (10, 4)])),
@@ -121,7 +121,7 @@ extension MapDefinition {
     static let switchback = MapDefinition(
         id: "switchback",
         name: "Switchback",
-        tagline: "Long corridors. Make every tower count twice.",
+        tagline: "Long straight lanes. Put heroes between them.",
         difficulty: .normal,
         waypoints: points([(-1, 1), (11, 1), (11, 4), (2, 4), (2, 6), (13, 6)]),
         obstacles: Set(points([(13, 0), (0, 7), (7, 7), (0, 3)])),
@@ -132,7 +132,7 @@ extension MapDefinition {
     static let overload = MapDefinition(
         id: "overload",
         name: "Overload",
-        tagline: "A short, jagged route straight to the crystal.",
+        tagline: "A short path. Not much time to stop them.",
         difficulty: .hard,
         waypoints: points([(-1, 4), (3, 4), (3, 1), (7, 1), (7, 6), (10, 6), (10, 3), (13, 3)]),
         obstacles: Set(points([(0, 0), (12, 7), (5, 7), (13, 0)])),
@@ -143,7 +143,7 @@ extension MapDefinition {
     static let dunes = MapDefinition(
         id: "dunes",
         name: "Dunes",
-        tagline: "Wide desert switchbacks under a burning sun.",
+        tagline: "A desert path with tight turns.",
         difficulty: .normal,
         terrain: .desert,
         columns: 18,
@@ -157,7 +157,7 @@ extension MapDefinition {
     static let bayou = MapDefinition(
         id: "bayou",
         name: "Bayou",
-        tagline: "The boardwalk forks around an island, then joins again.",
+        tagline: "The path splits in two, then joins again.",
         difficulty: .hard,
         terrain: .swamp,
         columns: 20,
@@ -172,7 +172,7 @@ extension MapDefinition {
     static let glacier = MapDefinition(
         id: "glacier",
         name: "Glacier",
-        tagline: "An icy trail that doubles back across the field.",
+        tagline: "A long snowy path that zigzags across.",
         difficulty: .hard,
         terrain: .snowfield,
         columns: 20,
@@ -186,7 +186,7 @@ extension MapDefinition {
     static let caldera = MapDefinition(
         id: "caldera",
         name: "Caldera",
-        tagline: "A spiral of cooling lava closing in on the crystal.",
+        tagline: "The path spirals in to the crystal.",
         difficulty: .hard,
         terrain: .volcanic,
         columns: 20,

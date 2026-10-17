@@ -240,12 +240,12 @@ enum HeroCatalog {
                 $0.stunDuration = 0.5
             },
             UpgradeTier(name: "Skyhammer", detail: "POWER: a giant bolt crushes the strongest foe.", cost: 290, research: 10,
-                        power: PowerDefinition(name: "Skyhammer", detail: "Drop a colossal bolt on the strongest enemy.", cooldown: 25,
+                        power: PowerDefinition(name: "Skyhammer", detail: "Drop a huge bolt on the strongest enemy.", cooldown: 25,
                                                effect: .strikes(targets: 1, damage: 800, stun: 2, splash: 0.8, rangeScale: 1.5))) {
                 $0.damage += 16
             },
             UpgradeTier(name: "Godspark", detail: "Searing bolts. Skyhammer hits 3x harder.", cost: 800, research: 20,
-                        power: PowerDefinition(name: "Godspark", detail: "A world-splitting bolt with a wide blast.", cooldown: 25,
+                        power: PowerDefinition(name: "Godspark", detail: "A huge bolt with a wide blast.", cooldown: 25,
                                                effect: .strikes(targets: 1, damage: 2600, stun: 3, splash: 1.3, rangeScale: 2))) {
                 $0.damage += 40
                 $0.bossMultiplier = 1.5
