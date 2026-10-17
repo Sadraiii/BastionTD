@@ -52,7 +52,7 @@ final class TowerNode: SKNode {
     @available(*, unavailable)
     required init?(coder aDecoder: NSCoder) { fatalError("init(coder:) is not supported") }
 
-    private var rotates: Bool { kind == .pulse || kind == .mortar || kind == .rail }
+    private var rotates: Bool { kind.rotates }
 
     func setTiers(_ tiers: [Int]) {
         self.tiers = tiers
@@ -70,7 +70,7 @@ final class TowerNode: SKNode {
 
     func update(tower: Tower, aimAngle: CGFloat, dt: Double) {
         badge.isHidden = !tower.isPowerReady
-        let newState: VisualState = tower.isDisabled ? .disabled : tower.isFrenzied ? .frenzied : .normal
+        let newState: VisualState = tower.isDisabled ? .disabled : (tower.isFrenzied || tower.isRallied) ? .frenzied : .normal
         if newState != state {
             state = newState
             turret.removeAction(forKey: "state")
@@ -91,7 +91,12 @@ final class TowerNode: SKNode {
                 ])), withKey: "state")
             }
         }
-        guard rotates, !tower.isDisabled else { return }
+        guard !tower.isDisabled else { return }
+        guard rotates else {
+            // Spinning heroes (frost crystal, tesla coil, cyclone, clock) turn slowly.
+            if kind == .cyclone || kind == .chrono { turret.zRotation -= CGFloat(dt) * (kind == .cyclone ? 3 : 0.6) }
+            return
+        }
         targetAngle = aimAngle
         var diff = targetAngle - displayedAngle
         diff = atan2(sin(diff), cos(diff))
@@ -133,6 +138,7 @@ final class EnemyNode: SKNode {
     private let healthBack: SKSpriteNode
     private let healthFill: SKSpriteNode
     private let shieldBubble: SKSpriteNode
+    private let confusedMark = SKSpriteNode(texture: Art.text("?", color: Pal.pink))
     private let barWidth: CGFloat
     private var frameIndex = 0
     private var animationClock: Double
@@ -172,6 +178,11 @@ final class EnemyNode: SKNode {
         addChild(body)
         addChild(shieldBubble)
         addChild(healthBack)
+        confusedMark.usePixelAnchor()
+        confusedMark.position = CGPoint(x: 0, y: healthBack.position.y + 7)
+        confusedMark.zPosition = 3
+        confusedMark.isHidden = true
+        addChild(confusedMark)
         if kind.isCamo {
             body.alpha = 0.5
             body.run(.repeatForever(.sequence([
@@ -192,7 +203,12 @@ final class EnemyNode: SKNode {
         case .titan, .brute: 3.5
         default: 5
         }
-        if !enemy.isStunned { animationClock += dt * rate }
+        if !enemy.isStunned && !enemy.isStone { animationClock += dt * rate }
+        confusedMark.isHidden = !enemy.isConfused
+        if kind.isCamo && enemy.revealed && body.hasActions() {
+            body.removeAllActions()
+            body.alpha = 1
+        }
         let newFrame = Int(animationClock) % frames.count
         if newFrame != frameIndex {
             frameIndex = newFrame
@@ -203,9 +219,18 @@ final class EnemyNode: SKNode {
         if enemy.hitFlash > 0 {
             body.color = .white
             body.colorBlendFactor = 0.85
+        } else if enemy.isStone {
+            body.color = Pal.steel.uiColor
+            body.colorBlendFactor = 0.9
         } else if enemy.isStunned {
             body.color = Pal.mist.uiColor
             body.colorBlendFactor = 0.7
+        } else if enemy.isBurning && Int(animationClock * 4) % 2 == 0 {
+            body.color = Pal.orange.uiColor
+            body.colorBlendFactor = 0.55
+        } else if enemy.isPoisoned {
+            body.color = Pal.lime.uiColor
+            body.colorBlendFactor = 0.45
         } else if enemy.isSlowed {
             body.color = Pal.cyan.uiColor
             body.colorBlendFactor = 0.5
@@ -232,7 +257,7 @@ final class ProjectileNode: SKNode {
 
     init(kind: Projectile.Kind) {
         self.kind = kind
-        core = SKSpriteNode(texture: kind == .bolt ? Art.bolt : kind == .missile ? Art.missile : Art.shell)
+        core = SKSpriteNode(texture: kind == .missile ? Art.missile : Art.shell)
         core.usePixelAnchor()
         shadow = kind == .shell ? SKSpriteNode(texture: Art.shadow(width: 6)) : nil
         super.init()
@@ -247,9 +272,16 @@ final class ProjectileNode: SKNode {
     required init?(coder aDecoder: NSCoder) { fatalError("init(coder:) is not supported") }
 
     func update(projectile: Projectile, layout: BoardLayout) {
+        if kind == .bolt && core.texture !== Art.bolt(for: projectile.towerKind) {
+            core.texture = Art.bolt(for: projectile.towerKind)
+            core.size = core.texture?.size() ?? core.size
+            core.usePixelAnchor()
+        }
         position = layout.snappedWorldPoint(projectile.position)
         core.position.y = (CGFloat(projectile.height) * 16).rounded()
-        if kind == .missile {
+        if kind == .bolt && projectile.towerKind == .aegis {
+            core.zRotation += 0.5
+        } else if kind == .missile {
             let step = CGFloat.pi / 4
             core.zRotation = ((layout.worldAngle(of: projectile.heading) - .pi / 2) / step).rounded() * step
         }

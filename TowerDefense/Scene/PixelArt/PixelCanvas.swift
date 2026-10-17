@@ -97,6 +97,26 @@ struct PixelCanvas {
         }
     }
 
+    /// Fills a polygon given in pixel coordinates (even-odd rule).
+    mutating func fillPolygon(_ points: [(x: Double, y: Double)], _ color: PixelColor) {
+        guard points.count >= 3 else { return }
+        let minX = Int(points.map(\.x).min()!.rounded(.down)), maxX = Int(points.map(\.x).max()!.rounded(.up))
+        let minY = Int(points.map(\.y).min()!.rounded(.down)), maxY = Int(points.map(\.y).max()!.rounded(.up))
+        for y in minY...maxY {
+            for x in minX...maxX {
+                let px = Double(x) + 0.5, py = Double(y) + 0.5
+                var inside = false
+                var j = points.count - 1
+                for i in points.indices {
+                    let a = points[i], b = points[j]
+                    if (a.y > py) != (b.y > py), px < (b.x - a.x) * (py - a.y) / (b.y - a.y) + a.x { inside.toggle() }
+                    j = i
+                }
+                if inside { set(x, y, color) }
+            }
+        }
+    }
+
     /// Draws a ring. `pattern` decides per angle step whether a pixel is drawn (for dashes and sparkle).
     mutating func ring(cx: Double, cy: Double, r: Double, thickness: Double = 1, _ color: PixelColor,
                        pattern: ((Int, Int) -> Bool)? = nil) {

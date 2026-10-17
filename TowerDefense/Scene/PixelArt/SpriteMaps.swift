@@ -17,9 +17,197 @@ enum SpriteMaps {
         case .berserker: [berserker(step: false), berserker(step: true)]
         case .phantom: [phantom(sway: false), phantom(sway: true)]
         case .hexer: [hexer(feet: "..uu...uu.."), hexer(feet: "...uu.uu...")]
+        case .ironclad: [ironclad(step: false), ironclad(step: true)]
+        case .pyrefiend: [pyrefiend(step: false), pyrefiend(step: true)]
+        case .frostborn: [frostborn(step: false), frostborn(step: true)]
+        case .voidling: [voidling(sway: false), voidling(sway: true)]
+        case .blastguard: [blastguard(step: false), blastguard(step: true)]
+        case .husk: [husk(step: false), husk(step: true)]
+        case .mirage: [mirageUp, mirageDown]
+        case .gargoyle: [gargoyleUp, gargoyleDown]
+        case .warper: [warper(flicker: false), warper(flicker: true)]
         case .titan: [titan(step: false), titan(step: true)]
+        case .dreadnought: [dreadnought(spin: false), dreadnought(spin: true)]
         case .overlord: [overlord(step: false), overlord(step: true)]
         }
+    }
+
+    private static func ironclad(step: Bool) -> [String] {
+        [
+            "...sssss...",
+            "..swwwwws..",
+            ".sSSSSSSSs.",
+            ".sSKKKKKSs.",
+            ".sSSSSSSSs.",
+            "..sSSSSSs..",
+            ".nsSSSSSsn.",
+            "nnsSSnSSsnn",
+            "nnsSSnSSsnn",
+            "..sSSSSSs..",
+            step ? ".nn.....nn." : "..nn...nn..",
+            step ? ".NN.....NN." : "..NN...NN..",
+        ]
+    }
+
+    private static func pyrefiend(step: Bool) -> [String] {
+        [
+            "...y...y...",
+            "..yOy.yOy..",
+            "..OOOyOOO..",
+            ".OOOOOOOOO.",
+            ".OOyyOyyOO.",
+            ".ROOOOOOOR.",
+            "RROOrrrOORR",
+            ".RRROOORRR.",
+            "..RRRRRRR..",
+            "...RRRRR...",
+            step ? "...o...o..." : "..o.....o..",
+            step ? "..oo...oo.." : ".oo.....oo.",
+        ]
+    }
+
+    private static func frostborn(step: Bool) -> [String] {
+        [
+            "....CCCC....",
+            "...CwwwwC...",
+            "..CwBwwBwC..",
+            "..CwwwwwwC..",
+            ".CCCwwwwCCC.",
+            "CwwCCBBCCwwC",
+            "CwwCBBBBCwwC",
+            "CwwCCBBCCwwC",
+            ".CC.CCCC.CC.",
+            "....CbbC....",
+            step ? "....CC.CC..." : "...CC..CC...",
+            step ? "....bb.bb..." : "...bb..bb...",
+        ]
+    }
+
+    private static func voidling(sway: Bool) -> [String] {
+        [
+            "..pppppp..",
+            ".pKKKKKKp.",
+            "pKKPKKPKKp",
+            "pKKKKKKKKp",
+            "pKKKffKKKp",
+            ".pKKKKKKp.",
+            "..pKKKKp..",
+            sway ? "p..pKKp..p" : ".p.pKKp.p.",
+            sway ? ".p..pp..p." : "p...pp...p",
+        ]
+    }
+
+    private static func blastguard(step: Bool) -> [String] {
+        [
+            "....DDDD....",
+            "...DddddD...",
+            "..DdCCCCdD..",
+            "..DdCCCCdD..",
+            "..DddddddD..",
+            ".DhhhhhhhhD.",
+            "DhhhYhhYhhhD",
+            "DhhhhhhhhhhD",
+            ".DhhhhhhhhD.",
+            "..Dhh..hhD..",
+            step ? "...DD..DD..." : "..DD....DD..",
+            step ? "..DDD..DDD.." : ".DDD....DDD.",
+        ]
+    }
+
+    private static func husk(step: Bool) -> [String] {
+        [
+            "...gggg...",
+            "..gGGGGg..",
+            "..GKGGKG..",
+            "..GGGGGG..",
+            "..GGrrGG..",
+            "...GGGG...",
+            ".nnnnnnnn.",
+            "GGnnnnnnGG",
+            "G.nnnnnn.G",
+            "..nnnnnn..",
+            step ? "...DD.DD.." : "..DD..DD..",
+            step ? "..DD..DD.." : ".DD....DD.",
+        ]
+    }
+
+    private static let mirageUp = [
+        "w...........w",
+        "ww..wwwww..ww",
+        "www.wCwCw.www",
+        ".wwwwwwwwwww.",
+        "..wwswwwsww..",
+        "....wwwww....",
+        ".....www.....",
+        "......w......",
+    ]
+
+    private static let mirageDown = [
+        "....wwwww....",
+        "....wCwCw....",
+        "..wwwwwwwww..",
+        ".wwwwswswwww.",
+        "www.wwwww.www",
+        "ww...www...ww",
+        "w.....w.....w",
+    ]
+
+    private static let gargoyleUp = [
+        "s...........s",
+        "ss..nnnnn..ss",
+        "sss.nRnRn.sss",
+        "ssssnnnnnssss",
+        ".sssSnnnSsss.",
+        "..ssSSSSSss..",
+        "....SSSSS....",
+        "....SnSnS....",
+        "....n...n....",
+    ]
+
+    private static let gargoyleDown = [
+        "....nnnnn....",
+        "....nRnRn....",
+        "ssssnnnnnssss",
+        "sssSSnnnSSsss",
+        "ss.SSSSSSS.ss",
+        "s...SSSSS...s",
+        "....SnSnS....",
+        "....n...n....",
+    ]
+
+    private static func warper(flicker: Bool) -> [String] {
+        [
+            "...BBBB...",
+            "..BCCCCB..",
+            ".BCWCCWCB.",
+            ".BCCCCCCB.",
+            "..BCPPCB..",
+            ".pBBPPBBp.",
+            "p.pBBBBp.p",
+            "..pBBBBp..",
+            "...pBBp...",
+            flicker ? "....pp...." : "...p..p...",
+            flicker ? "...p..p..." : "..p....p..",
+        ]
+    }
+
+    private static func dreadnought(spin: Bool) -> [String] {
+        [
+            "......nnnnnnnnnn......",
+            "....nnSSSSSSSSSSnn....",
+            "..nnSSssssssssssSSnn..",
+            ".nSSssSSSSSSSSSSssSSn.",
+            "nSSSRRRRRRRRRRRRRRSSSn",
+            "nSSKSSKSSKSSKSSKSSKSSn",
+            "nSSSSSSSSSSSSSSSSSSSSn",
+            ".nSSRRRRRRRRRRRRRRSSn.",
+            "..nnSSSSSSSSSSSSSSnn..",
+            "....nnnnSSSSSSnnnn....",
+            "........nnYYnn........",
+            spin ? "......s...YY...s......" : ".......s..YY..s.......",
+            spin ? ".......s..OO..s......." : "......sss.OO.sss......",
+            spin ? "..........OO.........." : "...........O..........",
+        ]
     }
 
     private static func berserker(step: Bool) -> [String] {

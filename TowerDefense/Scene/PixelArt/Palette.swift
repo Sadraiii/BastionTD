@@ -46,6 +46,19 @@ enum Pal {
         "f": pink, "L": copper,
     ]
 
+    static func damage(_ type: DamageType) -> PixelColor {
+        switch type {
+        case .kinetic: silver
+        case .explosive: orange
+        case .cold: cyan
+        case .energy: magenta
+        case .fire: red
+        case .toxic: lime
+        case .psychic: pink
+        case .sonic: yellow
+        }
+    }
+
     static func tower(_ kind: TowerKind) -> PixelColor {
         switch kind {
         case .pulse: blue
@@ -53,6 +66,14 @@ enum Pal {
         case .mortar: orange
         case .tesla: magenta
         case .rail: hotRed
+        case .inferno: red
+        case .weaver: purple
+        case .aegis: amber
+        case .cyclone: mist
+        case .echo: lime
+        case .mind: pink
+        case .chrono: sand
+        case .star: yellow
         }
     }
 
@@ -64,6 +85,14 @@ enum Pal {
         case .mortar: amber
         case .tesla: pink
         case .rail: pink
+        case .inferno: amber
+        case .weaver: white
+        case .aegis: yellow
+        case .cyclone: white
+        case .echo: white
+        case .mind: white
+        case .chrono: yellow
+        case .star: white
         }
     }
 
@@ -79,7 +108,17 @@ enum Pal {
         case .berserker: orange
         case .phantom: mist
         case .hexer: magenta
+        case .ironclad: silver
+        case .pyrefiend: orange
+        case .frostborn: cyan
+        case .voidling: purple
+        case .blastguard: clay
+        case .husk: lime
+        case .mirage: mist
+        case .gargoyle: steel
+        case .warper: cyan
         case .titan: hotRed
+        case .dreadnought: silver
         case .overlord: lime
         }
     }

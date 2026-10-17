@@ -14,7 +14,7 @@ struct RunSummary {
 /// Achievements that reward Research Points. Each is earned once.
 enum Medal: String, CaseIterable, Identifiable {
     case firstStand, flawless, mapMaster, powerPlayer, ascended, titanSlayer, overthrown
-    case endless25, endless30, hardHero, fewHeroes, researcher
+    case endless25, endless30, hardHero, fewHeroes, researcher, fullRoster, skyGuard
 
     var id: String { rawValue }
 
@@ -32,6 +32,8 @@ enum Medal: String, CaseIterable, Identifiable {
         case .hardHero: "Overload Hero"
         case .fewHeroes: "Elite Squad"
         case .researcher: "Mad Scientist"
+        case .fullRoster: "Full Roster"
+        case .skyGuard: "Sky Guard"
         }
     }
 
@@ -49,6 +51,8 @@ enum Medal: String, CaseIterable, Identifiable {
         case .hardHero: "Beat the Overload map."
         case .fewHeroes: "Win with 6 heroes or fewer on the field."
         case .researcher: "Research 10 upgrade tiers."
+        case .fullRoster: "Recruit all 13 heroes."
+        case .skyGuard: "Shoot down the Dreadnought."
         }
     }
 
@@ -57,7 +61,8 @@ enum Medal: String, CaseIterable, Identifiable {
         case .firstStand, .powerPlayer, .titanSlayer: 5
         case .ascended, .overthrown, .endless25, .researcher: 10
         case .flawless, .fewHeroes: 15
-        case .endless30, .hardHero: 20
+        case .endless30, .hardHero, .fullRoster: 20
+        case .skyGuard: 10
         case .mapMaster: 25
         }
     }
@@ -77,6 +82,8 @@ enum Medal: String, CaseIterable, Identifiable {
         case .hardHero: run.victory && run.map.difficulty == .hard
         case .fewHeroes: run.victory && run.towerCount <= 6
         case .researcher: Self.researchedTiers(research) >= 10
+        case .fullRoster: TowerKind.allCases.allSatisfy(research.isHeroUnlocked)
+        case .skyGuard: run.stats.kills[.dreadnought, default: 0] > 0
         }
     }
 

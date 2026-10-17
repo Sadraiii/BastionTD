@@ -6,6 +6,7 @@ struct StartView: View {
     let onHowToPlay: () -> Void
     let onResearch: () -> Void
     let onMedals: () -> Void
+    let onCodex: () -> Void
 
     @State private var showMaps = false
     @State private var researchPoints = 0
@@ -85,6 +86,17 @@ struct StartView: View {
                     }
                     .buttonStyle(PixelButtonStyle.neutral)
                 }
+                Button {
+                    playTap()
+                    onCodex()
+                } label: {
+                    HStack(spacing: 6) {
+                        PixelIcon(icon: .skull, scale: 1)
+                        PixelText("CODEX", pixel: 2, shadow: nil)
+                    }
+                    .frame(width: 236)
+                }
+                .buttonStyle(PixelButtonStyle.neutral)
             }
             Spacer(minLength: 0)
         }

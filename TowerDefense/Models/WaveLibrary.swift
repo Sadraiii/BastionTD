@@ -24,28 +24,29 @@ enum WaveLibrary {
         SpawnGroup(kind: kind, count: count, interval: interval, delay: delay)
     }
 
-    /// Twenty waves. New villains are introduced one at a time and then mixed in.
+    /// Twenty waves. New villains are introduced one or two at a time, then mixed
+    /// so that no single damage type can handle a whole wave.
     static let standard: [WaveDefinition] = [
         WaveDefinition(groups: [g(.drone, 8, every: 1.1)]),
         WaveDefinition(groups: [g(.drone, 12, every: 0.9)]),
         WaveDefinition(groups: [g(.drone, 8, every: 1.0), g(.runner, 6, every: 0.7, after: 4)]),
-        WaveDefinition(groups: [g(.runner, 12, every: 0.5), g(.drone, 6, every: 1.0, after: 3)]),
+        WaveDefinition(groups: [g(.runner, 10, every: 0.5), g(.ironclad, 4, every: 1.6, after: 3)]),
         WaveDefinition(groups: [g(.drone, 8, every: 0.9), g(.brute, 3, every: 2.5, after: 2)]),
         WaveDefinition(groups: [g(.wisp, 8, every: 1.0), g(.drone, 8, every: 0.9, after: 2)]),
         WaveDefinition(groups: [g(.drone, 10, every: 0.8), g(.medic, 4, every: 2.0, after: 1.5), g(.berserker, 3, every: 2.2, after: 6)]),
-        WaveDefinition(groups: [g(.splitter, 6, every: 1.6), g(.runner, 10, every: 0.45, after: 3)]),
-        WaveDefinition(groups: [g(.brute, 6, every: 1.8), g(.medic, 4, every: 2.4, after: 1), g(.drone, 10, every: 0.7, after: 4)]),
-        WaveDefinition(groups: [g(.drone, 10, every: 0.8), g(.titan, 1, every: 1, after: 5), g(.runner, 8, every: 0.5, after: 10)]),
+        WaveDefinition(groups: [g(.splitter, 6, every: 1.6), g(.pyrefiend, 6, every: 1.0, after: 3), g(.runner, 8, every: 0.45, after: 6)]),
+        WaveDefinition(groups: [g(.voidling, 8, every: 0.9), g(.brute, 4, every: 1.8, after: 2), g(.medic, 3, every: 2.4, after: 4)]),
+        WaveDefinition(groups: [g(.drone, 10, every: 0.8), g(.titan, 1, every: 1, after: 5), g(.ironclad, 6, every: 1, after: 9)]),
         WaveDefinition(groups: [g(.phantom, 8, every: 1.0), g(.runner, 12, every: 0.4, after: 3), g(.wisp, 6, every: 0.9, after: 6)]),
-        WaveDefinition(groups: [g(.brute, 8, every: 1.4), g(.medic, 6, every: 1.8, after: 1), g(.hexer, 2, every: 3, after: 4)]),
-        WaveDefinition(groups: [g(.splitter, 10, every: 1.1), g(.wisp, 10, every: 0.8, after: 2), g(.phantom, 4, every: 1.2, after: 6)]),
-        WaveDefinition(groups: [g(.drone, 20, every: 0.45), g(.brute, 8, every: 1.5, after: 3), g(.berserker, 4, every: 1.6, after: 6)]),
-        WaveDefinition(groups: [g(.wisp, 14, every: 0.6), g(.medic, 6, every: 1.6), g(.hexer, 3, every: 2.5, after: 3), g(.brute, 6, every: 1.8, after: 4)]),
-        WaveDefinition(groups: [g(.runner, 28, every: 0.25), g(.splitter, 8, every: 1.2, after: 3), g(.phantom, 6, every: 0.9, after: 6)]),
-        WaveDefinition(groups: [g(.brute, 10, every: 1.2), g(.medic, 8, every: 1.4, after: 1), g(.berserker, 6, every: 1.3, after: 4), g(.wisp, 12, every: 0.6, after: 6)]),
-        WaveDefinition(groups: [g(.splitter, 14, every: 0.9), g(.runner, 18, every: 0.3, after: 4), g(.phantom, 10, every: 0.7, after: 7), g(.hexer, 4, every: 2, after: 8)]),
-        WaveDefinition(groups: [g(.drone, 24, every: 0.35), g(.brute, 12, every: 1.1, after: 3), g(.medic, 10, every: 1.2, after: 4), g(.wisp, 16, every: 0.5, after: 8), g(.berserker, 6, every: 1.2, after: 10)]),
-        WaveDefinition(groups: [g(.overlord, 1, every: 1, after: 2), g(.brute, 8, every: 1.2, after: 4), g(.hexer, 3, every: 2.5, after: 5), g(.phantom, 8, every: 0.8, after: 8), g(.wisp, 10, every: 0.6, after: 10)]),
+        WaveDefinition(groups: [g(.blastguard, 5, every: 1.4), g(.medic, 3, every: 2, after: 1), g(.hexer, 2, every: 3, after: 4), g(.voidling, 5, every: 0.9, after: 6)]),
+        WaveDefinition(groups: [g(.frostborn, 6, every: 1.4), g(.mirage, 6, every: 1.1, after: 3), g(.splitter, 6, every: 1.1, after: 5)]),
+        WaveDefinition(groups: [g(.husk, 10, every: 0.9), g(.berserker, 5, every: 1.5, after: 3), g(.pyrefiend, 8, every: 0.7, after: 6)]),
+        WaveDefinition(groups: [g(.dreadnought, 1, every: 1, after: 3), g(.wisp, 8, every: 0.7), g(.hexer, 2, every: 2.5, after: 6), g(.ironclad, 4, every: 1, after: 8)]),
+        WaveDefinition(groups: [g(.warper, 10, every: 0.9), g(.runner, 20, every: 0.3, after: 3), g(.phantom, 6, every: 0.9, after: 6)]),
+        WaveDefinition(groups: [g(.gargoyle, 6, every: 1.4), g(.brute, 8, every: 1.2, after: 2), g(.medic, 6, every: 1.4, after: 4), g(.frostborn, 6, every: 1.1, after: 7)]),
+        WaveDefinition(groups: [g(.splitter, 10, every: 0.9), g(.mirage, 8, every: 0.8, after: 4), g(.blastguard, 6, every: 1, after: 7), g(.hexer, 3, every: 2, after: 8)]),
+        WaveDefinition(groups: [g(.voidling, 14, every: 0.5), g(.ironclad, 12, every: 0.7, after: 3), g(.husk, 10, every: 0.8, after: 6), g(.gargoyle, 6, every: 1.2, after: 9), g(.warper, 8, every: 0.9, after: 10)]),
+        WaveDefinition(groups: [g(.overlord, 1, every: 1, after: 2), g(.brute, 6, every: 1.3, after: 4), g(.hexer, 2, every: 3, after: 5), g(.mirage, 5, every: 0.9, after: 8), g(.pyrefiend, 8, every: 0.7, after: 10)]),
     ]
 
     /// Enemy health grows smoothly from 1x on wave 1 to about 9.5x on wave 20,
@@ -67,7 +68,8 @@ enum WaveLibrary {
     /// a Titan and every tenth the Overlord; the health curve keeps climbing.
     static func endlessWave(number: Int) -> WaveDefinition {
         var rng = SplitMix64(seed: UInt64(number) &* 0x9E37_79B9)
-        let pool: [EnemyKind] = [.drone, .runner, .brute, .medic, .wisp, .splitter, .berserker, .phantom, .hexer]
+        let pool: [EnemyKind] = [.drone, .runner, .brute, .medic, .wisp, .splitter, .berserker, .phantom, .hexer,
+                                 .ironclad, .pyrefiend, .frostborn, .voidling, .blastguard, .husk, .mirage, .gargoyle, .warper]
         let extra = number - standard.count
         var groups: [SpawnGroup] = []
         for i in 0..<4 {
@@ -76,7 +78,7 @@ enum WaveLibrary {
             let interval = max(0.2, 0.9 - Double(extra) * 0.02)
             groups.append(g(kind, count, every: interval, after: Double(i) * 3))
         }
-        if number % 5 == 0 { groups.append(g(.titan, 1 + extra / 10, every: 4, after: 4)) }
+        if number % 5 == 0 { groups.append(g(number % 10 == 5 ? .dreadnought : .titan, 1 + extra / 10, every: 4, after: 4)) }
         if number % 10 == 0 { groups.append(g(.overlord, 1, every: 1, after: 2)) }
         return WaveDefinition(groups: groups)
     }

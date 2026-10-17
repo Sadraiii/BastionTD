@@ -46,36 +46,58 @@ struct ControlPanel: View {
     }
 }
 
-/// A tower button in the build panel.
+/// A hero button in the build panel. Locked heroes show their Research cost.
 struct TowerCard: View {
     let kind: TowerKind
     let selected: Bool
     let affordable: Bool
+    let unlocked: Bool
     let action: () -> Void
 
     var body: some View {
         Button(action: action) {
             VStack(spacing: 3) {
                 PixelImage(image: Art.towerIcon(kind), scale: 2)
+                    .opacity(unlocked ? 1 : 0.35)
+                    .overlay {
+                        if !unlocked { PixelIcon(icon: .lock, scale: 2) }
+                    }
                 Text(kind.shortName.uppercased())
                     .font(Theme.body(10))
                     .foregroundStyle(Theme.text)
                     .lineLimit(1)
-                    .minimumScaleFactor(0.8)
-                GoldLabel(amount: kind.cost, pixel: 1, color: affordable ? Theme.gold : Theme.danger)
+                    .minimumScaleFactor(0.7)
+                if unlocked {
+                    GoldLabel(amount: kind.cost, pixel: 1, color: affordable ? Theme.gold : Theme.danger)
+                } else {
+                    HStack(spacing: 2) {
+                        PixelIcon(icon: .flask, scale: 1)
+                        PixelText("\(kind.unlockCost)", pixel: 1, color: Color(pixel: Pal.cyan))
+                    }
+                }
             }
-            .frame(maxWidth: .infinity, minHeight: 70)
+            .frame(minWidth: 56, maxWidth: .infinity, minHeight: 70)
             .padding(.vertical, 4)
+            .padding(.horizontal, 2)
             .pixelPanel(
                 fill: selected ? Color(pixel: Pal.ocean) : Theme.panel,
                 bevel: selected ? Color(pixel: Pal.cyan) : Theme.panelLight,
                 shadow: !selected
             )
+            .overlay(alignment: .topLeading) {
+                Rectangle()
+                    .fill(Color(pixel: Pal.damage(kind.baseStats.damageType)))
+                    .frame(width: 6, height: 6)
+                    .overlay(Rectangle().stroke(Theme.border, lineWidth: 1))
+                    .padding(6)
+            }
             .offset(y: selected ? 3 : 0)
-            .opacity(affordable || selected ? 1 : 0.55)
+            .opacity(!unlocked || affordable || selected ? 1 : 0.55)
         }
         .buttonStyle(.plain)
-        .accessibilityLabel("\(kind.name), \(kind.cost) gold. \(kind.role)")
+        .accessibilityLabel(unlocked
+            ? "\(kind.name), \(kind.cost) gold, \(kind.baseStats.damageType.title) damage. \(kind.role)"
+            : "\(kind.name), locked. Recruit for \(kind.unlockCost) research points in the Research Lab")
         .accessibilityAddTraits(selected ? .isSelected : [])
     }
 }
@@ -84,12 +106,21 @@ struct BuildRow: View {
     let session: GameSession
 
     var body: some View {
-        HStack(spacing: 6) {
-            ForEach(TowerKind.allCases) { kind in
-                TowerCard(kind: kind, selected: session.buildKind == kind, affordable: session.gold >= kind.cost) {
-                    session.chooseBuild(kind)
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 6) {
+                ForEach(TowerKind.allCases) { kind in
+                    card(kind).frame(width: 68)
                 }
             }
+            .padding(.vertical, 4)
+            .padding(.horizontal, 2)
+        }
+    }
+
+    private func card(_ kind: TowerKind) -> some View {
+        TowerCard(kind: kind, selected: session.buildKind == kind, affordable: session.gold >= kind.cost,
+                  unlocked: session.isHeroUnlocked(kind)) {
+            session.chooseBuild(kind)
         }
     }
 }
@@ -99,15 +130,19 @@ struct BuildGrid: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
-            LazyVGrid(columns: [GridItem(.flexible(), spacing: 8), GridItem(.flexible(), spacing: 8)], spacing: 8) {
-                ForEach(TowerKind.allCases) { kind in
-                    TowerCard(kind: kind, selected: session.buildKind == kind, affordable: session.gold >= kind.cost) {
-                        session.chooseBuild(kind)
+            ScrollView(.vertical, showsIndicators: false) {
+                LazyVGrid(columns: [GridItem(.flexible(), spacing: 8), GridItem(.flexible(), spacing: 8)], spacing: 8) {
+                    ForEach(TowerKind.allCases) { kind in
+                        TowerCard(kind: kind, selected: session.buildKind == kind, affordable: session.gold >= kind.cost,
+                                  unlocked: session.isHeroUnlocked(kind)) {
+                            session.chooseBuild(kind)
+                        }
                     }
                 }
+                .padding(.vertical, 4)
             }
             if let kind = session.buildKind {
-                Text(kind.role)
+                Text("\(kind.baseStats.damageType.title.uppercased()) · \(kind.role)")
                     .font(Theme.body(10, weight: .regular))
                     .foregroundStyle(Theme.secondaryText)
                     .fixedSize(horizontal: false, vertical: true)

@@ -21,7 +21,9 @@ struct ResearchLabView: View {
             ScrollView(.vertical, showsIndicators: false) {
                 LazyVStack(spacing: 12) {
                     ForEach(TowerKind.allCases) { kind in
-                        HeroResearchCard(kind: kind, research: research, selection: $selection)
+                        HeroResearchCard(kind: kind, research: research, points: points, selection: $selection) {
+                            recruit(kind)
+                        }
                     }
                 }
                 .padding(.horizontal, 16)
@@ -126,6 +128,22 @@ struct ResearchLabView: View {
         .padding(.bottom, 6)
     }
 
+    private func recruit(_ kind: TowerKind) {
+        guard PlayerProgress.unlockHero(kind) else {
+            SoundEngine.shared.play(.error)
+            Haptics.notify(.warning)
+            return
+        }
+        SoundEngine.shared.play(.medal)
+        Haptics.notify(.success)
+        let medals = PlayerProgress.awardMedals(for: nil)
+        research = PlayerProgress.research
+        points = PlayerProgress.researchPoints
+        if let medal = medals.first {
+            withAnimation(.spring(duration: 0.3)) { celebrate = medal }
+        }
+    }
+
     private func research(_ selection: Selection) {
         guard PlayerProgress.research(selection.kind, path: selection.path) else {
             SoundEngine.shared.play(.error)
@@ -148,18 +166,35 @@ struct ResearchLabView: View {
 private struct HeroResearchCard: View {
     let kind: TowerKind
     let research: ResearchState
+    let points: Int
     @Binding var selection: ResearchLabView.Selection?
+    let onRecruit: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 10) {
                 PixelImage(image: Art.towerIcon(kind, tiers: [UpgradeRules.maxTier, 2]), scale: 3)
+                    .opacity(research.isHeroUnlocked(kind) ? 1 : 0.4)
                 VStack(alignment: .leading, spacing: 3) {
                     PixelText(kind.name.uppercased(), pixel: 2, color: Theme.tower(kind))
-                    Text("\(kind.archetype.uppercased()) · \(kind.role)")
+                    Text("\(kind.archetype.uppercased()) · \(kind.baseStats.damageType.title.uppercased()) · \(kind.role)")
                         .font(Theme.body(10, weight: .regular))
                         .foregroundStyle(Theme.secondaryText)
                         .fixedSize(horizontal: false, vertical: true)
+                }
+                Spacer(minLength: 0)
+                if !research.isHeroUnlocked(kind) {
+                    Button(action: onRecruit) {
+                        VStack(spacing: 3) {
+                            PixelText("RECRUIT", pixel: 1, shadow: nil)
+                            HStack(spacing: 3) {
+                                PixelIcon(icon: .flask, scale: 1, outlined: false)
+                                PixelText("\(kind.unlockCost)", pixel: 2, shadow: nil)
+                            }
+                        }
+                    }
+                    .buttonStyle(points >= kind.unlockCost ? PixelButtonStyle.blue : PixelButtonStyle.neutral)
+                    .accessibilityLabel("Recruit \(kind.name) for \(kind.unlockCost) research points")
                 }
             }
             ForEach(Array(kind.paths.enumerated()), id: \.offset) { index, path in

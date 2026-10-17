@@ -12,7 +12,7 @@ struct GameStats: Equatable {
 }
 
 enum PlacementResult: Equatable {
-    case ok, outOfBounds, onPath, blocked, occupied, insufficientGold
+    case ok, outOfBounds, onPath, blocked, occupied, insufficientGold, locked
 
     var message: String {
         switch self {
@@ -22,6 +22,7 @@ enum PlacementResult: Equatable {
         case .blocked: "That tile is blocked"
         case .occupied: "A hero is already there"
         case .insufficientGold: "Not enough gold"
+        case .locked: "Recruit this hero in the Research Lab"
         }
     }
 }
@@ -73,6 +74,7 @@ final class GameEngine {
     static let ricochetRange: CGFloat = 1.6
     static let missileSpeed: Double = 7
     static let missileSplash: Double = 0.45
+    static let weaknessMultiplier: Double = 2
 
     let map: MapDefinition
     let path: PathGeometry
@@ -108,6 +110,7 @@ final class GameEngine {
     private var rng: SplitMix64
     private var towersByCell: [GridPoint: Tower] = [:]
     private var enemiesByID: [Int: Enemy] = [:]
+    private var lastImmuneEvent: Double = -1
 
     init(map: MapDefinition, waves: [WaveDefinition] = WaveLibrary.standard,
          research: ResearchState = ResearchState(), seed: UInt64 = 0x5EED) {
@@ -156,6 +159,7 @@ final class GameEngine {
     }
 
     func placementCheck(_ kind: TowerKind, at cell: GridPoint) -> PlacementResult {
+        guard research.isHeroUnlocked(kind) else { return .locked }
         guard map.contains(cell) else { return .outOfBounds }
         if map.pathCells.contains(cell) { return .onPath }
         if map.obstacles.contains(cell) { return .blocked }
@@ -172,17 +176,21 @@ final class GameEngine {
         return gold >= next.cost ? .available(cost: next.cost) : .unaffordable(cost: next.cost)
     }
 
-    /// Whether a power would hit anything right now (frenzy and fields always work).
+    /// Whether a power would hit anything right now (buffs, fields and time stop always work).
     func powerHasTargets(towerID: Int) -> Bool {
         guard let tower = tower(id: towerID), let power = tower.power else { return false }
-        let reach: CGFloat
+        let range = tower.stats.range
+        let reach: Double
         switch power.effect {
-        case .frenzy, .field: return true
-        case let .burst(_, _, _, scale, _): reach = CGFloat(tower.stats.range * scale)
-        case let .strikes(_, _, _, _, scale): reach = CGFloat(tower.stats.range * scale)
-        case .missiles: reach = CGFloat(tower.stats.range * 1.5)
+        case .frenzy, .field, .rally: return true
+        case .timeStop: return enemies.contains { $0.isTargetable }
+        case let .burst(_, _, _, scale, _): reach = range * scale
+        case let .strikes(_, _, _, _, scale): reach = range * scale
+        case let .strip(_, scale): reach = range * scale
+        case let .confuse(_, _, scale): reach = range * scale
+        case .missiles: reach = range * 1.5
         }
-        return enemies.contains { $0.isTargetable && $0.position.distance(to: tower.position) <= reach }
+        return enemies.contains { $0.isTargetable && $0.position.distance(to: tower.position) <= CGFloat(reach) }
     }
 
     // MARK: - Player commands
@@ -237,6 +245,14 @@ final class GameEngine {
         return true
     }
 
+    /// Keeps playing after victory with ever-harder procedural waves.
+    func continueEndless() {
+        guard phase == .victory else { return }
+        isEndless = true
+        phase = .intermission
+        intermissionRemaining = Self.intermissionDuration
+    }
+
     /// Triggers the tower's hero power. Returns false if it isn't ready or would hit nothing.
     @discardableResult
     func activatePower(towerID: Int) -> Bool {
@@ -245,20 +261,19 @@ final class GameEngine {
         tower.powerCooldown = power.cooldown
         stats.powersUsed += 1
         let range = CGFloat(tower.stats.range)
+        let type = tower.stats.damageType
+        func inReach(_ scale: Double) -> [Enemy] {
+            enemies.filter { $0.isTargetable && $0.position.distance(to: tower.position) <= range * CGFloat(scale) }
+        }
 
         switch power.effect {
         case let .burst(damage, stun, knockback, scale, groundOnly):
-            let radius = range * CGFloat(scale)
-            for enemy in enemies where enemy.isTargetable && !(groundOnly && enemy.kind.isFlying)
-                && enemy.position.distance(to: tower.position) <= radius {
-                if knockback > 0 && !enemy.kind.isBoss {
-                    enemy.distance = max(Self.spawnDistance, enemy.distance - CGFloat(knockback))
-                    place(enemy)
-                }
-                if stun > 0 { self.stun(enemy, for: stun) }
-                apply(HitPayload(damage: damage, piercesArmor: true, bossMultiplier: tower.stats.bossMultiplier), to: enemy, from: tower, showNumber: false)
+            for enemy in inReach(scale) where !(groundOnly && enemy.kind.isFlying) {
+                apply(HitPayload(damage: damage, type: type, piercesArmor: true, stunChance: stun > 0 ? 1 : 0, stunDuration: stun,
+                                 bossMultiplier: tower.stats.bossMultiplier, knockback: knockback),
+                      to: enemy, from: tower, showNumber: false)
             }
-            events.append(.powerBurst(towerID: tower.id, center: tower.position, radius: radius))
+            events.append(.powerBurst(towerID: tower.id, center: tower.position, radius: range * CGFloat(scale)))
 
         case let .frenzy(duration, rate, damage):
             tower.frenzyTimer = duration
@@ -267,39 +282,65 @@ final class GameEngine {
             events.append(.frenzyStarted(towerID: tower.id))
 
         case let .strikes(count, damage, stun, splash, scale):
-            let radius = range * CGFloat(scale)
-            let targets = enemies
-                .filter { $0.isTargetable && $0.position.distance(to: tower.position) <= radius }
-                .sorted { $0.health > $1.health }
-                .prefix(count)
+            let targets = inReach(scale).sorted { $0.health > $1.health }.prefix(count)
             let points = targets.map(\.position)
             for target in targets {
-                if stun > 0 { self.stun(target, for: stun) }
-                apply(HitPayload(damage: damage, piercesArmor: true, bossMultiplier: tower.stats.bossMultiplier), to: target, from: tower, showNumber: true)
+                apply(HitPayload(damage: damage, type: type, piercesArmor: true, stunChance: stun > 0 ? 1 : 0, stunDuration: stun,
+                                 bossMultiplier: tower.stats.bossMultiplier),
+                      to: target, from: tower, showNumber: true)
                 if splash > 0 {
                     for other in enemies where other !== target && other.isTargetable
                         && other.position.distance(to: target.position) <= CGFloat(splash) {
-                        if stun > 0 { self.stun(other, for: stun * 0.5) }
-                        apply(HitPayload(damage: damage * 0.4, piercesArmor: true), to: other, from: tower, showNumber: false)
+                        apply(HitPayload(damage: damage * 0.4, type: type, piercesArmor: true,
+                                         stunChance: stun > 0 ? 1 : 0, stunDuration: stun * 0.5),
+                              to: other, from: tower, showNumber: false)
                     }
                 }
             }
-            events.append(.powerStrikes(points: points, splash: CGFloat(splash)))
+            events.append(.powerStrikes(points: Array(points), splash: CGFloat(splash)))
 
-        case let .field(duration, dps, slow, scale):
+        case let .field(duration, dps, slow, scale, fieldType):
             let radius = range * CGFloat(scale)
-            fields.append(PowerField(id: makeID(), center: tower.position, radius: radius, dps: dps, slow: slow, duration: duration))
-            events.append(.fieldStarted(center: tower.position, radius: radius, duration: duration))
+            fields.append(PowerField(id: makeID(), center: tower.position, radius: radius, dps: dps, slow: slow,
+                                     type: fieldType, duration: duration))
+            events.append(.fieldStarted(center: tower.position, radius: radius, duration: duration, type: fieldType))
 
         case let .missiles(count, damage, splash):
-            let reach = range * 1.5
-            let targets = enemies
-                .filter { $0.isTargetable && $0.position.distance(to: tower.position) <= reach }
-                .sorted { $0.distance > $1.distance }
+            let targets = inReach(1.5).sorted { $0.distance > $1.distance }
             for i in 0..<count {
-                let target = targets[i % targets.count]
-                launchMissile(from: tower, at: target, payload: HitPayload(damage: damage, piercesArmor: true), splash: splash, delayIndex: i)
+                launchMissile(from: tower, at: targets[i % targets.count],
+                              payload: HitPayload(damage: damage, type: .explosive, piercesArmor: true), splash: splash, index: i)
             }
+
+        case let .timeStop(duration):
+            for enemy in enemies where enemy.isTargetable { stun(enemy, for: duration) }
+            events.append(.timeStop(duration: duration))
+
+        case let .rally(duration, rate, damage, scale):
+            let radius = range * CGFloat(scale)
+            for ally in towers where ally.position.distance(to: tower.position) <= radius {
+                ally.rallyTimer = duration
+                ally.rallyRate = rate
+                ally.rallyDamage = damage
+            }
+            events.append(.rally(towerID: tower.id, radius: radius))
+
+        case let .strip(damage, scale):
+            for enemy in inReach(scale) {
+                enemy.revealed = true
+                enemy.shield = 0
+                enemy.armorShred = 99
+                enemy.armorShredTimer = 8
+                apply(HitPayload(damage: damage, type: type, piercesArmor: true), to: enemy, from: tower, showNumber: false)
+            }
+            events.append(.strip(center: tower.position, radius: range * CGFloat(scale)))
+
+        case let .confuse(duration, damage, scale):
+            for enemy in inReach(scale) {
+                apply(HitPayload(damage: damage, type: type, piercesArmor: true, confuseChance: 1, confuseDuration: duration),
+                      to: enemy, from: tower, showNumber: false)
+            }
+            events.append(.confuseWave(center: tower.position, radius: range * CGFloat(scale)))
         }
         events.append(.powerActivated(towerID: tower.id, kind: tower.kind, name: power.name))
         return true
@@ -328,14 +369,6 @@ final class GameEngine {
         flushIncoming()
         removeResolvedEnemies()
         checkWaveCompletion()
-    }
-
-    /// Keeps playing after victory with ever-harder procedural waves.
-    func continueEndless() {
-        guard phase == .victory else { return }
-        isEndless = true
-        phase = .intermission
-        intermissionRemaining = Self.intermissionDuration
     }
 
     private func beginWave() {
@@ -406,8 +439,24 @@ final class GameEngine {
                 enemy.slowTimer -= dt
                 if enemy.slowTimer <= 0 { enemy.slowAmount = 0 }
             }
+            if enemy.armorShredTimer > 0 {
+                enemy.armorShredTimer -= dt
+                if enemy.armorShredTimer <= 0 { enemy.armorShred = 0 }
+            }
+            tickDamageOverTime(enemy, dt)
+            if enemy.isResolved { continue }
+            if enemy.stoneTimer > 0 {
+                enemy.stoneTimer -= dt
+                continue
+            }
             if enemy.stunTimer > 0 {
                 enemy.stunTimer -= dt
+                continue
+            }
+            if enemy.confuseTimer > 0 {
+                enemy.confuseTimer -= dt
+                enemy.distance = max(Self.spawnDistance, enemy.distance - CGFloat(enemy.currentSpeed * 0.7 * dt))
+                place(enemy)
                 continue
             }
             enemy.distance += CGFloat(enemy.currentSpeed * dt)
@@ -419,6 +468,23 @@ final class GameEngine {
             place(enemy)
             useAbilities(of: enemy, dt)
         }
+    }
+
+    /// Burning and poison ignore armor and shields.
+    private func tickDamageOverTime(_ enemy: Enemy, _ dt: Double) {
+        var amount = 0.0
+        if enemy.burnTimer > 0 {
+            enemy.burnTimer -= dt
+            amount += enemy.burnDPS * dt
+        }
+        if enemy.poisonTimer > 0 {
+            enemy.poisonTimer -= dt
+            amount += enemy.poisonDPS * dt
+        }
+        guard amount > 0, !enemy.isStone else { return }
+        enemy.health -= amount
+        stats.damageDealt += amount
+        if enemy.health <= 0 { kill(enemy, by: nil) }
     }
 
     private func useAbilities(of enemy: Enemy, _ dt: Double) {
@@ -460,6 +526,16 @@ final class GameEngine {
                     tower.frenzyTimer = 0
                 }
                 events.append(.towersDisrupted(center: enemy.position, radius: CGFloat(radius)))
+
+            case let .stoneForm(duration):
+                enemy.stoneTimer = duration
+                events.append(.enemyPetrified(at: enemy.position))
+
+            case let .teleport(distance):
+                let from = enemy.position
+                enemy.distance = min(enemy.distance + CGFloat(distance), path.totalLength - 0.6)
+                place(enemy)
+                events.append(.enemyTeleported(from: from, to: enemy.position))
             }
         }
     }
@@ -482,9 +558,8 @@ final class GameEngine {
         for field in fields {
             field.remaining -= dt
             for enemy in enemies where enemy.isTargetable && enemy.position.distance(to: field.center) <= field.radius {
-                enemy.slowAmount = max(enemy.slowAmount, field.slow)
-                enemy.slowTimer = max(enemy.slowTimer, 0.3)
-                apply(HitPayload(damage: field.dps * dt, piercesArmor: true), to: enemy, from: nil, showNumber: false, flash: false)
+                apply(HitPayload(damage: field.dps * dt, type: field.type, piercesArmor: true, slow: field.slow, slowDuration: 0.3),
+                      to: enemy, from: nil, showNumber: false, flash: false)
             }
         }
         fields.removeAll { $0.remaining <= 0 }
@@ -492,12 +567,33 @@ final class GameEngine {
 
     // MARK: Towers
 
+    /// Detection from sonar/spider-sense and attack buffs from Aegis auras.
+    private func refreshSupport() {
+        let revealers = towers.filter { $0.stats.revealsCamo && !$0.isDisabled }
+        let supporters = towers.filter { ($0.stats.buffRate > 0 || $0.stats.buffDamage > 0) && !$0.isDisabled }
+        for tower in towers {
+            tower.hasDetection = tower.stats.detectsCamo || revealers.contains {
+                $0 !== tower && $0.position.distance(to: tower.position) <= CGFloat($0.stats.range)
+            }
+            var rate = 0.0, damage = 0.0
+            for supporter in supporters where supporter !== tower
+                && supporter.position.distance(to: tower.position) <= CGFloat(supporter.stats.range) {
+                rate = max(rate, supporter.stats.buffRate)
+                damage = max(damage, supporter.stats.buffDamage)
+            }
+            tower.auraRate = rate
+            tower.auraDamage = damage
+        }
+    }
+
     private func updateTowers(_ dt: Double) {
         guard !phase.isOver else { return }
+        refreshSupport()
         for tower in towers {
             tower.cooldown = max(0, tower.cooldown - dt)
             tower.powerCooldown = max(0, tower.powerCooldown - dt)
             if tower.recoil > 0 { tower.recoil = max(0, tower.recoil - dt) }
+            if tower.rallyTimer > 0 { tower.rallyTimer -= dt }
             if tower.disabledTimer > 0 {
                 tower.disabledTimer -= dt
                 continue
@@ -510,26 +606,27 @@ final class GameEngine {
                 }
             }
             let stats = tower.stats
-            let targets = acquireTargets(for: tower, stats: stats, count: max(stats.multishot, stats.missiles, 1))
+            let targets = acquireTargets(for: tower, count: max(stats.multishot, stats.missiles, 1))
             guard let primary = targets.first else { continue }
             tower.aim = (primary.position - tower.position).normalized
             guard tower.cooldown <= 0 else { continue }
-            tower.cooldown = stats.fireInterval / tower.frenzyRate
+            tower.cooldown = stats.fireInterval / tower.rateMultiplier
             tower.recoil = 0.12
-            fire(tower, targets: targets, stats: stats)
+            fire(tower, targets: targets)
         }
     }
 
-    private func canSee(_ enemy: Enemy, with stats: TowerStats) -> Bool {
-        (!enemy.kind.isFlying || stats.hitsAir) && (!enemy.kind.isCamo || stats.detectsCamo)
+    private func canSee(_ enemy: Enemy, from tower: Tower) -> Bool {
+        (!enemy.kind.isFlying || tower.stats.hitsAir) && (!enemy.isHidden || tower.hasDetection)
     }
 
-    /// Best targets in range by the tower's targeting mode, best first.
-    private func acquireTargets(for tower: Tower, stats: TowerStats, count: Int) -> [Enemy] {
+    /// Best visible targets in range by the tower's targeting mode, best first.
+    private func acquireTargets(for tower: Tower, count: Int) -> [Enemy] {
+        let range = tower.stats.range
         var scored: [(score: Double, enemy: Enemy)] = []
-        for enemy in enemies where enemy.isTargetable && canSee(enemy, with: stats) {
+        for enemy in enemies where enemy.isTargetable && canSee(enemy, from: tower) {
             let distance = tower.position.distance(to: enemy.position)
-            guard distance <= CGFloat(stats.range + enemy.kind.radius * 0.5) else { continue }
+            guard distance <= CGFloat(range + enemy.kind.radius * 0.5) else { continue }
             let score: Double = switch tower.targeting {
             case .first: Double(enemy.distance)
             case .last: -Double(enemy.distance)
@@ -544,63 +641,60 @@ final class GameEngine {
         return scored.sorted { $0.score > $1.score }.prefix(count).map(\.enemy)
     }
 
-    private func payload(for tower: Tower, stats: TowerStats) -> HitPayload {
-        HitPayload(
-            damage: stats.damage * tower.frenzyDamage,
-            piercesArmor: stats.piercesArmor,
-            stunChance: stats.stunChance,
-            stunDuration: stats.stunDuration,
-            bossMultiplier: stats.bossMultiplier,
-            detectsCamo: stats.detectsCamo
+    private func payload(for tower: Tower) -> HitPayload {
+        let s = tower.stats
+        return HitPayload(
+            damage: s.damage * tower.damageMultiplier, type: s.damageType, piercesArmor: s.piercesArmor,
+            stunChance: s.stunChance, stunDuration: s.stunDuration,
+            bossMultiplier: s.bossMultiplier, airMultiplier: s.airMultiplier, detectsCamo: tower.hasDetection,
+            slow: s.slow, slowDuration: s.slowDuration, burnDPS: s.burnDPS, burnDuration: s.burnDuration,
+            poisonDPS: s.poisonDPS, poisonDuration: s.poisonDuration, knockback: s.knockback,
+            confuseChance: s.confuseChance, confuseDuration: s.confuseDuration,
+            armorShred: s.armorShred, shieldBreak: s.shieldBreak
         )
     }
 
-    private func fire(_ tower: Tower, targets: [Enemy], stats: TowerStats) {
+    private func fire(_ tower: Tower, targets: [Enemy]) {
+        let stats = tower.stats
         let primary = targets[0]
-        let hit = payload(for: tower, stats: stats)
+        let hit = payload(for: tower)
 
-        switch tower.kind {
-        case .pulse:
+        switch tower.kind.attackStyle {
+        case .bolt:
             for target in targets.prefix(stats.multishot) {
                 let direction = (target.position - tower.position).normalized
                 projectiles.append(Projectile(
-                    id: makeID(), kind: .bolt, towerID: tower.id, origin: tower.position + direction * 0.35,
-                    targetID: target.id, targetPoint: target.position, payload: hit,
-                    speed: stats.projectileSpeed, hits: stats.pierce
+                    id: makeID(), kind: .bolt, towerID: tower.id, towerKind: tower.kind,
+                    origin: tower.position + direction * 0.35, targetID: target.id, targetPoint: target.position,
+                    payload: hit, speed: stats.projectileSpeed, hits: stats.pierce
                 ))
             }
-            events.append(.shotFired(towerID: tower.id, kind: .pulse))
 
-        case .mortar:
+        case .lob:
             let lead = primary.distance + CGFloat(primary.currentSpeed * Self.mortarFlightTime)
             let clamped = min(lead, path.totalLength)
             let impact = path.point(at: clamped) + path.direction(at: clamped).perpendicular * primary.laneOffset
             projectiles.append(Projectile(
-                id: makeID(), kind: .shell, towerID: tower.id, origin: tower.position,
+                id: makeID(), kind: .shell, towerID: tower.id, towerKind: tower.kind, origin: tower.position,
                 targetID: nil, targetPoint: impact, payload: hit,
                 splashRadius: stats.splashRadius, flightTime: Self.mortarFlightTime
             ))
-            events.append(.shotFired(towerID: tower.id, kind: .mortar))
 
-        case .frost:
+        case .aura:
             for enemy in enemies where enemy.isTargetable
                 && tower.position.distance(to: enemy.position) <= CGFloat(stats.range + enemy.kind.radius * 0.5) {
-                if stats.slow >= enemy.slowAmount || enemy.slowTimer < stats.slowDuration {
-                    enemy.slowAmount = max(enemy.slowAmount, stats.slow)
-                    enemy.slowTimer = max(enemy.slowTimer, stats.slowDuration)
-                }
                 apply(hit, to: enemy, from: tower, showNumber: false)
             }
-            events.append(.frostPulse(center: tower.position, radius: CGFloat(stats.range)))
+            events.append(.auraPulse(towerID: tower.id, center: tower.position, radius: CGFloat(stats.range)))
 
-        case .tesla:
+        case .chain:
             var chain: [Enemy] = [primary]
             var linked: Set<Int> = [primary.id]
             var current = primary
             while chain.count < stats.chainTargets {
                 var nearest: Enemy?
                 var nearestDistance = Self.chainJumpRange
-                for enemy in enemies where enemy.isTargetable && !linked.contains(enemy.id) && canSee(enemy, with: stats) {
+                for enemy in enemies where enemy.isTargetable && !linked.contains(enemy.id) && canSee(enemy, from: tower) {
                     let d = enemy.position.distance(to: current.position)
                     if d <= nearestDistance {
                         nearestDistance = d
@@ -620,9 +714,8 @@ final class GameEngine {
                 jump.damage *= Self.chainFalloff
             }
             events.append(.chainLightning(points: points))
-            events.append(.shotFired(towerID: tower.id, kind: .tesla))
 
-        case .rail:
+        case .beam:
             let direction = tower.aim
             let start = tower.position + direction * 0.4
             let end = tower.position + direction * CGFloat(stats.range)
@@ -631,27 +724,49 @@ final class GameEngine {
                     apply(hit, to: enemy, from: tower, showNumber: !tower.isFrenzied)
                 }
             }
-            events.append(.railBeam(from: start, to: end))
-            events.append(.shotFired(towerID: tower.id, kind: .rail))
+            events.append(.beam(towerID: tower.id, from: start, to: end))
+
+        case .cone:
+            let direction = tower.aim
+            let halfAngle = CGFloat(stats.coneAngle / 2)
+            let reach = CGFloat(stats.range)
+            for enemy in enemies where enemy.isTargetable && (!enemy.kind.isFlying || stats.hitsAir) {
+                let offset = enemy.position - tower.position
+                let distance = offset.length
+                guard distance <= reach + CGFloat(enemy.kind.radius) else { continue }
+                let cosine = distance > 0 ? (offset.x * direction.x + offset.y * direction.y) / distance : 1
+                if acos(max(-1, min(1, cosine))) <= halfAngle {
+                    apply(hit, to: enemy, from: tower, showNumber: false)
+                }
+            }
+            events.append(.coneBlast(towerID: tower.id, origin: tower.position, direction: direction, range: reach,
+                                     angle: CGFloat(stats.coneAngle)))
+
+        case .mind:
+            for target in targets.prefix(stats.multishot) {
+                apply(hit, to: target, from: tower, showNumber: false)
+                events.append(.mindBlast(from: tower.position, to: target.position))
+            }
         }
+        events.append(.shotFired(towerID: tower.id, kind: tower.kind))
 
         if stats.missiles > 0 {
-            let missileHit = HitPayload(damage: stats.missileDamage * tower.frenzyDamage, piercesArmor: true,
-                                        bossMultiplier: stats.bossMultiplier, detectsCamo: stats.detectsCamo)
+            let missileHit = HitPayload(damage: stats.missileDamage * tower.damageMultiplier, type: .explosive, piercesArmor: true,
+                                        bossMultiplier: stats.bossMultiplier, detectsCamo: tower.hasDetection)
             for i in 0..<stats.missiles {
-                launchMissile(from: tower, at: targets[i % targets.count], payload: missileHit, splash: Self.missileSplash, delayIndex: i)
+                launchMissile(from: tower, at: targets[i % targets.count], payload: missileHit, splash: Self.missileSplash, index: i)
             }
         }
     }
 
-    private func launchMissile(from tower: Tower, at target: Enemy, payload: HitPayload, splash: Double, delayIndex: Int) {
+    private func launchMissile(from tower: Tower, at target: Enemy, payload: HitPayload, splash: Double, index: Int) {
         // Fan the launch points out a little so volleys read as a swarm.
-        let angle = Double(delayIndex) * 2.4
+        let angle = Double(index) * 2.4
         let offset = CGPoint(x: cos(angle) * 0.25, y: sin(angle) * 0.25)
         projectiles.append(Projectile(
-            id: makeID(), kind: .missile, towerID: tower.id, origin: tower.position + offset,
+            id: makeID(), kind: .missile, towerID: tower.id, towerKind: tower.kind, origin: tower.position + offset,
             targetID: target.id, targetPoint: target.position, payload: payload,
-            speed: Self.missileSpeed - Double(delayIndex % 4) * 0.4, splashRadius: splash
+            speed: Self.missileSpeed - Double(index % 4) * 0.4, splashRadius: splash
         ))
     }
 
@@ -714,7 +829,7 @@ final class GameEngine {
         var next: Enemy?
         var best = Self.ricochetRange
         for enemy in enemies where enemy.isTargetable && !bolt.hitIDs.contains(enemy.id)
-            && (!enemy.kind.isCamo || bolt.payload.detectsCamo) {
+            && (!enemy.isHidden || bolt.payload.detectsCamo) {
             let d = enemy.position.distance(to: bolt.position)
             if d <= best {
                 best = d
@@ -755,7 +870,7 @@ final class GameEngine {
         }
     }
 
-    // MARK: Damage and rewards
+    // MARK: Damage and status effects
 
     private func stun(_ enemy: Enemy, for duration: Double) {
         let effective = duration * (1 - enemy.kind.stunResistance)
@@ -763,17 +878,56 @@ final class GameEngine {
         enemy.stunTimer = max(enemy.stunTimer, effective)
     }
 
+    private func roll(_ chance: Double) -> Bool {
+        chance >= 1 || (chance > 0 && Double.random(in: 0..<1, using: &rng) < chance)
+    }
+
+    /// Applies one hit: immunity, status effects, armor, weaknesses, shields, then health.
     private func apply(_ hit: HitPayload, to enemy: Enemy, from tower: Tower?, showNumber: Bool, flash: Bool = true) {
         guard enemy.isTargetable else { return }
-        if hit.stunChance > 0, Double.random(in: 0..<1, using: &rng) < hit.stunChance {
-            stun(enemy, for: hit.stunDuration)
+        if enemy.isStone || enemy.kind.immunities.contains(hit.type) {
+            if flash && time - lastImmuneEvent > 0.25 {
+                lastImmuneEvent = time
+                events.append(.immune(at: enemy.position))
+            }
+            return
         }
-        var dealt = hit.piercesArmor ? hit.damage : max(hit.damage - enemy.kind.armor, hit.damage * 0.25)
+
+        if roll(hit.stunChance) { stun(enemy, for: hit.stunDuration) }
+        if hit.slow > 0 && enemy.kind.slowResistance < 1 {
+            enemy.slowAmount = max(enemy.slowAmount, hit.slow)
+            enemy.slowTimer = max(enemy.slowTimer, hit.slowDuration)
+        }
+        if hit.burnDPS > 0 && !enemy.kind.immunities.contains(.fire) {
+            enemy.burnDPS = max(enemy.burnDPS, hit.burnDPS)
+            enemy.burnTimer = max(enemy.burnTimer, hit.burnDuration)
+        }
+        if hit.poisonDPS > 0 && !enemy.kind.immunities.contains(.toxic) {
+            enemy.poisonDPS = max(enemy.poisonDPS, hit.poisonDPS)
+            enemy.poisonTimer = max(enemy.poisonTimer, hit.poisonDuration)
+        }
+        if hit.knockback > 0 && !enemy.kind.isBoss {
+            enemy.distance = max(Self.spawnDistance, enemy.distance - CGFloat(hit.knockback))
+            place(enemy)
+        }
+        if !enemy.kind.isBoss, roll(hit.confuseChance) {
+            enemy.confuseTimer = max(enemy.confuseTimer, hit.confuseDuration * (1 - enemy.kind.stunResistance))
+        }
+        if hit.armorShred > 0 {
+            enemy.armorShred = max(enemy.armorShred, hit.armorShred)
+            enemy.armorShredTimer = max(enemy.armorShredTimer, 4)
+        }
+
+        let psychic = hit.type == .psychic
+        var dealt = hit.piercesArmor || psychic ? hit.damage : max(hit.damage - enemy.effectiveArmor, hit.damage * 0.25)
+        if enemy.kind.weaknesses.contains(hit.type) { dealt *= Self.weaknessMultiplier }
         if enemy.kind.isBoss { dealt *= hit.bossMultiplier }
-        if enemy.shield > 0 {
-            let absorbed = min(enemy.shield, dealt)
+        if enemy.kind.isFlying { dealt *= hit.airMultiplier }
+        if enemy.shield > 0 && !psychic {
+            let shieldDamage = dealt * hit.shieldBreak
+            let absorbed = min(enemy.shield, shieldDamage)
             enemy.shield -= absorbed
-            dealt -= absorbed
+            dealt -= absorbed / hit.shieldBreak
         }
         let applied = min(dealt, enemy.health)
         enemy.health -= dealt

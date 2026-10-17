@@ -8,8 +8,15 @@ import CoreGraphics
 import Foundation
 
 struct GreedyPlayer {
-    let buildOrder: [TowerKind] = [.pulse, .rail, .frost, .mortar, .pulse, .tesla, .rail, .mortar, .tesla, .pulse, .frost, .rail]
+    let buildOrder: [TowerKind]
     let maxTowers: Int
+
+    init(research: ResearchState, maxTowers: Int) {
+        let wishList: [TowerKind] = [.pulse, .rail, .frost, .mortar, .inferno, .tesla, .aegis, .cyclone, .rail, .echo,
+                                     .mind, .star, .weaver, .chrono, .mortar, .tesla, .pulse, .rail]
+        buildOrder = wishList.filter(research.isHeroUnlocked)
+        self.maxTowers = maxTowers
+    }
     var built = 0
 
     /// Favorite path per hero: the one this AI pushes to tier 4.
@@ -81,7 +88,7 @@ struct GreedyPlayer {
 
 func simulate(_ map: MapDefinition, research: ResearchState, label: String, maxTowers: Int, endless: Bool = false) {
     let engine = GameEngine(map: map, research: research)
-    var player = GreedyPlayer(maxTowers: maxTowers)
+    var player = GreedyPlayer(research: research, maxTowers: maxTowers)
     let dt = 1.0 / 60.0
     var clock = 0.0
     var log: [String] = []
@@ -118,6 +125,6 @@ func simulate(_ map: MapDefinition, research: ResearchState, label: String, maxT
 
 for map in MapDefinition.all {
     simulate(map, research: ResearchState(), label: "fresh", maxTowers: 10)
-    simulate(map, research: .complete, label: "researched", maxTowers: 10)
+    simulate(map, research: .complete, label: "researched", maxTowers: 14)
 }
 simulate(.circuit, research: .complete, label: "endless", maxTowers: 14, endless: true)

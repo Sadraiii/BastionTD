@@ -89,6 +89,7 @@ enum SoundEffect: CaseIterable {
     case pulse, frost, mortar, explosion, tesla, rail, pop, bossDown, leak, coin
     case build, upgrade, sell, waveStart, bossWarning, waveClear, victory, defeat, tap, error, heal, split
     case power, shield, emp, missile, research, medal
+    case flame, scream, psychic, gust, tick, timeStop, warp
 
     /// Minimum seconds between two plays, so dense fights don't turn into noise.
     var minimumInterval: Double {
@@ -97,7 +98,9 @@ enum SoundEffect: CaseIterable {
         case .pop, .explosion: 0.06
         case .tesla, .frost, .rail: 0.09
         case .heal, .split, .shield: 0.25
-        case .missile: 0.05
+        case .missile, .flame: 0.05
+        case .scream, .psychic, .gust, .tick: 0.12
+        case .warp: 0.2
         case .tap: 0.03
         default: 0.02
         }
@@ -110,7 +113,8 @@ enum SoundEffect: CaseIterable {
         case .frost, .heal: 0.28
         case .tesla, .mortar: 0.35
         case .explosion, .rail: 0.4
-        case .missile: 0.25
+        case .missile, .flame, .gust, .tick: 0.25
+        case .scream, .psychic, .warp: 0.3
         default: 0.5
         }
     }
@@ -221,6 +225,24 @@ enum SoundEffect: CaseIterable {
         case .research:
             return Synth.render(Synth.notes([392, 523, 659, 784, 1047], length: 0.06, wave: .triangle, decay: 0.5) +
                                 [V(wave: .sine, from: 1568, to: 1568, duration: 0.3, start: 0.3, gain: 0.6, decay: 1)])
+        case .flame:
+            return Synth.render([V(wave: .noise, from: 2500, to: 1200, duration: 0.12, decay: 1)], crush: 2)
+        case .scream:
+            return Synth.render([V(wave: .square, from: 1200, to: 900, duration: 0.18, decay: 1, vibrato: 2),
+                                 V(wave: .noise, from: 8000, to: 6000, duration: 0.15, gain: 0.3, decay: 1.5)])
+        case .psychic:
+            return Synth.render([V(wave: .sine, from: 300, to: 900, duration: 0.18, decay: 1, vibrato: 7),
+                                 V(wave: .triangle, from: 600, to: 1800, duration: 0.15, gain: 0.5, decay: 1.2)])
+        case .gust:
+            return Synth.render([V(wave: .noise, from: 5000, to: 2000, duration: 0.14, attack: 0.03, decay: 1)])
+        case .tick:
+            return Synth.render([V(wave: .square, from: 2000, to: 2000, duration: 0.02, decay: 1),
+                                 V(wave: .square, from: 1500, to: 1500, duration: 0.02, start: 0.12, decay: 1)])
+        case .timeStop:
+            return Synth.render([V(wave: .triangle, from: 1200, to: 80, duration: 0.8, decay: 0.8, vibrato: 1),
+                                 V(wave: .sine, from: 2400, to: 160, duration: 0.8, gain: 0.5, decay: 0.8)])
+        case .warp:
+            return Synth.render([V(wave: .square, from: 200, to: 1600, duration: 0.12, decay: 1, vibrato: 12)])
         case .medal:
             return Synth.render(Synth.notes([659, 784, 1047, 1319, 1568, 2093], length: 0.08, wave: .square, decay: 0.5))
         }

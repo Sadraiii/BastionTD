@@ -104,7 +104,7 @@ private struct OnboardingPage: View {
         case 2:
             "Tap a hero to upgrade one of two paths. Tier 3 unlocks a POWER you trigger yourself. Only one path can go past tier 2. Every match earns research points: unlock deeper tiers in the Research Lab."
         default:
-            "New villains arrive as you go. Cloaked Phantoms need a hero that can see them (Vanguard sees them from the start). Armor shrugs off weak shots, and the Overlord's EMP shuts heroes down."
+            "Some villains fly, some are cloaked, and some are immune to a damage type (Ironclads shrug off kinetic hits). Mix heroes with different damage types. The CODEX lists every villain's tricks."
         }
     }
 
@@ -157,7 +157,7 @@ private struct OnboardingPage: View {
         default:
             let columns = [GridItem(.adaptive(minimum: landscape ? 150 : 140), spacing: 8)]
             LazyVGrid(columns: columns, alignment: .leading, spacing: 6) {
-                ForEach(EnemyKind.codex, id: \.self) { kind in
+                ForEach([EnemyKind.drone, .wisp, .phantom, .ironclad, .voidling, .gargoyle, .titan, .overlord], id: \.self) { kind in
                     HStack(spacing: 6) {
                         PixelImage(image: Art.enemyIcon(kind), scale: 2)
                             .frame(width: 40, height: 40)

@@ -6,7 +6,7 @@ struct RootView: View {
     @State private var screen = Screen.home
     @State private var showOnboarding = false
 
-    private enum Screen { case home, research, medals }
+    private enum Screen { case home, research, medals, codex }
     @AppStorage(StorageKey.onboardingSeen) private var onboardingSeen = false
 
     var body: some View {
@@ -31,7 +31,8 @@ struct RootView: View {
                         onPlay: start,
                         onHowToPlay: { showOnboarding = true },
                         onResearch: { withAnimation(.easeOut(duration: 0.2)) { screen = .research } },
-                        onMedals: { withAnimation(.easeOut(duration: 0.2)) { screen = .medals } }
+                        onMedals: { withAnimation(.easeOut(duration: 0.2)) { screen = .medals } },
+                        onCodex: { withAnimation(.easeOut(duration: 0.2)) { screen = .codex } }
                     )
                     .transition(.opacity)
                 case .research:
@@ -39,6 +40,9 @@ struct RootView: View {
                         .transition(.move(edge: .trailing))
                 case .medals:
                     MedalsView { withAnimation(.easeOut(duration: 0.2)) { screen = .home } }
+                        .transition(.move(edge: .trailing))
+                case .codex:
+                    CodexView { withAnimation(.easeOut(duration: 0.2)) { screen = .home } }
                         .transition(.move(edge: .trailing))
                 }
             }
@@ -60,7 +64,14 @@ struct RootView: View {
             if !onboardingSeen { showOnboarding = true }
             #if DEBUG
             // Launch arguments for simulator checks: `-landscape` rotates without manual input,
-            // `-unlockAll` grants full research, `-richStart` (in GameSession) adds gold.
+            // `-unlockAll` grants full research, `-richStart` (in GameSession) adds gold,
+            // `-demo` jumps into a self-playing showcase match.
+            if ProcessInfo.processInfo.arguments.contains("-demo") {
+                PlayerProgress.research = .complete
+                onboardingSeen = true
+                showOnboarding = false
+                start(.circuit)
+            }
             if ProcessInfo.processInfo.arguments.contains("-unlockAll") {
                 PlayerProgress.research = .complete
                 PlayerProgress.researchPoints = max(PlayerProgress.researchPoints, 120)

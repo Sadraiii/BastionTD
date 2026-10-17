@@ -61,27 +61,115 @@ enum Art {
         }
     }
 
+    /// Each hero stands on its own platform, drawn in a slight 3/4 view: a top
+    /// surface plus a darker band below it that gives the platform some height.
     static func towerBaseCanvas(_ kind: TowerKind, tiers: [Int]) -> PixelCanvas {
         var c = PixelCanvas(width: 16, height: 16)
-        // Stone pedestal with a darker front face for a 3/4 view.
-        for y in 2...13 {
-            for x in 1...14 where !((y == 2 || y == 13) && (x == 1 || x == 14)) {
-                c.set(x, y, Pal.steel)
-            }
-        }
-        for x in 2...13 { c.set(x, 2, Pal.silver) }
-        for y in 3...11 { c.set(1, y, Pal.silver) }
-        for y in 3...12 { c.set(14, y, Pal.slate) }
-        for x in 1...14 { c.set(x, 13, Pal.slate) }
-        for x in 2...13 { c.set(x, 14, Pal.navy) }
-        c.fillCircle(cx: 8, cy: 8, r: 4.6, Pal.slate)
-        c.fillCircle(cx: 8, cy: 8, r: 3.6, Pal.navy)
         let accent = Pal.tower(kind)
-        for (x, y) in [(3, 4), (12, 4), (3, 11), (12, 11)] { c.set(x, y, accent) }
-        // Tier pips on the front face: path 1 from the left, path 2 from the right.
-        for i in 0..<tiers[0] { c.set(2 + i * 2, 14, Pal.amber) }
-        for i in 0..<tiers[1] { c.set(13 - i * 2, 14, Pal.cyan) }
-        c.outline()
+
+        func platform(_ top: [(x: Double, y: Double)], top topColor: PixelColor, side: PixelColor) {
+            c.fillPolygon(top.map { ($0.x, $0.y + 2) }, side)
+            c.fillPolygon(top, topColor)
+        }
+        func disc(top topColor: PixelColor, side: PixelColor, rim: PixelColor? = nil) {
+            c.fillEllipse(cx: 8, cy: 9.5, rx: 6.9, ry: 4.6, side)
+            c.fillEllipse(cx: 8, cy: 7.5, rx: 6.9, ry: 4.6, rim ?? topColor)
+            if rim != nil { c.fillEllipse(cx: 8, cy: 7.5, rx: 5.8, ry: 3.7, topColor) }
+        }
+        let hexagon: [(x: Double, y: Double)] = [(4.5, 3), (11.5, 3), (15, 7.5), (11.5, 12), (4.5, 12), (1, 7.5)]
+        let octagon: [(x: Double, y: Double)] = [(5, 3), (11, 3), (14.5, 5.5), (14.5, 9.5), (11, 12), (5, 12), (1.5, 9.5), (1.5, 5.5)]
+
+        switch kind {
+        case .pulse:
+            disc(top: Pal.steel, side: Pal.slate, rim: Pal.silver)
+            c.ring(cx: 8, cy: 7.5, r: 3.6, Pal.ocean)
+            for (x, y) in [(3, 6), (4, 7), (3, 8), (12, 6), (11, 7), (12, 8)] { c.set(x, y, Pal.yellow) }
+
+        case .frost:
+            c.fillEllipse(cx: 8, cy: 10.5, rx: 7, ry: 3.6, Pal.mist)
+            c.fillEllipse(cx: 8, cy: 10, rx: 6, ry: 2.8, Pal.white)
+            for (cx, h, w) in [(3.5, 6.0, 2.0), (12.5, 5.0, 2.0), (8.0, 8.0, 2.6), (5.5, 4.0, 1.5), (10.5, 4.5, 1.5)] {
+                c.fillPolygon([(cx, 12 - h - 3), (cx + w, 12 - 3), (cx, 13), (cx - w, 12 - 3)], Pal.cyan)
+                c.set(Int(cx), Int(12 - h - 2), Pal.white)
+            }
+
+        case .mortar:
+            for (x, y, r) in [(5.0, 10.0, 3.6), (11.0, 10.0, 3.8), (8.0, 7.5, 3.8), (3.8, 7.0, 2.4), (12.4, 7.0, 2.6)] {
+                c.fillCircle(cx: x, cy: y, r: r, Pal.bark)
+            }
+            for (x, y, r) in [(5.0, 9.0, 3.0), (11.0, 9.0, 3.2), (8.0, 6.5, 3.2), (3.8, 6.2, 1.8), (12.4, 6.2, 2.0)] {
+                c.fillCircle(cx: x, cy: y, r: r, Pal.clay)
+            }
+            for (x, y) in [(4, 5), (7, 4), (10, 7), (13, 5), (5, 8)] { c.set(x, y, Pal.tan) }
+
+        case .tesla:
+            platform(hexagon, top: Pal.navy, side: Pal.plum)
+            for (x, y) in [(3, 7), (4, 5), (12, 5), (13, 7), (4, 10), (12, 10)] { c.set(x, y, accent) }
+
+        case .rail:
+            platform(hexagon, top: Pal.slate, side: Pal.navy)
+            c.fillPolygon([(5, 4.5), (11, 4.5), (13.5, 7.5), (11, 10.5), (5, 10.5), (2.5, 7.5)], Pal.navy)
+            for x in [3, 13] { c.set(x, 7, Pal.hotRed); c.set(x, 8, Pal.hotRed) }
+
+        case .inferno:
+            c.line(4, 11, 3, 15, Pal.ink)
+            c.line(12, 11, 13, 15, Pal.ink)
+            c.line(8, 12, 8, 15, Pal.ink)
+            c.fillEllipse(cx: 8, cy: 9, rx: 6.5, ry: 4, Pal.bark)
+            c.fillEllipse(cx: 8, cy: 7.5, rx: 6.5, ry: 3.6, Pal.ink)
+            for (x, y) in [(4, 7), (6, 6), (9, 8), (11, 6), (12, 8), (7, 9), (5, 8)] {
+                c.set(x, y, PixelNoise.value(x, y) % 2 == 0 ? Pal.orange : Pal.red)
+            }
+
+        case .weaver:
+            c.ring(cx: 8, cy: 8, r: 6.8, Pal.mist.alpha(200)) { x, y in (x + y) % 2 == 0 }
+            c.ring(cx: 8, cy: 8, r: 4.2, Pal.mist.alpha(200))
+            for i in 0..<8 {
+                let angle = Double(i) * .pi / 4
+                c.line(8, 8, Int(8 + cos(angle) * 7), Int(8 + sin(angle) * 6), Pal.mist.alpha(170))
+            }
+
+        case .aegis:
+            platform(octagon, top: Pal.steel, side: Pal.slate)
+            c.fillPolygon([(6, 4.5), (10, 4.5), (12.5, 6), (12.5, 9), (10, 10.5), (6, 10.5), (3.5, 9), (3.5, 6)], Pal.silver)
+            for (x, y) in [(2, 7), (14, 7), (8, 3), (8, 12)] { c.set(x, y, Pal.amber) }
+
+        case .cyclone:
+            for (x, y, r) in [(4.5, 10.0, 3.0), (11.5, 10.0, 3.2), (8.0, 10.5, 3.6)] { c.fillCircle(cx: x, cy: y, r: r, Pal.silver) }
+            for (x, y, r) in [(4.5, 8.5, 3.0), (11.5, 8.5, 3.2), (8.0, 7.0, 4.0), (6.0, 6.0, 2.6), (10.5, 6.0, 2.6)] {
+                c.fillCircle(cx: x, cy: y, r: r, Pal.white)
+            }
+
+        case .echo:
+            disc(top: Pal.navy, side: Pal.ink, rim: Pal.forest)
+            c.ring(cx: 8, cy: 7.5, r: 3.6, Pal.green) { x, y in (x + y) % 2 == 0 }
+            c.ring(cx: 8, cy: 7.5, r: 2.2, Pal.green) { x, y in (x + y) % 2 == 1 }
+
+        case .mind:
+            disc(top: Pal.purple, side: Pal.plum, rim: Pal.magenta)
+            c.ring(cx: 8, cy: 7.5, r: 4.4, Pal.pink) { x, y in (x * 3 + y) % 4 != 0 }
+
+        case .chrono:
+            disc(top: Pal.sand, side: Pal.bark, rim: Pal.tan)
+            for (x, y) in [(8, 4), (12, 7), (8, 11), (3, 7), (11, 5), (11, 10), (4, 10), (4, 5)] { c.set(x, y, Pal.bark) }
+
+        case .star:
+            var points: [(x: Double, y: Double)] = []
+            for i in 0..<12 {
+                let angle = Double(i) * .pi / 6 - .pi / 2
+                let r = i % 2 == 0 ? 7.4 : 4.6
+                points.append((8 + cos(angle) * r, 7.5 + sin(angle) * r * 0.72))
+            }
+            platform(points, top: Pal.navy, side: Pal.ink)
+            c.fillEllipse(cx: 8, cy: 7.5, rx: 3.6, ry: 2.6, Pal.ocean)
+            for (x, y) in [(8, 2), (14, 5), (14, 10), (8, 12), (1, 10), (1, 5)] { c.set(x, y, Pal.yellow) }
+        }
+
+        // Tier pips along the front: path 1 from the left, path 2 from the right.
+        for i in 0..<tiers[0] { c.set(3 + i * 2, 14, Pal.amber) }
+        for i in 0..<tiers[1] { c.set(12 - i * 2, 14, Pal.cyan) }
+        // The web is drawn straight onto the grass; an outline would make it look solid.
+        if kind != .weaver { c.outline() }
         return c
     }
 
@@ -186,6 +274,106 @@ enum Art {
             if level == 3 {
                 for (x, y) in [(3, 11), (4, 10), (12, 11), (11, 10)] { c.set(x, y, Pal.steel) }
             }
+
+        case .inferno:
+            c.fillCircle(cx: 8, cy: 9.5, r: 4.2, Pal.crimson)
+            c.fillCircle(cx: 8, cy: 9.5, r: 3.2, Pal.red)
+            c.set(6, 8, Pal.pink)
+            if level >= 2 {
+                c.fillCircle(cx: 3.5, cy: 11, r: 1.8, Pal.rust)
+                c.fillCircle(cx: 12.5, cy: 11, r: 1.8, Pal.rust)
+            }
+            for y in 3...7 { c.set(7, y, Pal.silver); c.set(8, y, Pal.steel) }
+            for x in 6...9 { c.set(x, 2, Pal.copper) }
+            c.set(7, 1, level == 3 ? Pal.white : Pal.yellow); c.set(8, 1, Pal.yellow)
+            if level == 3 {
+                for (x, y) in [(5, 1), (10, 1), (6, 0), (9, 0)] { c.set(x, y, Pal.amber) }
+            }
+
+        case .weaver:
+            let legs: [(Int, Int, Int, Int)] = [(5, 7, 2, 4), (5, 9, 1, 8), (5, 11, 1, 12), (6, 12, 3, 14)]
+            for (x0, y0, x1, y1) in legs {
+                c.line(x0, y0, x1, y1, Pal.ink)
+                c.line(15 - x0, y0, 15 - x1, y1, Pal.ink)
+            }
+            c.fillEllipse(cx: 8, cy: 10, rx: 3.2, ry: 3.6, Pal.purple)
+            c.fillCircle(cx: 8, cy: 5.5, r: 2.2, Pal.plum)
+            c.set(7, 9, Pal.red); c.set(8, 9, Pal.red); c.set(7, 11, Pal.red); c.set(8, 11, Pal.red)
+            c.set(7, 10, Pal.hotRed); c.set(8, 10, Pal.hotRed)
+            c.set(7, 5, Pal.white); c.set(8, 5, Pal.white)
+            if level >= 2 { for y in 0...3 { c.set(8, y, Pal.mist) } }
+            if level == 3 { c.set(6, 8, Pal.amber); c.set(9, 8, Pal.amber); c.set(6, 12, Pal.amber); c.set(9, 12, Pal.amber) }
+
+        case .aegis:
+            c.fillCircle(cx: 8, cy: 8, r: 6.2, Pal.amber)
+            c.fillCircle(cx: 8, cy: 8, r: 5, level >= 2 ? Pal.yellow : Pal.copper)
+            c.fillCircle(cx: 8, cy: 8, r: 4, Pal.ocean)
+            c.fillCircle(cx: 8, cy: 8, r: 2.6, Pal.blue)
+            for (x, y) in [(5, 6), (6, 7), (7, 8), (8, 8), (9, 7), (10, 6)] { c.set(x, y, Pal.white) }
+            c.set(7, 10, Pal.white); c.set(8, 10, Pal.white)
+            if level == 3 {
+                for (x, y) in [(0, 7), (0, 8), (1, 6), (15, 7), (15, 8), (14, 6)] { c.set(x, y, Pal.white) }
+            }
+
+        case .cyclone:
+            let arms = level == 3 ? 4 : 3
+            for arm in 0..<arms {
+                let base = Double(arm) * 2 * .pi / Double(arms)
+                for step in 0..<14 {
+                    let t = Double(step) / 13
+                    let angle = base + t * 2.6
+                    let r = 1.5 + t * 5.5
+                    c.set(Int(8 + cos(angle) * r), Int(8 + sin(angle) * r), step > 9 ? Pal.white : Pal.mist)
+                }
+            }
+            c.fillCircle(cx: 8, cy: 8, r: 2.2, level >= 2 ? Pal.cyan : Pal.silver)
+            c.set(7, 7, Pal.white)
+
+        case .echo:
+            c.fillCircle(cx: 8, cy: 10.5, r: 3.6, Pal.forest)
+            c.fillCircle(cx: 8, cy: 10.5, r: 2.6, Pal.green)
+            for y in 2...7 {
+                let half = 1 + (7 - y) / 2
+                for x in (8 - half - 1)...(7 + half + 1) { c.set(x, y, Pal.lime) }
+                c.set(7, y, Pal.forest); c.set(8, y, Pal.forest)
+            }
+            if level >= 2 { c.ring(cx: 8, cy: 4, r: 4.8, Pal.white) { x, y in y < 2 } }
+            if level == 3 { c.ring(cx: 8, cy: 4, r: 6.5, Pal.yellow) { x, y in y < 1 } }
+
+        case .mind:
+            if level >= 2 { c.ring(cx: 8, cy: 8, r: 6.8, Pal.pink) { x, y in (x + y) % 2 == 0 } }
+            c.fillCircle(cx: 8, cy: 8, r: 5.2, Pal.magenta)
+            c.fillCircle(cx: 8, cy: 8, r: 4.2, Pal.pink)
+            for (x, y) in [(5, 6), (6, 5), (10, 5), (11, 7), (5, 10), (10, 11)] { c.set(x, y, Pal.magenta) }
+            c.fillRect(6, 7, 4, 2, Pal.white)
+            c.set(7, 7, Pal.ink); c.set(8, 8, Pal.ink)
+            if level == 3 {
+                for (x, y) in [(1, 2), (14, 2), (1, 13), (14, 13)] { c.set(x, y, Pal.cyan) }
+            }
+
+        case .chrono:
+            if level >= 2 {
+                for (x, y) in [(1, 7), (1, 8), (14, 7), (14, 8), (7, 14), (8, 14)] { c.set(x, y, Pal.steel) }
+            }
+            c.fillCircle(cx: 8, cy: 8, r: 6.2, level == 3 ? Pal.yellow : Pal.amber)
+            c.fillCircle(cx: 8, cy: 8, r: 5, Pal.sand)
+            for (x, y) in [(7, 3), (8, 3), (12, 7), (12, 8), (7, 12), (8, 12), (3, 7), (3, 8)] { c.set(x, y, Pal.bark) }
+            for y in 4...8 { c.set(8, y, Pal.ink) }
+            for x in 8...10 { c.set(x, 8, Pal.ink) }
+            c.set(8, 8, Pal.red)
+
+        case .star:
+            let top = level == 3 ? 0 : 1
+            for y in top...7 { c.set(7, y, Pal.sand); c.set(8, y, Pal.white) }
+            if level >= 2 { for y in (top + 2)...7 { c.set(6, y, Pal.amber); c.set(9, y, Pal.amber) } }
+            for y in 0..<16 {
+                for x in 0..<16 {
+                    let dx = abs(Double(x) + 0.5 - 8), dy = abs(Double(y) + 0.5 - 10)
+                    if dx * dy < 2.2 && dx + dy < 5 { c.set(x, y, Pal.yellow) }
+                    if dx + dy < 2.2 { c.set(x, y, Pal.white) }
+                }
+            }
+            if level == 3 { c.ring(cx: 8, cy: 10, r: 4.5, Pal.amber) { x, y in (x + y) % 3 == 0 } }
         }
         // Rail barrels reach the top edge at level 3, so keep the outline inside the canvas.
         c.outline()
@@ -300,6 +488,25 @@ enum Art {
 
     static var bolt: SKTexture {
         texture("bolt") { PixelCanvas(map: [".C.", "CWC", ".C."]) }
+    }
+
+    /// Projectile sprite for a bolt-style hero.
+    static func bolt(for kind: TowerKind) -> SKTexture {
+        switch kind {
+        case .weaver:
+            texture("bolt.weaver") { PixelCanvas(map: [".w.", "wWw", ".w."]) }
+        case .aegis:
+            texture("bolt.aegis") {
+                var c = PixelCanvas(map: [".YYY.", "YBBBY", "YBWBY", "YBBBY", ".YYY."])
+                c = c.padded(1)
+                c.outline()
+                return c
+            }
+        case .cyclone:
+            texture("bolt.cyclone") { PixelCanvas(map: ["w...w", ".wWw.", "..W.."]) }
+        default:
+            bolt
+        }
     }
 
     static var shell: SKTexture {
@@ -537,15 +744,15 @@ enum Art {
         return (makeTexture(c), CGPoint(x: minX, y: minY))
     }
 
-    /// One-off rail beam texture between two world art-pixel points.
-    static func beam(from start: CGPoint, to end: CGPoint) -> (SKTexture, CGPoint) {
+    /// One-off beam texture between two world art-pixel points.
+    static func beam(from start: CGPoint, to end: CGPoint, glow: PixelColor = Pal.pink, edge: PixelColor = Pal.hotRed) -> (SKTexture, CGPoint) {
         let margin = 3
         let minX = Int(min(start.x, end.x)) - margin, maxX = Int(max(start.x, end.x)) + margin
         let minY = Int(min(start.y, end.y)) - margin, maxY = Int(max(start.y, end.y)) + margin
         var c = PixelCanvas(width: maxX - minX + 1, height: maxY - minY + 1)
         c.line(Int(start.x) - minX, maxY - Int(start.y), Int(end.x) - minX, maxY - Int(end.y), Pal.white)
-        c.outline(Pal.pink)
-        c.outline(Pal.hotRed.alpha(200))
+        c.outline(glow)
+        c.outline(edge.alpha(200))
         return (makeTexture(c), CGPoint(x: minX, y: minY))
     }
 

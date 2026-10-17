@@ -4,11 +4,11 @@ A pixel-art hero tower defense game for iPhone, written in Swift with SwiftUI (m
 and SpriteKit (the battlefield). Every sprite, the bitmap font and all chiptune sound effects are
 generated in code, so the project has no external art or audio assets apart from the app icon.
 
-| Title | Placing a hero | Wave in progress | Hero panel |
+| Title | All 13 heroes in action | Placing a hero | Hero panel |
 |---|---|---|---|
-| ![Title](docs/screenshots/01-title.png) | ![Placing](docs/screenshots/02-placing.png) | ![Wave](docs/screenshots/03-wave.png) | ![Hero panel](docs/screenshots/04-hero-panel.png) |
+| ![Title](docs/screenshots/01-title.png) | ![Heroes](docs/screenshots/07-heroes.png) | ![Placing](docs/screenshots/02-placing.png) | ![Hero panel](docs/screenshots/04-hero-panel.png) |
 
-(The screenshots predate the hero rename; the towers now carry hero names and two upgrade paths.)
+(Some screenshots predate the hero rework and show the earlier square tower bases.)
 
 ## How to play
 
@@ -24,8 +24,12 @@ keep going in Endless mode if you like.
 - **Powers**: trigger them from the hero panel or the quick-cast buttons next to *Start Wave*. Each has
   a cooldown.
 - **Research Lab**: every match (win or lose) earns **Research Points**. Spend them between matches
-  to unlock tiers 2 to 4 for each path. Tier 1 is always available.
-- **Medals**: twelve achievements that pay out Research Points.
+  to **recruit new heroes** (5 start unlocked, 8 more to recruit) and to unlock tiers 2 to 4 for each
+  path. Tier 1 is always available.
+- **Damage types**: every hero deals one of eight damage types (kinetic, explosive, cold, energy, fire,
+  toxic, psychic, sonic). Some villains are immune to a type, fly, or are cloaked, so a winning defense
+  mixes heroes. The **Codex** lists every villain's traits and every hero's damage type and powers.
+- **Medals**: fourteen achievements that pay out Research Points.
 - **Maps**: Circuit (Easy) → Switchback (Normal) → Overload (Hard). Each unlocks when you beat the
   previous one. Stars depend on lives left; Endless records are saved per map.
 - **Controls**: 1×/2×/3× speed, pause menu (sound and haptics toggles, restart, how to play), and
@@ -33,19 +37,46 @@ keep going in Endless mode if you like.
 
 ### Heroes
 
-| Hero | Archetype | Attack | Path 1 → power | Path 2 → power |
+| Hero | Archetype | Damage | Attack | Powers (path 1 / path 2) |
 |---|---|---|---|---|
-| Blitz | Speedster | Rapid homing bolts | Velocity → **Hyperdrive** (attack-speed frenzy) | Impact → **Sonic Boom** (knockback blast) |
-| Glacia | Ice hero | Slowing aura pulse | Permafrost → **Flash Freeze** | Hailstorm → **Blizzard** (damage/slow field) |
-| Quake | Strongman | Lobbed boulders, splash, ground only | Seismic → **Earthshatter** (stun slam) | Fury → **Rampage** |
-| Stormbringer | Thunder hero | Chain lightning | Tempest → **Thunderstrike** (8–16 sky bolts) | Skyhammer → **Skyhammer** (one colossal bolt) |
-| Vanguard | Armored genius | Piercing beam, ignores armor, sees cloaked foes | Repulsor → **Overload Beam** | Arsenal → **Missile Swarm** |
+| Blitz | Speedster | Kinetic | Rapid homing bolts | Hyperdrive / Sonic Boom |
+| Glacia | Ice hero | Cold | Slowing aura | Flash Freeze / Blizzard |
+| Quake | Strongman | Explosive | Lobbed boulders, ground only | Earthshatter / Rampage |
+| Stormbringer | Thunder hero | Energy | Chain lightning | Thunderstrike / Skyhammer |
+| Vanguard | Armored genius | Energy | Piercing beam, sees cloaked | Overload Beam / Missile Swarm |
+| Inferno | Fire hero | Fire | Flamethrower cone, burns | Firestorm / Phoenix Dive |
+| Weaver | Spider hero | Kinetic → toxic | Sticky webs, sees cloaked | Web Prison / Venom Burst |
+| Aegis | Shield captain | Kinetic | Ricocheting shield, support aura | Shield Storm / Rally Cry |
+| Cyclone | Wind hero | Kinetic | Wind blades, knockback, anti-air | Tornado / Jet Stream |
+| Echo | Sonic hero | Sonic | Scream cone, cracks shields/armor | Sonic Shatter / Deafening Wail |
+| Mindwave | Psychic | Psychic | Ignores armor and shields | Mass Hysteria / Mind Crush |
+| Chrono | Time keeper | Energy | Time-slow aura | Time Stop / Rewind |
+| Starlight | Cosmic hero | Energy | Long-range beam, anti-boss | Solar Flare / Black Hole |
+
+Each power has an empowered tier-4 version (Hellfire, Cocoon, Legend, Eternity, Supernova, ...).
 
 ### Villains
 
-Drone, Skitter (fast), Bulwark (armored), Mender (heals), Wisp (flies), Splitter (splits into Shards),
-Berserker (faster when hurt), Phantom (cloaked: needs detection), Hexer (shields allies),
-**Titan** (boss, wave 10) and the **Overlord** (final boss: EMP that shuts heroes down).
+| Villain | Trait |
+|---|---|
+| Drone, Skitter, Bulwark | Basic, fast, armored |
+| Mender, Hexer | Heal allies / shield allies |
+| Wisp | Flying |
+| Splitter (→ Shards) | Splits on death |
+| Berserker | Faster when hurt |
+| Phantom | Cloaked: needs detection |
+| Mirage | Flying **and** cloaked |
+| Gargoyle | Flying, turns to stone (immune) |
+| Warper | Teleports forward |
+| Ironclad | Immune to kinetic |
+| Pyrefiend | Immune to fire, weak to cold |
+| Frostborn | Immune to cold, slows and freezes; weak to fire |
+| Voidling | Immune to energy |
+| Blastguard | Immune to explosive |
+| Husk | Immune to psychic and toxic |
+| **Titan** (boss) | Armored, launches Drones |
+| **Dreadnought** (boss) | Flying airship, can't be slowed, drops Ironclads |
+| **Overlord** (final boss) | EMP that shuts heroes down |
 
 ## Requirements
 
@@ -78,6 +109,7 @@ Debug builds accept these arguments (set them in the scheme's *Run → Arguments
 | `-landscape` | Rotates the app to landscape at launch |
 | `-unlockAll` | Unlocks all research and tops up Research Points |
 | `-richStart` | Adds 5,000 starting gold to each match |
+| `-demo` | Jumps into a self-playing showcase with every hero placed and upgraded |
 
 ## Project structure
 
@@ -117,12 +149,14 @@ docs/screenshots/   README images
 
 ### Adding content
 
-- **A villain**: add a case to `EnemyKind` (stats, traits such as `isCamo`, `abilities` made from
-  `VillainAbility` building blocks), draw two frames in `SpriteMaps.enemyFrames`, give it a color in
-  `Pal.enemy`, and use it in `WaveLibrary`.
+- **A villain**: add a case to `EnemyKind` (stats, traits such as `isFlying`/`isCamo`, `immunities`,
+  `weaknesses`, `abilities` made from `VillainAbility` building blocks), draw two frames in
+  `SpriteMaps.enemyFrames`, give it a color in `Pal.enemy`, and use it in `WaveLibrary`.
+- **A hero**: add a case to `TowerKind` (stats, `attackStyle`, cost, `unlockCost`), give it two paths in
+  `HeroCatalog`, a platform in `Art.towerBaseCanvas` and a turret in `Art.turretCanvas`.
 - **A hero upgrade or power**: edit the paths in `HeroCatalog`. Each tier applies a closure to
   `TowerStats` and may attach a `PowerDefinition` built from the `PowerEffect` building blocks (burst,
-  frenzy, strikes, field, missiles).
+  frenzy, strikes, field, missiles, time stop, rally, strip, confuse).
 - **A map**: add a `MapDefinition` with axis-aligned waypoints and obstacles to `MapDefinition.all`.
 
 ## Balancing

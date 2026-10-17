@@ -118,6 +118,8 @@ final class GameSession {
     @ObservationIgnored private var awardedPoints = 0
     @ObservationIgnored private var victoryStars = 0
     @ObservationIgnored private var highestTier = 0
+    @ObservationIgnored private var isDemo = false
+    @ObservationIgnored private var demoClock: Double = 0
 
     private static let fixedStep = 1.0 / 60.0
 
@@ -131,6 +133,7 @@ final class GameSession {
         scene.session = self
         #if DEBUG
         if ProcessInfo.processInfo.arguments.contains("-richStart") { engine.debugGrantGold(5000) }
+        if ProcessInfo.processInfo.arguments.contains("-demo") { setUpDemo() }
         #endif
         sync()
     }
@@ -157,6 +160,9 @@ final class GameSession {
             }
             if steps == 12 { accumulator = 0 }
         }
+        #if DEBUG
+        if isDemo { runDemo(realDelta) }
+        #endif
         let events = engine.drainEvents()
         if !events.isEmpty { handle(events) }
         sync()
@@ -172,7 +178,8 @@ final class GameSession {
                     let boss = engine.waveDefinition(number: number).groups.map(\.kind).first(where: \.isBoss) ?? .titan
                     subtitle = "BOSS: \(boss.name) - \(boss.ability)"
                 } else if let kind = newKinds.first {
-                    subtitle = "NEW VILLAIN: \(kind.name) - \(kind.ability)"
+                    let tags = kind.traitTags.isEmpty ? "" : " [\(kind.traitTags.joined(separator: ", "))]"
+                    subtitle = "NEW VILLAIN: \(kind.name)\(tags) - \(kind.ability)"
                 } else {
                     subtitle = nil
                 }
@@ -309,8 +316,15 @@ final class GameSession {
 
     var canStartWave: Bool { outcome == nil && engine.canStartWave }
 
+    func isHeroUnlocked(_ kind: TowerKind) -> Bool { engine.research.isHeroUnlocked(kind) }
+
     func chooseBuild(_ kind: TowerKind) {
         guard outcome == nil else { return }
+        guard isHeroUnlocked(kind) else {
+            showToast("RECRUIT \(kind.name.uppercased()) IN THE LAB")
+            SoundEngine.shared.play(.error)
+            return
+        }
         if buildKind == kind {
             cancelBuild()
             return
@@ -473,4 +487,37 @@ final class GameSession {
         coachEnabled = false
         PlayerProgress.coachCompleted = true
     }
+
+    // MARK: Debug demo
+
+    #if DEBUG
+    /// `-demo` (Debug only): places one of every hero, upgrades them, keeps calling
+    /// waves and fires powers when ready, so simulator screenshots show everything.
+    private func setUpDemo() {
+        isDemo = true
+        engine.debugGrantGold(60_000)
+        let samples = engine.path.samples(spacing: 0.25)
+        let cells = (0..<map.rows).flatMap { row in (0..<map.columns).map { GridPoint($0, row) } }
+            .filter(map.isBuildable)
+            .sorted { a, b in
+                samples.filter { $0.distance(to: a.center) <= 2 }.count > samples.filter { $0.distance(to: b.center) <= 2 }.count
+            }
+        for (index, kind) in TowerKind.allCases.enumerated() where index < cells.count {
+            guard let tower = engine.build(kind, at: cells[index]) else { continue }
+            let main = index % 2
+            for _ in 0..<3 { engine.upgrade(towerID: tower.id, path: main) }
+            engine.upgrade(towerID: tower.id, path: 1 - main)
+        }
+    }
+
+    private func runDemo(_ dt: Double) {
+        demoClock += dt
+        guard demoClock > 1 else { return }
+        demoClock = 0
+        if engine.canStartWave { engine.startNextWave() }
+        for tower in engine.towers where tower.isPowerReady && engine.powerHasTargets(towerID: tower.id) {
+            engine.activatePower(towerID: tower.id)
+        }
+    }
+    #endif
 }

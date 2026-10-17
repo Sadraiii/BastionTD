@@ -37,7 +37,7 @@ struct TowerInfoPanel: View {
 
     private var statsLine: String {
         let s = tower.stats
-        var parts = ["DMG \(format(s.damage))", "RNG \(format(s.range))", "\(format(s.shotsPerSecond))/S"]
+        var parts = [s.damageType.title.uppercased(), "DMG \(format(s.damage))", "RNG \(format(s.range))", "\(format(s.shotsPerSecond))/S"]
         if s.detectsCamo { parts.append("SEES CLOAKED") }
         if !s.hitsAir { parts.append("GROUND ONLY") }
         return parts.joined(separator: " · ")
@@ -52,7 +52,7 @@ struct TowerInfoPanel: View {
                     .foregroundStyle(Theme.tower(tower.kind))
                     .lineLimit(1)
                     .minimumScaleFactor(0.7)
-                Text(tower.isDisabled ? "EMP: OFFLINE!" : "\(tower.kind.archetype.uppercased()) · \(tower.kills) KO")
+                Text(tower.isDisabled ? "EMP: OFFLINE!" : "\(tower.stats.damageType.title.uppercased()) · \(tower.kind.archetype.uppercased()) · \(tower.kills) KO")
                     .font(Theme.body(9, weight: .regular))
                     .foregroundStyle(tower.isDisabled ? Theme.danger : Theme.secondaryText)
                     .lineLimit(1)

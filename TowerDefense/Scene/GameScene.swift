@@ -397,35 +397,57 @@ final class GameScene: SKScene {
 
         case let .shotFired(towerID, kind):
             if let node = towerNodes[towerID] {
-                switch kind {
-                case .pulse, .mortar:
-                    playFrames([Art.muzzleFlash], at: node.position + node.muzzleOffset, timePerFrame: 0.05)
-                case .tesla:
+                switch kind.attackStyle {
+                case .bolt, .lob:
+                    if kind.rotates { playFrames([Art.muzzleFlash], at: node.position + node.muzzleOffset, timePerFrame: 0.05) }
+                    else { node.flash() }
+                case .chain, .mind, .aura:
                     node.flash()
                 default:
                     break
                 }
             }
             switch kind {
-            case .pulse: SoundEngine.shared.play(.pulse)
+            case .pulse, .aegis, .weaver: SoundEngine.shared.play(.pulse)
+            case .cyclone: SoundEngine.shared.play(.gust)
             case .mortar: SoundEngine.shared.play(.mortar)
             case .tesla: SoundEngine.shared.play(.tesla)
-            case .rail: SoundEngine.shared.play(.rail)
-            case .frost: break
+            case .rail, .star: SoundEngine.shared.play(.rail)
+            case .inferno: SoundEngine.shared.play(.flame)
+            case .echo: SoundEngine.shared.play(.scream)
+            case .mind: SoundEngine.shared.play(.psychic)
+            case .frost: SoundEngine.shared.play(.frost)
+            case .chrono: SoundEngine.shared.play(.tick)
             }
 
-        case let .frostPulse(center, radius):
-            let cell = GridPoint(Int(center.x), Int(center.y))
-            if let tower = session?.engine.tower(at: cell) { towerNodes[tower.id]?.flash() }
-            playFrames(Art.frostFrames(radius: Int(radius * 16)), at: toWorld(center), timePerFrame: 0.06, z: -2)
-            SoundEngine.shared.play(.frost)
+        case let .auraPulse(towerID, center, radius):
+            let kind = session?.engine.tower(id: towerID)?.kind ?? .frost
+            let frames = kind == .frost
+                ? Art.frostFrames(radius: Int(radius * 16))
+                : Art.ringFrames(radius: Int(radius * 16), color: Pal.amber, accent: Pal.yellow)
+            playFrames(frames, at: toWorld(center), timePerFrame: 0.06, z: -2)
+
+        case let .coneBlast(towerID, origin, direction, range, angle):
+            let kind = session?.engine.tower(id: towerID)?.kind ?? .inferno
+            cone(at: toWorld(origin), angle: layout.worldAngle(of: direction), spread: angle, length: range * 16,
+                 colors: kind == .inferno ? [Pal.yellow, Pal.orange, Pal.red] : [Pal.white, Pal.lime, Pal.green])
+
+        case let .mindBlast(from, to):
+            let (texture, origin) = Art.beam(from: toWorld(from), to: toWorld(to), glow: Pal.pink, edge: Pal.magenta)
+            flicker(texture, origin: origin)
+
+        case let .immune(at):
+            floatText("IMMUNE", color: Pal.silver, at: toWorld(at) + CGPoint(x: 0, y: 10))
 
         case let .chainLightning(points):
             let (texture, origin) = Art.lightning(through: points.map(toWorld))
             flicker(texture, origin: origin)
 
-        case let .railBeam(from, to):
-            let (texture, origin) = Art.beam(from: toWorld(from), to: toWorld(to))
+        case let .beam(towerID, from, to):
+            let isStar = session?.engine.tower(id: towerID)?.kind == .star
+            let (texture, origin) = isStar
+                ? Art.beam(from: toWorld(from), to: toWorld(to), glow: Pal.yellow, edge: Pal.amber)
+                : Art.beam(from: toWorld(from), to: toWorld(to))
             let sprite = SKSpriteNode(texture: texture)
             sprite.anchorPoint = .zero
             sprite.position = origin
@@ -473,8 +495,32 @@ final class GameScene: SKScene {
                 playFrames(Art.sparkleFrames, at: node.position, timePerFrame: 0.08)
             }
 
-        case let .fieldStarted(center, radius, duration):
-            blizzard(at: toWorld(center), radius: radius * 16, duration: duration)
+        case let .fieldStarted(center, radius, duration, type):
+            field(at: toWorld(center), radius: radius * 16, duration: duration, type: type)
+
+        case let .timeStop(duration):
+            timeStopOverlay(duration: duration)
+            SoundEngine.shared.play(.timeStop)
+
+        case let .rally(towerID, radius):
+            if let node = towerNodes[towerID] {
+                playFrames(Art.ringFrames(radius: Int(radius * 16), color: Pal.amber, accent: Pal.yellow), at: node.position, timePerFrame: 0.06, z: -2)
+            }
+
+        case let .strip(center, radius):
+            playFrames(Art.ringFrames(radius: Int(radius * 16), color: Pal.lime, accent: Pal.white), at: toWorld(center), timePerFrame: 0.05, z: -2)
+            shake(intensity: 2)
+
+        case let .confuseWave(center, radius):
+            playFrames(Art.ringFrames(radius: Int(radius * 16), color: Pal.magenta, accent: Pal.pink), at: toWorld(center), timePerFrame: 0.07, z: -2)
+
+        case let .enemyTeleported(from, to):
+            playFrames(Art.poofFrames(color: Pal.cyan), at: toWorld(from), timePerFrame: 0.05)
+            playFrames(Art.poofFrames(color: Pal.cyan), at: toWorld(to), timePerFrame: 0.05)
+            SoundEngine.shared.play(.warp)
+
+        case let .enemyPetrified(at):
+            playFrames(Art.dustFrames, at: toWorld(at), timePerFrame: 0.07)
 
         case let .enemyShielded(center, radius):
             playFrames(Art.ringFrames(radius: Int(radius * 16), color: Pal.magenta, accent: Pal.pink), at: toWorld(center), timePerFrame: 0.05, z: -2)

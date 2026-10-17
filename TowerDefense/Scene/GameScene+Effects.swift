@@ -66,23 +66,37 @@ extension GameScene {
         ]))
     }
 
-    /// Falling snow over a power field (Blizzard) for its duration.
-    func blizzard(at point: CGPoint, radius: CGFloat, duration: Double) {
-        playFrames(Art.ringFrames(radius: Int(radius), color: Pal.cyan, accent: Pal.white), at: point, timePerFrame: 0.06, z: -2)
+    /// Particle zone for a lingering power (snow, embers, toxic bubbles or a gravity swirl).
+    func field(at point: CGPoint, radius: CGFloat, duration: Double, type: DamageType) {
+        let (main, accent): (PixelColor, PixelColor) = switch type {
+        case .cold: (Pal.white, Pal.cyan)
+        case .fire: (Pal.amber, Pal.red)
+        case .toxic: (Pal.lime, Pal.green)
+        default: (Pal.pink, Pal.purple)
+        }
+        playFrames(Art.ringFrames(radius: Int(radius), color: accent, accent: main), at: point, timePerFrame: 0.06, z: -2)
         let emitter = SKEmitterNode()
         emitter.particleTexture = Art.pixel
         emitter.particleBirthRate = radius * 1.6
         emitter.particleLifetime = 0.9
         emitter.particlePositionRange = CGVector(dx: radius * 1.6, dy: radius * 1.6)
-        emitter.emissionAngle = -.pi / 2 - 0.3
+        switch type {
+        case .cold:
+            emitter.emissionAngle = -.pi / 2 - 0.3
+        case .fire, .toxic:
+            emitter.emissionAngle = .pi / 2
+        default:
+            emitter.emissionAngleRange = .pi * 2
+        }
         emitter.particleSpeed = 22
         emitter.particleSpeedRange = 10
         emitter.particleAlpha = 0.9
         emitter.particleAlphaSpeed = -0.8
         emitter.particleScale = 1
         emitter.particleScaleRange = 1
-        emitter.particleColor = Pal.white.uiColor
+        emitter.particleColor = main.uiColor
         emitter.particleColorBlendFactor = 1
+        emitter.particleColorSequence = SKKeyframeSequence(keyframeValues: [main.uiColor, accent.uiColor], times: [0, 1])
         emitter.position = point
         emitter.targetNode = effectLayer
         effectLayer.addChild(emitter)
@@ -90,6 +104,47 @@ extension GameScene {
             .wait(forDuration: duration),
             .run { [weak emitter] in emitter?.particleBirthRate = 0 },
             .wait(forDuration: 1),
+            .removeFromParent(),
+        ]))
+    }
+
+    /// Spray of pixels in a wedge (flamethrower, sonic scream).
+    func cone(at point: CGPoint, angle: CGFloat, spread: CGFloat, length: CGFloat, colors: [PixelColor]) {
+        guard !effectBudgetExceeded else { return }
+        let emitter = SKEmitterNode()
+        emitter.particleTexture = Art.pixel
+        emitter.particleBirthRate = 500
+        emitter.numParticlesToEmit = 18
+        emitter.particleLifetime = 0.28
+        emitter.particleLifetimeRange = 0.08
+        emitter.emissionAngle = angle
+        emitter.emissionAngleRange = spread
+        emitter.particleSpeed = length / 0.28
+        emitter.particleSpeedRange = length
+        emitter.particleScale = 1.5
+        emitter.particleScaleSpeed = 2
+        emitter.particleAlphaSpeed = -2.5
+        emitter.particleColorBlendFactor = 1
+        emitter.particleColorSequence = SKKeyframeSequence(keyframeValues: colors.map(\.uiColor),
+                                                           times: colors.indices.map { NSNumber(value: Double($0) / Double(max(1, colors.count - 1))) })
+        emitter.position = point
+        emitter.targetNode = effectLayer
+        effectLayer.addChild(emitter)
+        emitter.run(.sequence([.wait(forDuration: 0.5), .removeFromParent()]))
+    }
+
+    /// Washes the battlefield in a cold, still tint while time is stopped.
+    func timeStopOverlay(duration: Double) {
+        guard let layout else { return }
+        let overlay = SKSpriteNode(color: Pal.cyan.uiColor, size: layout.worldSize)
+        overlay.anchorPoint = .zero
+        overlay.alpha = 0
+        overlay.zPosition = 55
+        world.addChild(overlay)
+        overlay.run(.sequence([
+            .fadeAlpha(to: 0.22, duration: 0.15),
+            .wait(forDuration: max(0, duration - 0.4)),
+            .fadeOut(withDuration: 0.25),
             .removeFromParent(),
         ]))
     }

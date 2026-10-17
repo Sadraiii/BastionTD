@@ -72,6 +72,17 @@ enum PlayerProgress {
         return true
     }
 
+    /// Spends points to recruit a new hero. Returns false if not possible.
+    @discardableResult
+    static func unlockHero(_ kind: TowerKind) -> Bool {
+        var state = research
+        guard !state.isHeroUnlocked(kind), researchPoints >= kind.unlockCost else { return false }
+        researchPoints -= kind.unlockCost
+        state.unlockHero(kind)
+        research = state
+        return true
+    }
+
     // MARK: Map unlocks and records
 
     /// Maps unlock in order: beat the previous map to open the next.
@@ -103,7 +114,8 @@ enum PlayerProgress {
         let fresh = Medal.allCases.filter { medal in
             guard !earned.contains(medal.id) else { return false }
             if let run { return medal.isEarned(by: run, research: state) }
-            return medal == .researcher && Medal.researchedTiers(state) >= 10
+            return (medal == .researcher && Medal.researchedTiers(state) >= 10)
+                || (medal == .fullRoster && TowerKind.allCases.allSatisfy(state.isHeroUnlocked))
         }
         guard !fresh.isEmpty else { return [] }
         for medal in fresh { earned.insert(medal.id) }

@@ -19,6 +19,19 @@ final class Enemy {
     var slowTimer: Double = 0
     /// Stunned or frozen enemies stand still.
     var stunTimer: Double = 0
+    var burnDPS: Double = 0
+    var burnTimer: Double = 0
+    var poisonDPS: Double = 0
+    var poisonTimer: Double = 0
+    /// Confused enemies walk backwards.
+    var confuseTimer: Double = 0
+    /// Armor temporarily removed by shredding attacks.
+    var armorShred: Double = 0
+    var armorShredTimer: Double = 0
+    /// Gargoyles in stone form ignore all damage.
+    var stoneTimer: Double = 0
+    /// A cloaked villain that has been exposed (Sonic Shatter) can be seen by anyone.
+    var revealed = false
     var abilityTimer: Double
     /// Counts down after a hit so the renderer can flash the sprite.
     var hitFlash: Double = 0
@@ -37,13 +50,17 @@ final class Enemy {
     }
 
     var healthFraction: Double { max(0, health / maxHealth) }
-
-    var isSlowed: Bool { slowTimer > 0 && slowAmount > 0 }
-
+    var isSlowed: Bool { slowTimer > 0 && slowAmount > 0 && kind.slowResistance < 1 }
     var isStunned: Bool { stunTimer > 0 }
+    var isBurning: Bool { burnTimer > 0 }
+    var isPoisoned: Bool { poisonTimer > 0 }
+    var isConfused: Bool { confuseTimer > 0 }
+    var isStone: Bool { stoneTimer > 0 }
+    var isHidden: Bool { kind.isCamo && !revealed }
+    var effectiveArmor: Double { max(0, kind.armor - armorShred) }
 
     var currentSpeed: Double {
-        guard stunTimer <= 0 else { return 0 }
+        guard stunTimer <= 0, stoneTimer <= 0 else { return 0 }
         let enrage = 1 + kind.enrageBonus * (1 - healthFraction)
         return kind.speed * enrage * (1 - slowAmount * (1 - kind.slowResistance))
     }
@@ -72,6 +89,14 @@ final class Tower {
     var frenzyTimer: Double = 0
     var frenzyRate: Double = 1
     var frenzyDamage: Double = 1
+    var rallyTimer: Double = 0
+    var rallyRate: Double = 1
+    var rallyDamage: Double = 1
+    /// Support from nearby Aegis heroes, recomputed every step.
+    var auraRate: Double = 0
+    var auraDamage: Double = 0
+    /// Own detection or a nearby hero's sonar/spider-sense.
+    var hasDetection = false
     /// Knocked offline by an EMP.
     var disabledTimer: Double = 0
 
@@ -89,7 +114,13 @@ final class Tower {
     var sellValue: Int { Int((Double(totalInvested) * GameEngine.sellRefundRate).rounded()) }
     var isDisabled: Bool { disabledTimer > 0 }
     var isFrenzied: Bool { frenzyTimer > 0 }
+    var isRallied: Bool { rallyTimer > 0 }
+    var isBuffed: Bool { auraRate > 0 || auraDamage > 0 || isRallied }
     var isPowerReady: Bool { power != nil && powerCooldown <= 0 && !isDisabled }
+
+    /// Combined attack-speed multiplier from powers and allies.
+    var rateMultiplier: Double { frenzyRate * (1 + auraRate) * (isRallied ? rallyRate : 1) }
+    var damageMultiplier: Double { frenzyDamage * (1 + auraDamage) * (isRallied ? rallyDamage : 1) }
 
     func nextTier(onPath path: Int) -> UpgradeTier? {
         let current = tiers[path]
@@ -106,11 +137,24 @@ final class Tower {
 /// Damage and side effects carried by an attack.
 struct HitPayload {
     var damage: Double
+    var type: DamageType = .kinetic
     var piercesArmor = false
     var stunChance: Double = 0
     var stunDuration: Double = 0
     var bossMultiplier: Double = 1
+    var airMultiplier: Double = 1
     var detectsCamo = false
+    var slow: Double = 0
+    var slowDuration: Double = 0
+    var burnDPS: Double = 0
+    var burnDuration: Double = 0
+    var poisonDPS: Double = 0
+    var poisonDuration: Double = 0
+    var knockback: Double = 0
+    var confuseChance: Double = 0
+    var confuseDuration: Double = 0
+    var armorShred: Double = 0
+    var shieldBreak: Double = 1
 }
 
 final class Projectile {
@@ -119,6 +163,8 @@ final class Projectile {
     let id: Int
     let kind: Kind
     let towerID: Int
+    /// Which hero fired it, so the renderer can pick the right sprite.
+    let towerKind: TowerKind
     let origin: CGPoint
     let payload: HitPayload
     let speed: Double
@@ -136,11 +182,12 @@ final class Projectile {
     var hitIDs: Set<Int> = []
     var isDone = false
 
-    init(id: Int, kind: Kind, towerID: Int, origin: CGPoint, targetID: Int?, targetPoint: CGPoint,
+    init(id: Int, kind: Kind, towerID: Int, towerKind: TowerKind, origin: CGPoint, targetID: Int?, targetPoint: CGPoint,
          payload: HitPayload, speed: Double = 0, splashRadius: Double = 0, flightTime: Double = 0, hits: Int = 1) {
         self.id = id
         self.kind = kind
         self.towerID = towerID
+        self.towerKind = towerKind
         self.origin = origin
         self.position = origin
         self.targetID = targetID
@@ -156,21 +203,23 @@ final class Projectile {
     var heading: CGPoint { (targetPoint - position).normalized }
 }
 
-/// A lingering power zone (Blizzard) that damages and slows.
+/// A lingering power zone (Blizzard, Firestorm, Black Hole...) that damages and slows.
 final class PowerField {
     let id: Int
     let center: CGPoint
     let radius: CGFloat
     let dps: Double
     let slow: Double
+    let type: DamageType
     var remaining: Double
 
-    init(id: Int, center: CGPoint, radius: CGFloat, dps: Double, slow: Double, duration: Double) {
+    init(id: Int, center: CGPoint, radius: CGFloat, dps: Double, slow: Double, type: DamageType, duration: Double) {
         self.id = id
         self.center = center
         self.radius = radius
         self.dps = dps
         self.slow = slow
+        self.type = type
         self.remaining = duration
     }
 }
