@@ -77,7 +77,9 @@ final class GameEngine {
     static let weaknessMultiplier: Double = 2
 
     let map: MapDefinition
-    let path: PathGeometry
+    /// One geometry per route; the first is the main path.
+    let paths: [PathGeometry]
+    var path: PathGeometry { paths[0] }
     let waves: [WaveDefinition]
     let research: ResearchState
 
@@ -107,6 +109,7 @@ final class GameEngine {
     private var incoming: [Enemy] = []
     private var waveClock: Double = 0
     private var nextID = 1
+    private var nextRoute = 0
     private var rng: SplitMix64
     private var towersByCell: [GridPoint: Tower] = [:]
     private var enemiesByID: [Int: Enemy] = [:]
@@ -115,7 +118,7 @@ final class GameEngine {
     init(map: MapDefinition, waves: [WaveDefinition] = WaveLibrary.standard,
          research: ResearchState = ResearchState(), seed: UInt64 = 0x5EED) {
         self.map = map
-        self.path = PathGeometry(waypoints: map.waypoints)
+        self.paths = map.routes.map { PathGeometry(waypoints: $0) }
         self.waves = waves
         self.research = research
         self.gold = map.startingGold
@@ -306,7 +309,7 @@ final class GameEngine {
             events.append(.fieldStarted(center: tower.position, radius: radius, duration: duration, type: fieldType))
 
         case let .missiles(count, damage, splash):
-            let targets = inReach(1.5).sorted { $0.distance > $1.distance }
+            let targets = inReach(1.5).sorted { remaining($0) < remaining($1) }
             for i in 0..<count {
                 launchMissile(from: tower, at: targets[i % targets.count],
                               payload: HitPayload(damage: damage, type: .explosive, piercesArmor: true), splash: splash, index: i)
@@ -396,26 +399,27 @@ final class GameEngine {
         waveClock += dt
         while let next = spawnQueue.first, next.time <= waveClock {
             spawnQueue.removeFirst()
-            spawn(next.kind, at: Self.spawnDistance)
+            spawn(next.kind, at: Self.spawnDistance, route: nextRoute)
+            nextRoute = (nextRoute + 1) % paths.count
         }
         flushIncoming()
     }
 
     @discardableResult
-    private func spawn(_ kind: EnemyKind, at distance: CGFloat) -> Enemy {
+    private func spawn(_ kind: EnemyKind, at distance: CGFloat, route: Int) -> Enemy {
         let wave = max(1, waveNumber)
         let health = kind.baseHealth * WaveLibrary.healthMultiplier(wave: wave) * map.difficulty.healthMultiplier
         let bounty = max(1, Int((Double(kind.bounty) * WaveLibrary.bountyMultiplier(wave: wave)).rounded()))
         let lane = kind.isBoss ? 0 : CGFloat(Double.random(in: -0.14...0.14, using: &rng))
-        let enemy = Enemy(id: makeID(), kind: kind, maxHealth: health, bounty: bounty, distance: distance, laneOffset: lane)
+        let enemy = Enemy(id: makeID(), kind: kind, maxHealth: health, bounty: bounty, route: route, distance: distance, laneOffset: lane)
         place(enemy)
         incoming.append(enemy)
         return enemy
     }
 
     /// Spawns an extra enemy mid-wave (split fragments, boss summons) and counts it toward the wave.
-    private func spawnChild(_ kind: EnemyKind, at distance: CGFloat) {
-        spawn(kind, at: max(Self.spawnDistance, min(distance, path.totalLength - 0.1)))
+    private func spawnChild(_ kind: EnemyKind, at distance: CGFloat, route: Int) {
+        spawn(kind, at: max(Self.spawnDistance, min(distance, paths[route].totalLength - 0.1)), route: route)
         waveEnemyTotal += 1
     }
 
@@ -426,7 +430,13 @@ final class GameEngine {
         incoming.removeAll(keepingCapacity: true)
     }
 
+    /// Distance left to the crystal, comparable across routes of different lengths.
+    private func remaining(_ enemy: Enemy) -> CGFloat {
+        paths[enemy.route].totalLength - enemy.distance
+    }
+
     private func place(_ enemy: Enemy) {
+        let path = paths[enemy.route]
         let direction = path.direction(at: enemy.distance)
         enemy.heading = direction
         enemy.position = path.point(at: enemy.distance) + direction.perpendicular * enemy.laneOffset
@@ -460,7 +470,7 @@ final class GameEngine {
                 continue
             }
             enemy.distance += CGFloat(enemy.currentSpeed * dt)
-            if enemy.distance >= path.totalLength {
+            if remaining(enemy) <= 0 {
                 leak(enemy)
                 if phase.isOver { return }
                 continue
@@ -507,7 +517,7 @@ final class GameEngine {
             case let .summon(kind, count):
                 for i in 0..<count {
                     let offset = (CGFloat(i) - CGFloat(count - 1) / 2) * 0.7
-                    spawnChild(kind, at: enemy.distance + offset)
+                    spawnChild(kind, at: enemy.distance + offset, route: enemy.route)
                 }
                 events.append(.bossSummon(at: enemy.position))
 
@@ -533,7 +543,7 @@ final class GameEngine {
 
             case let .teleport(distance):
                 let from = enemy.position
-                enemy.distance = min(enemy.distance + CGFloat(distance), path.totalLength - 0.6)
+                enemy.distance = min(enemy.distance + CGFloat(distance), paths[enemy.route].totalLength - 0.6)
                 place(enemy)
                 events.append(.enemyTeleported(from: from, to: enemy.position))
             }
@@ -628,9 +638,9 @@ final class GameEngine {
             let distance = tower.position.distance(to: enemy.position)
             guard distance <= CGFloat(range + enemy.kind.radius * 0.5) else { continue }
             let score: Double = switch tower.targeting {
-            case .first: Double(enemy.distance)
-            case .last: -Double(enemy.distance)
-            case .strongest: (enemy.health + enemy.shield) * 1000 + Double(enemy.distance)
+            case .first: -Double(remaining(enemy))
+            case .last: Double(remaining(enemy))
+            case .strongest: (enemy.health + enemy.shield) * 1000 - Double(remaining(enemy))
             case .closest: -Double(distance)
             }
             scored.append((score, enemy))
@@ -671,6 +681,7 @@ final class GameEngine {
             }
 
         case .lob:
+            let path = paths[primary.route]
             let lead = primary.distance + CGFloat(primary.currentSpeed * Self.mortarFlightTime)
             let clamped = min(lead, path.totalLength)
             let impact = path.point(at: clamped) + path.direction(at: clamped).perpendicular * primary.laneOffset
@@ -954,7 +965,7 @@ final class GameEngine {
         if let split = enemy.kind.splitsInto {
             for i in 0..<split.count {
                 let offset = (CGFloat(i) - CGFloat(split.count - 1) / 2) * 0.3
-                spawnChild(split.kind, at: enemy.distance + offset)
+                spawnChild(split.kind, at: enemy.distance + offset, route: enemy.route)
             }
             events.append(.enemySplit(at: enemy.position))
         }

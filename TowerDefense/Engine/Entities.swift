@@ -6,6 +6,8 @@ final class Enemy {
     let kind: EnemyKind
     let maxHealth: Double
     let bounty: Int
+    /// Index of the route this enemy follows, on maps where the path splits.
+    let route: Int
     /// Sideways offset from the path's center line so crowds don't overlap perfectly.
     let laneOffset: CGFloat
 
@@ -38,12 +40,13 @@ final class Enemy {
     /// Set once the enemy has died or reached the crystal.
     var isResolved = false
 
-    init(id: Int, kind: EnemyKind, maxHealth: Double, bounty: Int, distance: CGFloat, laneOffset: CGFloat) {
+    init(id: Int, kind: EnemyKind, maxHealth: Double, bounty: Int, route: Int, distance: CGFloat, laneOffset: CGFloat) {
         self.id = id
         self.kind = kind
         self.maxHealth = maxHealth
         self.health = maxHealth
         self.bounty = bounty
+        self.route = route
         self.distance = distance
         self.laneOffset = laneOffset
         self.abilityTimer = kind.abilityInterval

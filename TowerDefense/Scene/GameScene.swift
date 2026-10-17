@@ -9,7 +9,7 @@ import SpriteKit
 final class GameScene: SKScene {
     weak var session: GameSession?
     let map: MapDefinition
-    let path: PathGeometry
+    let paths: [PathGeometry]
 
     private(set) var layout: BoardLayout?
 
@@ -36,7 +36,8 @@ final class GameScene: SKScene {
     private var projectileNodes: [Int: ProjectileNode] = [:]
     private var highlightNodes: [GridPoint: SKSpriteNode] = [:]
     private var obstacleNodes: [GridPoint: SKSpriteNode] = [:]
-    private var chevrons: [SKSpriteNode] = []
+    /// Flow markers for each route.
+    private var chevrons: [[SKSpriteNode]] = []
     private var ghost: TowerNode?
     private var overlayState: OverlayState?
 
@@ -59,9 +60,9 @@ final class GameScene: SKScene {
         var layout: BoardLayout
     }
 
-    init(map: MapDefinition, path: PathGeometry) {
+    init(map: MapDefinition, paths: [PathGeometry]) {
         self.map = map
-        self.path = path
+        self.paths = paths
         boardSprite = SKSpriteNode(texture: Art.board(for: map))
         super.init(size: CGSize(width: 390, height: 390))
         scaleMode = .resizeFill
@@ -127,15 +128,16 @@ final class GameScene: SKScene {
             }
         }
 
-        let chevronCount = max(1, Int(path.totalLength / 1.6))
-        for _ in 0..<chevronCount {
-            let chevron = SKSpriteNode(texture: Art.chevron)
-            chevron.usePixelAnchor()
-            chevron.alpha = 0.3
-            chevron.color = Pal.sand.uiColor
-            chevron.colorBlendFactor = 1
-            flowLayer.addChild(chevron)
-            chevrons.append(chevron)
+        chevrons = paths.map { path in
+            (0..<max(1, Int(path.totalLength / 1.6))).map { _ in
+                let chevron = SKSpriteNode(texture: Art.chevron)
+                chevron.usePixelAnchor()
+                chevron.alpha = 0.3
+                chevron.color = Pal.sand.uiColor
+                chevron.colorBlendFactor = 1
+                flowLayer.addChild(chevron)
+                return chevron
+            }
         }
     }
 
@@ -174,7 +176,7 @@ final class GameScene: SKScene {
         boardSprite.zRotation = newLayout.rotated ? -.pi / 2 : 0
 
         corePedestal.position = newLayout.snappedWorldPoint(map.coreCell.center) + CGPoint(x: 0, y: -3)
-        portal.position = newLayout.snappedWorldPoint(path.point(at: 1.0))
+        portal.position = newLayout.snappedWorldPoint(paths[0].point(at: 1.0))
         for (cell, sprite) in obstacleNodes {
             sprite.position = newLayout.snappedWorldPoint(cell.center) + CGPoint(x: 0, y: -7)
         }
@@ -268,17 +270,19 @@ final class GameScene: SKScene {
 
     private func animateFlow(_ layout: BoardLayout, dt: Double) {
         let spacing: CGFloat = 1.6
-        let loop = CGFloat(chevrons.count) * spacing
-        flowOffset = (flowOffset + CGFloat(dt) * 0.7).truncatingRemainder(dividingBy: loop)
-        for (i, chevron) in chevrons.enumerated() {
-            let distance = (CGFloat(i) * spacing + flowOffset).truncatingRemainder(dividingBy: loop)
-            guard distance > 1.4, distance < path.totalLength - 0.9 else {
-                chevron.isHidden = true
-                continue
+        flowOffset += CGFloat(dt) * 0.7
+        for (path, markers) in zip(paths, chevrons) {
+            let loop = CGFloat(markers.count) * spacing
+            for (i, chevron) in markers.enumerated() {
+                let distance = (CGFloat(i) * spacing + flowOffset).truncatingRemainder(dividingBy: loop)
+                guard distance > 1.4, distance < path.totalLength - 0.9 else {
+                    chevron.isHidden = true
+                    continue
+                }
+                chevron.isHidden = false
+                chevron.position = layout.snappedWorldPoint(path.point(at: distance))
+                chevron.zRotation = layout.worldAngle(of: path.direction(at: distance)) - .pi / 2
             }
-            chevron.isHidden = false
-            chevron.position = layout.snappedWorldPoint(path.point(at: distance))
-            chevron.zRotation = layout.worldAngle(of: path.direction(at: distance)) - .pi / 2
         }
     }
 

@@ -156,7 +156,7 @@ final class GameSession {
         let engine = GameEngine(map: map, research: research)
         self.engine = engine
         self.totalWaves = engine.totalWaves
-        self.scene = GameScene(map: map, path: engine.path)
+        self.scene = GameScene(map: map, paths: engine.paths)
         self.coachEnabled = !PlayerProgress.coachCompleted
         self.save = SavedMatch(mapID: map.id, research: research)
         scene.session = self

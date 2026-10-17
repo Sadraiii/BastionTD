@@ -67,7 +67,7 @@ struct GreedyPlayer {
     }
 
     func bestCell(for kind: TowerKind, _ engine: GameEngine) -> GridPoint? {
-        let samples = engine.path.samples(spacing: 0.25)
+        let samples = engine.paths.flatMap { $0.samples(spacing: 0.25) }
         let range = CGFloat(kind.baseStats.range)
         var best: GridPoint?
         var bestScore = -1

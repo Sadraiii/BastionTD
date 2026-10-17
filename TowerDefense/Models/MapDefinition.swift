@@ -24,7 +24,8 @@ enum Terrain: String {
 ///
 /// The route is a list of axis-aligned waypoints. The first waypoint may sit just
 /// outside the grid so enemies walk in from the edge; the last one holds the crystal
-/// the player defends.
+/// the player defends. Optional branches are extra routes with the same start and end
+/// that split off and rejoin; villains take turns between the routes.
 struct MapDefinition: Identifiable, Hashable {
     let id: String
     let name: String
@@ -34,6 +35,8 @@ struct MapDefinition: Identifiable, Hashable {
     let columns: Int
     let rows: Int
     let waypoints: [GridPoint]
+    /// The main route followed by any branches.
+    let routes: [[GridPoint]]
     let obstacles: Set<GridPoint>
     let startingGold: Int
     let startingLives: Int
@@ -48,6 +51,7 @@ struct MapDefinition: Identifiable, Hashable {
         columns: Int = 14,
         rows: Int = 8,
         waypoints: [GridPoint],
+        branches: [[GridPoint]] = [],
         obstacles: Set<GridPoint>,
         startingGold: Int,
         startingLives: Int
@@ -60,10 +64,11 @@ struct MapDefinition: Identifiable, Hashable {
         self.columns = columns
         self.rows = rows
         self.waypoints = waypoints
+        self.routes = [waypoints] + branches
         self.obstacles = obstacles
         self.startingGold = startingGold
         self.startingLives = startingLives
-        self.pathCells = Self.cells(along: waypoints, columns: columns, rows: rows)
+        self.pathCells = routes.reduce(into: Set()) { $0.formUnion(Self.cells(along: $1, columns: columns, rows: rows)) }
     }
 
     var coreCell: GridPoint { waypoints[waypoints.count - 1] }
@@ -149,6 +154,21 @@ extension MapDefinition {
         startingLives: 25
     )
 
+    static let bayou = MapDefinition(
+        id: "bayou",
+        name: "Bayou",
+        tagline: "The boardwalk forks around an island, then joins again.",
+        difficulty: .hard,
+        terrain: .swamp,
+        columns: 20,
+        rows: 12,
+        waypoints: points([(-1, 6), (3, 6), (3, 2), (11, 2), (11, 6), (16, 6), (16, 2), (19, 2)]),
+        branches: [points([(-1, 6), (3, 6), (3, 10), (11, 10), (11, 6), (16, 6), (16, 2), (19, 2)])],
+        obstacles: Set(points([(0, 0), (7, 6), (14, 9), (18, 6), (0, 11), (19, 11), (13, 0)])),
+        startingGold: 300,
+        startingLives: 20
+    )
+
     static let glacier = MapDefinition(
         id: "glacier",
         name: "Glacier",
@@ -177,7 +197,7 @@ extension MapDefinition {
         startingLives: 15
     )
 
-    static let all: [MapDefinition] = [circuit, switchback, overload, dunes, glacier, caldera]
+    static let all: [MapDefinition] = [circuit, switchback, overload, dunes, bayou, glacier, caldera]
 
     /// The map after this one in the campaign list, if any.
     var next: MapDefinition? {

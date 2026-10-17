@@ -73,7 +73,7 @@ enum Pal {
                           sparkles: [amber, orange, red],
                           path: navy, pathLight: slate, pathMid: PixelColor(0x2F3552), pathDark: orange)
         case .swamp:
-            TerrainColors(groundA: PixelColor(0x2F5A3A), groundB: PixelColor(0x2B5436), light: green, dark: deepTeal,
+            TerrainColors(groundA: PixelColor(0x2B4F45), groundB: PixelColor(0x284A41), light: PixelColor(0x3E6B4F), dark: deepTeal,
                           sparkles: [lime, magenta, cyan],
                           path: PixelColor(0x8A5A44), pathLight: clay, pathMid: bark, pathDark: plum)
         }
