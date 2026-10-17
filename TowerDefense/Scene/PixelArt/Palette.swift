@@ -38,6 +38,47 @@ enum Pal {
     static let grassA = PixelColor(0x3E8948)
     static let grassB = PixelColor(0x398143)
 
+    /// Ground and path colors for a terrain.
+    struct TerrainColors {
+        /// Checkerboard tones, one per tile.
+        let groundA: PixelColor
+        let groundB: PixelColor
+        /// Speckles and tufts; `dark` also edges the ground along the path.
+        let light: PixelColor
+        let dark: PixelColor
+        /// Rare single pixels such as flowers or embers.
+        let sparkles: [PixelColor]
+        let path: PixelColor
+        let pathLight: PixelColor
+        let pathMid: PixelColor
+        /// Speckles and the path border.
+        let pathDark: PixelColor
+    }
+
+    static func terrain(_ terrain: Terrain) -> TerrainColors {
+        switch terrain {
+        case .grassland:
+            TerrainColors(groundA: grassA, groundB: grassB, light: lime, dark: forest, sparkles: [yellow, pink, white],
+                          path: clay, pathLight: tan, pathMid: copper, pathDark: bark)
+        case .desert:
+            TerrainColors(groundA: tan, groundB: PixelColor(0xDC9E6A), light: sand, dark: PixelColor(0xC28569),
+                          sparkles: [white, sand, orange],
+                          path: clay, pathLight: PixelColor(0xC28569), pathMid: PixelColor(0xA5603F), pathDark: bark)
+        case .snowfield:
+            TerrainColors(groundA: PixelColor(0xE4EBF5), groundB: PixelColor(0xDAE2EE), light: white, dark: mist,
+                          sparkles: [cyan, white, silver],
+                          path: silver, pathLight: mist, pathMid: PixelColor(0x7B8BA6), pathDark: steel)
+        case .volcanic:
+            TerrainColors(groundA: plum, groundB: PixelColor(0x38222C), light: PixelColor(0x4E3440), dark: navy,
+                          sparkles: [amber, orange, red],
+                          path: navy, pathLight: slate, pathMid: PixelColor(0x2F3552), pathDark: orange)
+        case .swamp:
+            TerrainColors(groundA: PixelColor(0x2F5A3A), groundB: PixelColor(0x2B5436), light: green, dark: deepTeal,
+                          sparkles: [lime, magenta, cyan],
+                          path: PixelColor(0x8A5A44), pathLight: clay, pathMid: bark, pathDark: plum)
+        }
+    }
+
     static let chars: [Character: PixelColor] = [
         "K": ink, "N": navy, "n": slate, "S": steel, "s": silver, "w": mist, "W": white,
         "R": red, "r": crimson, "X": hotRed, "O": orange, "o": rust, "Y": amber, "y": yellow,

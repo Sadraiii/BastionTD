@@ -222,6 +222,7 @@ struct MapCard: View {
     let action: () -> Void
 
     private var unlocked: Bool { PlayerProgress.isUnlocked(map) }
+    private var previewWidth: CGFloat { CGFloat(map.columns * Art.tilePixels) }
 
     var body: some View {
         Button(action: unlocked ? action : { SoundEngine.shared.play(.error) }) {
@@ -249,7 +250,7 @@ struct MapCard: View {
                     .font(Theme.body(11, weight: .regular))
                     .foregroundStyle(Theme.secondaryText)
                     .fixedSize(horizontal: false, vertical: true)
-                    .frame(width: 224, alignment: .leading)
+                    .frame(width: previewWidth, alignment: .leading)
                 HStack {
                     Text(PlayerProgress.bestEndlessWave(for: map) > 20
                          ? "BEST ENDLESS: WAVE \(PlayerProgress.bestEndlessWave(for: map))"
@@ -261,7 +262,7 @@ struct MapCard: View {
                 }
             }
             .padding(14)
-            .frame(width: 252)
+            .frame(width: previewWidth + 28)
             .pixelPanel()
         }
         .buttonStyle(.plain)

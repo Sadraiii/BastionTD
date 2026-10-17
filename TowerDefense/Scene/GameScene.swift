@@ -112,7 +112,7 @@ final class GameScene: SKScene {
 
         for cell in map.obstacles {
             let variant = PixelNoise.value(cell.col, cell.row, seed: 3)
-            let sprite = SKSpriteNode(texture: Art.obstacle(variant: variant))
+            let sprite = SKSpriteNode(texture: Art.obstacle(variant: variant, terrain: map.terrain))
             sprite.usePixelAnchor(bottom: true)
             decorLayer.addChild(sprite)
             obstacleNodes[cell] = sprite

@@ -463,6 +463,109 @@ enum SpriteMaps {
         "....DDdD....",
     ]
 
+    /// Decoration sprites for a terrain; obstacles pick one by their cell.
+    static func props(_ terrain: Terrain) -> [[String]] {
+        switch terrain {
+        case .grassland: [tree, rock]
+        case .desert: [cactus, spire]
+        case .snowfield: [pine, iceRock]
+        case .volcanic: [deadTree(bark: "N", light: "n"), obsidian]
+        case .swamp: [deadTree(bark: "D", light: "d"), mossRock]
+        }
+    }
+
+    static let cactus = [
+        "....f.......",
+        "....gg......",
+        "...gGGg.....",
+        "...gGgg.....",
+        ".g.gGgg.....",
+        "gGggGgg.g...",
+        "gGggGgg.gG..",
+        ".ggggGggGg..",
+        "...gGgggg...",
+        "...gGgg.....",
+        "...gGgg.....",
+        "..dgGggd....",
+    ]
+
+    static let spire = [
+        "....LL......",
+        "...LeeL.....",
+        "...LeLLd....",
+        "..LeeLLdd...",
+        "..LeLLLLd...",
+        ".LeeLLLLdd..",
+        ".LLLLLLddd..",
+        "..dddddddd..",
+    ]
+
+    static let pine = [
+        ".....WW.....",
+        "....WWhh....",
+        "...WWWhhh...",
+        "....WhhH....",
+        "...WWWhhH...",
+        "..WWWhhhHH..",
+        "...WhhhhH...",
+        "..WWhhhhHH..",
+        ".WWWhhhhhHH.",
+        "..hhhhhhHH..",
+        ".....Dd.....",
+        "....DDdD....",
+    ]
+
+    static let iceRock = [
+        "....WWW.....",
+        "..WWCCwSS...",
+        ".WCCCwwSSn..",
+        ".wCCwwwSSn..",
+        "CCwwwwSSSnn.",
+        "CwwwwSSSnnnn",
+        ".SSSSSSnnnn.",
+        "..nnnnnnnn..",
+    ]
+
+    static let obsidian = [
+        "....nnn.....",
+        "..nnSnNNN...",
+        ".nSnNNNNNK..",
+        ".nNNNONNNK..",
+        "NNNNOYONNKK.",
+        "NNNNNONNNKKK",
+        ".NNNNNNKKKK.",
+        "..KKKKKKKK..",
+    ]
+
+    static let mossRock = [
+        "....ggg.....",
+        "..ggGgsSS...",
+        ".sgGgsSSSn..",
+        ".sSSgSSnSSn.",
+        "SSSSSnSSgSnn",
+        "SSnSSSSSSnnn",
+        ".nnSSSSnnnn.",
+        "..nnnnnnnn..",
+    ]
+
+    /// A bare tree; `bark` and `light` pick its colors (charred or wet wood).
+    static func deadTree(bark: Character, light: Character) -> [String] {
+        [
+            "..D.....D...",
+            "..DD...DD...",
+            "...DD.DD..D.",
+            "D...DDD..DD.",
+            "DD...DD.DD..",
+            ".DD..DDDD...",
+            "..DDDDDD....",
+            ".....DD.....",
+            ".....DD.....",
+            ".....Dd.....",
+            ".....Dd.....",
+            "....DDdD....",
+        ].map { String($0.map { $0 == "D" ? bark : $0 == "d" ? light : $0 }) }
+    }
+
     /// Path direction marker (points up).
     static let chevron = [
         "..W..",

@@ -456,10 +456,10 @@ enum Art {
         }
     }
 
-    static func obstacle(variant: Int) -> SKTexture {
-        let isTree = variant % 2 == 0
-        return texture(isTree ? "tree" : "rock") {
-            let sprite = PixelCanvas(map: isTree ? SpriteMaps.tree : SpriteMaps.rock)
+    static func obstacle(variant: Int, terrain: Terrain) -> SKTexture {
+        let props = SpriteMaps.props(terrain)
+        return texture("obstacle.\(terrain.rawValue).\(variant % props.count)") {
+            let sprite = PixelCanvas(map: props[variant % props.count])
             var c = PixelCanvas(width: sprite.width + 2, height: sprite.height + 3)
             c.fillEllipse(cx: Double(c.width) / 2, cy: Double(c.height) - 2.5, rx: Double(sprite.width) / 2, ry: 2, Pal.ink.alpha(90))
             var body = sprite.padded(1)
@@ -775,9 +775,10 @@ enum Art {
                 c.stamp(sprite, x: cell.col * tilePixels + (tilePixels - sprite.width) / 2,
                         y: cell.row * tilePixels + tilePixels - sprite.height + bottomOffset)
             }
+            let props = SpriteMaps.props(map.terrain)
             for cell in map.obstacles.sorted(by: { $0.row < $1.row }) {
-                let isTree = PixelNoise.value(cell.col, cell.row, seed: 3) % 2 == 0
-                var sprite = PixelCanvas(map: isTree ? SpriteMaps.tree : SpriteMaps.rock).padded(1)
+                let variant = PixelNoise.value(cell.col, cell.row, seed: 3)
+                var sprite = PixelCanvas(map: props[variant % props.count]).padded(1)
                 sprite.outline()
                 stampCentered(sprite, at: cell, bottomOffset: 0)
             }
@@ -798,6 +799,7 @@ enum Art {
     static func boardCanvas(for map: MapDefinition) -> PixelCanvas {
         let w = map.columns * tilePixels, h = map.rows * tilePixels
         var c = PixelCanvas(width: w, height: h)
+        let colors = Pal.terrain(map.terrain)
         func isPath(_ x: Int, _ y: Int) -> Bool {
             let cx = min(max(x, 0), w - 1), cy = min(max(y, 0), h - 1)
             return map.pathCells.contains(GridPoint(cx / tilePixels, cy / tilePixels))
@@ -810,15 +812,21 @@ enum Art {
                     || isPath(x, y - 1) != onPath || isPath(x, y + 1) != onPath
                 var color: PixelColor
                 if onPath {
-                    color = Pal.clay
-                    if n < 60 { color = Pal.tan } else if n < 110 { color = Pal.copper } else if n < 150 { color = Pal.bark }
-                    if edge { color = Pal.bark }
+                    color = colors.path
+                    if n < 60 { color = colors.pathLight } else if n < 110 { color = colors.pathMid } else if n < 150 { color = colors.pathDark }
+                    if edge { color = colors.pathDark }
                 } else {
                     let cell = GridPoint(x / tilePixels, y / tilePixels)
-                    color = (cell.col + cell.row) % 2 == 0 ? Pal.grassA : Pal.grassB
-                    if n < 40 { color = Pal.lime } else if n < 85 { color = Pal.forest }
-                    if n >= 997 { color = Pal.yellow } else if n >= 995 { color = Pal.pink } else if n >= 993 { color = Pal.white }
-                    if edge { color = Pal.forest }
+                    color = (cell.col + cell.row) % 2 == 0 ? colors.groundA : colors.groundB
+                    if n < 40 { color = colors.light } else if n < 85 { color = colors.dark }
+                    if n >= 997 {
+                        color = colors.sparkles[0]
+                    } else if n >= 995 {
+                        color = colors.sparkles[1]
+                    } else if n >= 993 {
+                        color = colors.sparkles[2]
+                    }
+                    if edge { color = colors.dark }
                 }
                 c.set(x, y, color)
             }
@@ -836,9 +844,9 @@ enum Art {
                         c.set(x, y + 1, Pal.steel); c.set(x + 1, y + 1, Pal.steel)
                     }
                 } else if roll < 600 {
-                    c.set(x, y, Pal.lime)
-                    c.set(x - 1, y + 1, Pal.lime); c.set(x + 1, y + 1, Pal.lime)
-                    c.set(x, y + 1, Pal.forest)
+                    c.set(x, y, colors.light)
+                    c.set(x - 1, y + 1, colors.light); c.set(x + 1, y + 1, colors.light)
+                    c.set(x, y + 1, colors.dark)
                 }
             }
         }

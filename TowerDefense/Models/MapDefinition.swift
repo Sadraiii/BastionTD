@@ -15,6 +15,11 @@ enum Difficulty: String, CaseIterable, Codable {
     }
 }
 
+/// The look of a battlefield: ground and path colors and the decoration sprites.
+enum Terrain: String {
+    case grassland, desert, snowfield, volcanic, swamp
+}
+
 /// A battlefield layout: grid size, the enemy route and unbuildable decoration.
 ///
 /// The route is a list of axis-aligned waypoints. The first waypoint may sit just
@@ -25,6 +30,7 @@ struct MapDefinition: Identifiable, Hashable {
     let name: String
     let tagline: String
     let difficulty: Difficulty
+    let terrain: Terrain
     let columns: Int
     let rows: Int
     let waypoints: [GridPoint]
@@ -38,6 +44,7 @@ struct MapDefinition: Identifiable, Hashable {
         name: String,
         tagline: String,
         difficulty: Difficulty,
+        terrain: Terrain = .grassland,
         columns: Int = 14,
         rows: Int = 8,
         waypoints: [GridPoint],
@@ -49,6 +56,7 @@ struct MapDefinition: Identifiable, Hashable {
         self.name = name
         self.tagline = tagline
         self.difficulty = difficulty
+        self.terrain = terrain
         self.columns = columns
         self.rows = rows
         self.waypoints = waypoints
@@ -127,7 +135,49 @@ extension MapDefinition {
         startingLives: 20
     )
 
-    static let all: [MapDefinition] = [circuit, switchback, overload]
+    static let dunes = MapDefinition(
+        id: "dunes",
+        name: "Dunes",
+        tagline: "Wide desert switchbacks under a burning sun.",
+        difficulty: .normal,
+        terrain: .desert,
+        columns: 18,
+        rows: 10,
+        waypoints: points([(-1, 2), (3, 2), (3, 7), (7, 7), (7, 1), (11, 1), (11, 7), (15, 7), (15, 3), (17, 3)]),
+        obstacles: Set(points([(0, 0), (5, 4), (13, 4), (16, 9), (1, 9), (9, 9), (9, 0)])),
+        startingGold: 300,
+        startingLives: 25
+    )
+
+    static let glacier = MapDefinition(
+        id: "glacier",
+        name: "Glacier",
+        tagline: "An icy trail that doubles back across the field.",
+        difficulty: .hard,
+        terrain: .snowfield,
+        columns: 20,
+        rows: 12,
+        waypoints: points([(-1, 9), (2, 9), (2, 2), (6, 2), (6, 10), (10, 10), (10, 2), (14, 2), (14, 10), (18, 10), (18, 5), (19, 5)]),
+        obstacles: Set(points([(0, 0), (4, 11), (12, 0), (16, 4), (8, 6), (19, 11), (0, 5)])),
+        startingGold: 300,
+        startingLives: 20
+    )
+
+    static let caldera = MapDefinition(
+        id: "caldera",
+        name: "Caldera",
+        tagline: "A spiral of cooling lava closing in on the crystal.",
+        difficulty: .hard,
+        terrain: .volcanic,
+        columns: 20,
+        rows: 12,
+        waypoints: points([(-1, 1), (18, 1), (18, 10), (1, 10), (1, 4), (15, 4), (15, 7), (5, 7)]),
+        obstacles: Set(points([(0, 11), (19, 0), (10, 2), (8, 5), (12, 9), (3, 8), (19, 11)])),
+        startingGold: 220,
+        startingLives: 15
+    )
+
+    static let all: [MapDefinition] = [circuit, switchback, overload, dunes, glacier, caldera]
 
     /// The map after this one in the campaign list, if any.
     var next: MapDefinition? {
