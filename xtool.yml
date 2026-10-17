@@ -1,0 +1,4 @@
+version: 1
+bundleID: com.example.BastionTD
+iconPath: TowerDefense/Assets.xcassets/AppIcon.appiconset/AppIcon.png
+infoPath: Info.plist
