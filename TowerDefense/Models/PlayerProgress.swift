@@ -127,6 +127,15 @@ enum PlayerProgress {
         return true
     }
 
+    static func buyPerk(_ perk: Perk) -> Bool {
+        var state = research
+        guard !state.has(perk), researchPoints >= perk.cost else { return false }
+        researchPoints -= perk.cost
+        state.unlock(perk)
+        research = state
+        return true
+    }
+
     // MARK: Map unlocks and records
 
     /// Maps unlock in order: beat the previous map to open the next.

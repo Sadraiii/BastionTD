@@ -22,6 +22,7 @@ struct ResearchLabView: View {
             ScrollView(.vertical, showsIndicators: false) {
                 LazyVStack(spacing: 12) {
                     CommanderResearchCard(progress: commander, points: points, onSelect: selectCommander, onUpgrade: upgradeSkill)
+                    PerksCard(research: research, points: points, onBuy: buyPerk)
                     ForEach(TowerKind.allCases) { kind in
                         HeroResearchCard(kind: kind, research: research, points: points, selection: $selection) {
                             recruit(kind)
@@ -152,6 +153,18 @@ struct ResearchLabView: View {
         PlayerProgress.commander = commander
     }
 
+    private func buyPerk(_ perk: Perk) {
+        guard PlayerProgress.buyPerk(perk) else {
+            SoundEngine.shared.play(.error)
+            Haptics.notify(.warning)
+            return
+        }
+        SoundEngine.shared.play(.research)
+        Haptics.notify(.success)
+        research = PlayerProgress.research
+        points = PlayerProgress.researchPoints
+    }
+
     private func upgradeSkill(_ kind: CommanderKind, _ skill: Int) {
         guard PlayerProgress.upgradeSkill(kind, skill: skill) else {
             SoundEngine.shared.play(.error)
@@ -179,6 +192,49 @@ struct ResearchLabView: View {
             SoundEngine.shared.play(.medal)
             withAnimation(.spring(duration: 0.3)) { celebrate = medal }
         }
+    }
+}
+
+/// Permanent bonuses for every match.
+private struct PerksCard: View {
+    let research: ResearchState
+    let points: Int
+    let onBuy: (Perk) -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            PixelText("PERKS", pixel: 2, color: Theme.highlight)
+            ForEach(Perk.allCases) { perk in
+                HStack(spacing: 8) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(perk.title.uppercased())
+                            .font(Theme.body(11))
+                            .foregroundStyle(research.has(perk) ? Theme.accent : Theme.text)
+                        Text(perk.detail)
+                            .font(Theme.body(10, weight: .regular))
+                            .foregroundStyle(Theme.secondaryText)
+                    }
+                    Spacer(minLength: 0)
+                    if research.has(perk) {
+                        PixelText("OWNED", pixel: 1, color: Theme.accent)
+                    } else {
+                        Button {
+                            onBuy(perk)
+                        } label: {
+                            HStack(spacing: 4) {
+                                PixelIcon(icon: .flask, scale: 1)
+                                PixelText("\(perk.cost)", pixel: 1, shadow: nil)
+                            }
+                        }
+                        .buttonStyle(points >= perk.cost ? PixelButtonStyle.blue : PixelButtonStyle.neutral)
+                        .accessibilityLabel("Buy \(perk.title) for \(perk.cost) points")
+                    }
+                }
+            }
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .pixelPanel()
     }
 }
 

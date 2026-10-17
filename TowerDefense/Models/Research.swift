@@ -1,10 +1,46 @@
 import Foundation
 
+/// Permanent bonuses bought in the Research Lab.
+enum Perk: String, CaseIterable, Identifiable {
+    case richStart, sturdyCrystal, cheapUpgrades, bounty, quickPowers
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .richStart: "Rich Start"
+        case .sturdyCrystal: "Sturdy Crystal"
+        case .cheapUpgrades: "Bulk Deals"
+        case .bounty: "Bounty"
+        case .quickPowers: "Quick Powers"
+        }
+    }
+
+    var detail: String {
+        switch self {
+        case .richStart: "Start every match with 50 more gold."
+        case .sturdyCrystal: "The crystal has 5 more lives."
+        case .cheapUpgrades: "Upgrades cost 10% less."
+        case .bounty: "Villains drop 10% more gold."
+        case .quickPowers: "Hero powers recharge 15% faster."
+        }
+    }
+
+    var cost: Int {
+        switch self {
+        case .richStart, .sturdyCrystal: 10
+        case .quickPowers: 12
+        case .cheapUpgrades, .bounty: 15
+        }
+    }
+}
+
 /// Which upgrade tiers the player has unlocked in the Research Lab.
 /// Tier 1 of every path is always available; tiers 2-4 are researched in order.
 struct ResearchState: Codable, Equatable {
     private var unlocked: [String: Int] = [:]
     private var heroes: Set<String> = []
+    private var perks: Set<String> = []
 
     func isHeroUnlocked(_ kind: TowerKind) -> Bool {
         kind.unlockCost == 0 || heroes.contains(kind.rawValue)
@@ -14,12 +50,19 @@ struct ResearchState: Codable, Equatable {
         heroes.insert(kind.rawValue)
     }
 
+    func has(_ perk: Perk) -> Bool { perks.contains(perk.rawValue) }
+
+    mutating func unlock(_ perk: Perk) {
+        perks.insert(perk.rawValue)
+    }
+
     init() {}
 
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         unlocked = try container.decodeIfPresent([String: Int].self, forKey: .unlocked) ?? [:]
         heroes = try container.decodeIfPresent(Set<String>.self, forKey: .heroes) ?? []
+        perks = try container.decodeIfPresent(Set<String>.self, forKey: .perks) ?? []
     }
 
     private static func key(_ kind: TowerKind, _ path: Int) -> String { "\(kind.rawValue).\(path)" }

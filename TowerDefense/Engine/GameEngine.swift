@@ -127,8 +127,8 @@ final class GameEngine {
         self.waves = waves
         self.research = research
         self.setup = setup
-        self.startingLives = setup.modifiers.contains(.ironCrystal) ? 1 : map.startingLives
-        self.gold = map.startingGold
+        self.startingLives = setup.modifiers.contains(.ironCrystal) ? 1 : map.startingLives + (research.has(.sturdyCrystal) ? 5 : 0)
+        self.gold = map.startingGold + (research.has(.richStart) ? 50 : 0)
         self.lives = startingLives
         self.rng = SplitMix64(seed: seed)
         if let loadout = setup.commander {
@@ -199,7 +199,8 @@ final class GameEngine {
         if UpgradeRules.isBlockedByOtherPath(tower.tiers, path: path) { return .blocked }
         let tier = tower.tiers[path] + 1
         if !research.isUnlocked(tower.kind, path: path, tier: tier) { return .needsResearch(points: next.research) }
-        return gold >= next.cost ? .available(cost: next.cost) : .unaffordable(cost: next.cost)
+        let cost = research.has(.cheapUpgrades) ? Int((Double(next.cost) * 0.9).rounded()) : next.cost
+        return gold >= cost ? .available(cost: cost) : .unaffordable(cost: cost)
     }
 
     /// Whether a power would hit anything right now (buffs, fields and time stop always work).
@@ -409,7 +410,7 @@ final class GameEngine {
     func activatePower(towerID: Int) -> Bool {
         guard !phase.isOver, !setup.modifiers.contains(.noPowers), let tower = tower(id: towerID),
               let power = tower.power, tower.isPowerReady, powerHasTargets(towerID: towerID) else { return false }
-        tower.powerCooldown = power.cooldown
+        tower.powerCooldown = power.cooldown * (research.has(.quickPowers) ? 0.85 : 1)
         stats.powersUsed += 1
         let range = CGFloat(tower.stats.range)
         let type = tower.stats.damageType
@@ -562,7 +563,7 @@ final class GameEngine {
     private func spawn(_ kind: EnemyKind, at distance: CGFloat, route: Int) -> Enemy {
         let wave = max(1, waveNumber)
         let health = kind.baseHealth * WaveLibrary.healthMultiplier(wave: wave) * map.difficulty.healthMultiplier
-        let goldFactor = setup.modifiers.contains(.halfGold) ? 0.5 : 1
+        let goldFactor = (setup.modifiers.contains(.halfGold) ? 0.5 : 1) * (research.has(.bounty) ? 1.1 : 1)
         let bounty = max(1, Int((Double(kind.bounty) * WaveLibrary.bountyMultiplier(wave: wave) * goldFactor).rounded()))
         let lane = kind.isBoss ? 0 : CGFloat(Double.random(in: -0.14...0.14, using: &rng))
         let enemy = Enemy(id: makeID(), kind: kind, maxHealth: health, bounty: bounty, route: route, distance: distance, laneOffset: lane)
