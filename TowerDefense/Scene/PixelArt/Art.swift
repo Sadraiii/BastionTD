@@ -163,6 +163,10 @@ enum Art {
             platform(points, top: Pal.navy, side: Pal.ink)
             c.fillEllipse(cx: 8, cy: 7.5, rx: 3.6, ry: 2.6, Pal.ocean)
             for (x, y) in [(8, 2), (14, 5), (14, 10), (8, 12), (1, 10), (1, 5)] { c.set(x, y, Pal.yellow) }
+
+        case .midas:
+            disc(top: Pal.rust, side: Pal.bark, rim: Pal.amber)
+            for (x, y) in [(3, 7), (13, 7), (8, 4), (8, 11)] { c.set(x, y, Pal.yellow) }
         }
 
         // Tier pips along the front: path 1 from the left, path 2 from the right.
@@ -374,6 +378,17 @@ enum Art {
                 }
             }
             if level == 3 { c.ring(cx: 8, cy: 10, r: 4.5, Pal.amber) { x, y in (x + y) % 3 == 0 } }
+
+        case .midas:
+            // A stack of coins that grows with each level.
+            for i in 0...level {
+                let y = 11.5 - Double(i) * 2
+                c.fillEllipse(cx: 8, cy: y + 0.8, rx: 4.2, ry: 1.8, Pal.rust)
+                c.fillEllipse(cx: 8, cy: y, rx: 4.2, ry: 1.6, Pal.amber)
+                c.fillEllipse(cx: 8, cy: y - 0.3, rx: 2.6, ry: 0.8, Pal.yellow)
+            }
+            c.set(10, 9 - level * 2, Pal.white)
+            c.set(11, 8 - level * 2, Pal.white)
         }
         // Rail barrels reach the top edge at level 3, so keep the outline inside the canvas.
         c.outline()

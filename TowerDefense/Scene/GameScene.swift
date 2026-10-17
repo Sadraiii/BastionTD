@@ -499,6 +499,11 @@ final class GameScene: SKScene {
             SoundEngine.shared.play(.upgrade)
             Haptics.impact(.medium)
 
+        case let .towerIncome(_, at, amount):
+            floatText("+\(amount)", color: Pal.yellow, at: toWorld(at) + CGPoint(x: 0, y: 8))
+            playFrames(Art.sparkleFrames, at: toWorld(at), timePerFrame: 0.08)
+            SoundEngine.shared.play(.sell)
+
         case let .towerSold(id, cell, refund):
             towerNodes[id]?.removeFromParent()
             towerNodes[id] = nil
@@ -528,7 +533,7 @@ final class GameScene: SKScene {
             case .echo: SoundEngine.shared.play(.scream)
             case .mind: SoundEngine.shared.play(.psychic)
             case .frost: SoundEngine.shared.play(.frost)
-            case .chrono: SoundEngine.shared.play(.tick)
+            case .chrono, .midas: SoundEngine.shared.play(.tick)
             }
 
         case let .auraPulse(towerID, center, radius):

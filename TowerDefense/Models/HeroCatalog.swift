@@ -20,6 +20,8 @@ enum PowerEffect: Equatable {
     case strip(damage: Double, rangeScale: Double)
     /// Villains in range turn around and walk backwards.
     case confuse(duration: Double, damage: Double, rangeScale: Double)
+    /// Instant gold.
+    case payout(gold: Int)
 }
 
 struct PowerDefinition: Equatable {
@@ -64,6 +66,7 @@ enum HeroCatalog {
         case .mind: mindwave
         case .chrono: chrono
         case .star: starlight
+        case .midas: midas
         }
     }
 
@@ -622,6 +625,46 @@ enum HeroCatalog {
     ]
 
     // MARK: Starlight - cosmic hero
+
+    // MARK: Midas - gold hero
+
+    private static let midas: [UpgradePath] = [
+        UpgradePath(name: "Treasury", tiers: [
+            UpgradeTier(name: "Coin Purse", detail: "+15 gold per wave.", cost: 80, research: 0) {
+                $0.income += 15
+            },
+            UpgradeTier(name: "Strongbox", detail: "+30 gold per wave.", cost: 200, research: 4) {
+                $0.income += 30
+            },
+            UpgradeTier(name: "Gold Rush", detail: "POWER: get 150 gold now. +20 per wave.", cost: 400, research: 10,
+                        power: power("Gold Rush", "Get 150 gold right away.", cooldown: 45, .payout(gold: 150))) {
+                $0.income += 20
+            },
+            UpgradeTier(name: "Royal Mint", detail: "+100 gold per wave. Gold Rush gives 400.", cost: 1200, research: 20,
+                        power: power("Gold Rush+", "Get 400 gold right away.", cooldown: 45, .payout(gold: 400))) {
+                $0.income += 100
+            },
+        ]),
+        UpgradePath(name: "Golden Touch", tiers: [
+            UpgradeTier(name: "Gilded Banner", detail: "Heroes in range deal 10% more damage.", cost: 90, research: 0) {
+                $0.buffDamage += 0.1
+            },
+            UpgradeTier(name: "Pep Talk", detail: "Heroes in range attack 10% faster.", cost: 160, research: 4) {
+                $0.buffRate += 0.1
+            },
+            UpgradeTier(name: "Golden Hour", detail: "POWER: heroes in range attack 50% faster for 8s.", cost: 350, research: 10,
+                        power: power("Golden Hour", "Heroes in range attack 50% faster for 8 seconds.", cooldown: 40,
+                                     .rally(duration: 8, rate: 1.5, damage: 1.2, rangeScale: 1))) {
+                $0.range += 0.5
+            },
+            UpgradeTier(name: "Midas Reign", detail: "Stronger auras. Golden Hour doubles attack speed.", cost: 1000, research: 20,
+                        power: power("Golden Hour+", "Heroes in range attack twice as fast for 10 seconds.", cooldown: 40,
+                                     .rally(duration: 10, rate: 2, damage: 1.5, rangeScale: 1.2))) {
+                $0.buffDamage += 0.1
+                $0.buffRate += 0.1
+            },
+        ]),
+    ]
 
     private static let starlight: [UpgradePath] = [
         UpgradePath(name: "Solar", tiers: [

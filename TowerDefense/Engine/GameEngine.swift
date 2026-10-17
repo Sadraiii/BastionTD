@@ -208,7 +208,7 @@ final class GameEngine {
         let range = tower.stats.range
         let reach: Double
         switch power.effect {
-        case .frenzy, .field, .rally: return true
+        case .frenzy, .field, .rally, .payout: return true
         case .timeStop: return enemies.contains { $0.isTargetable }
         case let .burst(_, _, _, scale, _): reach = range * scale
         case let .strikes(_, _, _, _, scale): reach = range * scale
@@ -466,6 +466,10 @@ final class GameEngine {
         case let .timeStop(duration):
             for enemy in enemies where enemy.isTargetable { stun(enemy, for: duration) }
             events.append(.timeStop(duration: duration))
+
+        case let .payout(gold):
+            earn(gold)
+            events.append(.towerIncome(towerID: tower.id, at: tower.position, amount: gold))
 
         case let .rally(duration, rate, damage, scale):
             let radius = range * CGFloat(scale)
@@ -771,6 +775,8 @@ final class GameEngine {
                 }
             }
             let stats = tower.stats
+            // Gold heroes only support; they never attack.
+            if stats.damage == 0 { continue }
             let targets = acquireTargets(for: tower, count: max(stats.multishot, stats.missiles, 1))
             guard let primary = targets.first else { continue }
             tower.aim = (primary.position - tower.position).normalized
@@ -1208,6 +1214,10 @@ final class GameEngine {
         earn(bonus)
         fields.removeAll()
         events.append(.waveCleared(number: waveNumber, bonus: bonus))
+        for tower in towers where tower.stats.income > 0 {
+            earn(tower.stats.income)
+            events.append(.towerIncome(towerID: tower.id, at: tower.position, amount: tower.stats.income))
+        }
         if waveNumber == waves.count && !isEndless {
             phase = .victory
             events.append(.victory)

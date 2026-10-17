@@ -73,6 +73,8 @@ struct TowerStats: Equatable {
     /// Support aura: extra attack speed and damage for other heroes in range.
     var buffRate: Double = 0
     var buffDamage: Double = 0
+    /// Gold paid after each wave.
+    var income: Int = 0
 
     var shotsPerSecond: Double { 1 / fireInterval }
 }
@@ -81,7 +83,7 @@ struct TowerStats: Equatable {
 /// unlocked in the Research Lab. Each hero has two upgrade paths (`HeroCatalog`).
 enum TowerKind: String, CaseIterable, Codable, Identifiable {
     case pulse, frost, mortar, tesla, rail
-    case inferno, weaver, aegis, cyclone, echo, mind, chrono, star
+    case inferno, weaver, aegis, cyclone, echo, mind, chrono, star, midas
 
     var id: String { rawValue }
 
@@ -101,6 +103,7 @@ enum TowerKind: String, CaseIterable, Codable, Identifiable {
         case .mind: "Mindwave"
         case .chrono: "Chrono"
         case .star: "Starlight"
+        case .midas: "Midas"
         }
     }
 
@@ -128,6 +131,7 @@ enum TowerKind: String, CaseIterable, Codable, Identifiable {
         case .mind: "Psychic"
         case .chrono: "Time Keeper"
         case .star: "Cosmic Hero"
+        case .midas: "Gold Hero"
         }
     }
 
@@ -147,6 +151,7 @@ enum TowerKind: String, CaseIterable, Codable, Identifiable {
         case .mind: "Psychic blasts ignore armor and shields."
         case .chrono: "Time aura slows villains; can freeze time itself."
         case .star: "Long-range cosmic beam. Bonus damage to bosses."
+        case .midas: "Makes gold after every wave. Doesn't attack."
         }
     }
 
@@ -154,7 +159,7 @@ enum TowerKind: String, CaseIterable, Codable, Identifiable {
         switch self {
         case .pulse, .weaver, .aegis, .cyclone: .bolt
         case .mortar: .lob
-        case .frost, .chrono: .aura
+        case .frost, .chrono, .midas: .aura
         case .tesla: .chain
         case .rail, .star: .beam
         case .inferno, .echo: .cone
@@ -177,6 +182,7 @@ enum TowerKind: String, CaseIterable, Codable, Identifiable {
         case .mind: 140
         case .chrono: 130
         case .star: 170
+        case .midas: 120
         }
     }
 
@@ -185,7 +191,7 @@ enum TowerKind: String, CaseIterable, Codable, Identifiable {
         switch self {
         case .pulse, .frost, .mortar, .tesla, .rail: 0
         case .inferno, .weaver: 6
-        case .aegis, .cyclone: 8
+        case .aegis, .cyclone, .midas: 8
         case .echo: 10
         case .mind: 12
         case .chrono: 15
@@ -236,6 +242,8 @@ enum TowerKind: String, CaseIterable, Codable, Identifiable {
             TowerStats(damage: 4, range: 2.2, fireInterval: 1.0, damageType: .energy, slow: 0.3, slowDuration: 1.2)
         case .star:
             TowerStats(damage: 90, range: 5.5, fireInterval: 2.6, damageType: .energy, bossMultiplier: 1.25)
+        case .midas:
+            TowerStats(damage: 0, range: 2.0, fireInterval: 1, income: 25)
         }
     }
 

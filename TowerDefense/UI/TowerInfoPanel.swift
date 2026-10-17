@@ -37,6 +37,12 @@ struct TowerInfoPanel: View {
 
     private var statsLine: String {
         let s = tower.stats
+        if s.income > 0 {
+            var parts = ["+\(s.income) GOLD PER WAVE"]
+            if s.buffDamage > 0 { parts.append("+\(Int(s.buffDamage * 100))% DMG NEARBY") }
+            if s.buffRate > 0 { parts.append("+\(Int(s.buffRate * 100))% SPEED NEARBY") }
+            return parts.joined(separator: " · ")
+        }
         var parts = [s.damageType.title.uppercased(), "DMG \(format(s.damage))", "RNG \(format(s.range))", "\(format(s.shotsPerSecond))/S"]
         if s.detectsCamo { parts.append("SEES CLOAKED") }
         if !s.hitsAir { parts.append("GROUND ONLY") }
