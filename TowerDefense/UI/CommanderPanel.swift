@@ -20,7 +20,7 @@ struct CommanderPanel: View {
 
     private var header: some View {
         HStack(spacing: 8) {
-            PixelImage(image: Art.commanderIcon(commander.kind), scale: 2)
+            PixelImage(image: Art.commanderIcon(commander.kind, skin: commander.skin), scale: 2)
             VStack(alignment: .leading, spacing: 3) {
                 Text("\(commander.kind.name.uppercased()) · LEVEL \(commander.level)")
                     .font(Theme.body(12))
@@ -92,7 +92,7 @@ struct CommanderChip: View {
     var body: some View {
         let ready = commander.skills.contains(where: \.isReady)
         Button(action: action) {
-            PixelImage(image: Art.commanderIcon(commander.kind), scale: 2)
+            PixelImage(image: Art.commanderIcon(commander.kind, skin: commander.skin), scale: 2)
                 .overlay(alignment: .bottomTrailing) {
                     PixelText("\(commander.level)", pixel: 1, color: Theme.gold).offset(x: 3, y: 3)
                 }

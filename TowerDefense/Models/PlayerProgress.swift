@@ -12,6 +12,7 @@ enum StorageKey {
     static let savedMatch = "progress.savedMatch"
     static let commander = "progress.commander"
     static func commanderXP(_ kind: CommanderKind) -> String { "progress.commanderXP.\(kind.rawValue)" }
+    static func commanderSkin(_ kind: CommanderKind) -> String { "progress.commanderSkin.\(kind.rawValue)" }
     static func bestStars(_ mapID: String) -> String { "progress.stars.\(mapID)" }
     static func bestEndless(_ mapID: String) -> String { "progress.endless.\(mapID)" }
     static func daily(_ day: Int) -> String { "progress.daily.\(day)" }
@@ -59,7 +60,16 @@ enum PlayerProgress {
     static var commanderLoadout: CommanderLoadout {
         var loadout = commander.loadout
         loadout.rank = CommanderKind.rank(forXP: commanderXP(loadout.kind))
+        loadout.skin = commanderSkin(loadout.kind)
         return loadout
+    }
+
+    static func commanderSkin(_ kind: CommanderKind) -> CommanderSkin {
+        CommanderSkin(rawValue: defaults.integer(forKey: StorageKey.commanderSkin(kind))) ?? .classic
+    }
+
+    static func setCommanderSkin(_ skin: CommanderSkin, for kind: CommanderKind) {
+        defaults.set(skin.rawValue, forKey: StorageKey.commanderSkin(kind))
     }
 
     static func commanderXP(_ kind: CommanderKind) -> Int {

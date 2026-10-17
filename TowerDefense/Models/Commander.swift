@@ -124,6 +124,30 @@ struct CommanderLoadout: Codable, Equatable {
     var kind: CommanderKind
     var skillLevels: [Int]
     var rank = 0
+    var skin = CommanderSkin.classic
+}
+
+/// Colour variants for commanders, unlocked by earning medals.
+enum CommanderSkin: Int, CaseIterable, Codable {
+    case classic, shadow, gold, crystal
+
+    var name: String {
+        switch self {
+        case .classic: "Classic"
+        case .shadow: "Shadow"
+        case .gold: "Gold"
+        case .crystal: "Crystal"
+        }
+    }
+
+    var medalsNeeded: Int {
+        switch self {
+        case .classic: 0
+        case .shadow: 3
+        case .gold: 7
+        case .crystal: 12
+        }
+    }
 }
 
 /// Saved between matches: the chosen commander and the skill levels of each.

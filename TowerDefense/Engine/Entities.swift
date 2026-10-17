@@ -231,6 +231,7 @@ final class PowerField {
 final class Commander {
     let kind: CommanderKind
     let rank: Int
+    let skin: CommanderSkin
     /// Level of each skill; 0 means locked. The ultimate unlocks at max level.
     var skillLevels: [Int]
     /// The tile it stands on or is walking to.
@@ -247,6 +248,7 @@ final class Commander {
     init(loadout: CommanderLoadout, cell: GridPoint) {
         kind = loadout.kind
         rank = loadout.rank
+        skin = loadout.skin
         skillLevels = loadout.skillLevels + [0]
         self.cell = cell
         position = cell.center

@@ -60,6 +60,7 @@ struct SkillSnapshot: Equatable {
 /// What the commander panel shows.
 struct CommanderSnapshot: Equatable {
     let kind: CommanderKind
+    let skin: CommanderSkin
     let level: Int
     /// Progress to the next level in steps of 5%; 1 at the top level.
     let xp: Double
@@ -439,7 +440,7 @@ final class GameSession {
         }
         let xp = commander.level >= CommanderKind.maxLevel
             ? 1 : (Double(commander.xp) / Double(CommanderKind.xpToNext(level: commander.level)) * 20).rounded(.down) / 20
-        return CommanderSnapshot(kind: commander.kind, level: commander.level, xp: xp, skills: skills)
+        return CommanderSnapshot(kind: commander.kind, skin: commander.skin, level: commander.level, xp: xp, skills: skills)
     }
 
     private func makeSnapshot(_ id: Int) -> TowerSnapshot? {

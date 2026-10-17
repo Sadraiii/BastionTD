@@ -147,6 +147,16 @@ enum Pal {
         }
     }
 
+    /// Dark-to-light tones a commander skin maps every colour onto; nil keeps the original colours.
+    static func ramp(_ skin: CommanderSkin) -> [PixelColor]? {
+        switch skin {
+        case .classic: nil
+        case .shadow: [ink, navy, purple, slate, steel]
+        case .gold: [bark, rust, copper, amber, yellow]
+        case .crystal: [ocean, blue, cyan, mist, white]
+        }
+    }
+
     static func enemy(_ kind: EnemyKind) -> PixelColor {
         switch kind {
         case .drone: red

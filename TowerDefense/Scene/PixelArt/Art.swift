@@ -399,21 +399,28 @@ enum Art {
 
     // MARK: Commanders
 
-    static func commanderCanvas(_ kind: CommanderKind, frame: Int) -> PixelCanvas {
+    static func commanderCanvas(_ kind: CommanderKind, frame: Int, skin: CommanderSkin) -> PixelCanvas {
         let maps = SpriteMaps.commanderFrames(kind)
         var canvas = PixelCanvas(map: maps[frame % maps.count]).padded(1)
+        if let ramp = Pal.ramp(skin) {
+            // Keep the light and shade of each pixel, but in the skin's colours.
+            canvas = canvas.recolored { color in
+                let light = (Int(color.r) * 3 + Int(color.g) * 6 + Int(color.b)) / 10
+                return ramp[min(ramp.count - 1, light * ramp.count / 200)].alpha(color.a)
+            }
+        }
         canvas.outline()
         return canvas
     }
 
-    static func commanderFrames(_ kind: CommanderKind) -> [SKTexture] {
-        frames("commander.\(kind.rawValue)") {
-            (0..<SpriteMaps.commanderFrames(kind).count).map { commanderCanvas(kind, frame: $0) }
+    static func commanderFrames(_ kind: CommanderKind, skin: CommanderSkin) -> [SKTexture] {
+        frames("commander.\(kind.rawValue).\(skin.rawValue)") {
+            (0..<SpriteMaps.commanderFrames(kind).count).map { commanderCanvas(kind, frame: $0, skin: skin) }
         }
     }
 
-    static func commanderIcon(_ kind: CommanderKind) -> UIImage {
-        image("commanderIcon.\(kind.rawValue)") { commanderCanvas(kind, frame: 0) }
+    static func commanderIcon(_ kind: CommanderKind, skin: CommanderSkin) -> UIImage {
+        image("commanderIcon.\(kind.rawValue).\(skin.rawValue)") { commanderCanvas(kind, frame: 0, skin: skin) }
     }
 
     static func enemyCanvas(_ kind: EnemyKind, frame: Int) -> PixelCanvas {

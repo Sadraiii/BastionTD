@@ -233,7 +233,7 @@ final class GameScene: SKScene {
     /// Mirrors the commander: a walk cycle while moving, its level and, when selected, its range.
     private func syncCommander(_ layout: BoardLayout, now: TimeInterval) {
         guard let session, let commander = session.engine.commander else { return }
-        let frames = Art.commanderFrames(commander.kind)
+        let frames = Art.commanderFrames(commander.kind, skin: commander.skin)
         let node: SKNode
         if let commanderNode {
             node = commanderNode

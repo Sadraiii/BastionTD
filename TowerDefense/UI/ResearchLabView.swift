@@ -7,6 +7,7 @@ struct ResearchLabView: View {
     @State private var points = PlayerProgress.researchPoints
     @State private var research = PlayerProgress.research
     @State private var commander = PlayerProgress.commander
+    @State private var skin = PlayerProgress.commanderSkin(PlayerProgress.commander.selected)
     @State private var selection: Selection?
     @State private var celebrate: Medal?
 
@@ -21,7 +22,8 @@ struct ResearchLabView: View {
             header
             ScrollView(.vertical, showsIndicators: false) {
                 LazyVStack(spacing: 12) {
-                    CommanderResearchCard(progress: commander, points: points, onSelect: selectCommander, onUpgrade: upgradeSkill)
+                    CommanderResearchCard(progress: commander, skin: skin, points: points, onSelect: selectCommander,
+                                          onSkin: selectSkin, onUpgrade: upgradeSkill)
                     PerksCard(research: research, points: points, onBuy: buyPerk)
                     ForEach(TowerKind.allCases) { kind in
                         HeroResearchCard(kind: kind, research: research, points: points, selection: $selection) {
@@ -151,6 +153,17 @@ struct ResearchLabView: View {
         playTap()
         commander.selected = kind
         PlayerProgress.commander = commander
+        skin = PlayerProgress.commanderSkin(kind)
+    }
+
+    private func selectSkin(_ choice: CommanderSkin) {
+        guard PlayerProgress.earnedMedals.count >= choice.medalsNeeded else {
+            SoundEngine.shared.play(.error)
+            return
+        }
+        playTap()
+        PlayerProgress.setCommanderSkin(choice, for: commander.selected)
+        skin = choice
     }
 
     private func buyPerk(_ perk: Perk) {
@@ -241,8 +254,10 @@ private struct PerksCard: View {
 /// Pick the commander for your matches and research its skills.
 private struct CommanderResearchCard: View {
     let progress: CommanderProgress
+    let skin: CommanderSkin
     let points: Int
     let onSelect: (CommanderKind) -> Void
+    let onSkin: (CommanderSkin) -> Void
     let onUpgrade: (CommanderKind, Int) -> Void
 
     var body: some View {
@@ -256,7 +271,7 @@ private struct CommanderResearchCard: View {
                         onSelect(option)
                     } label: {
                         VStack(spacing: 2) {
-                            PixelImage(image: Art.commanderIcon(option), scale: 2)
+                            PixelImage(image: Art.commanderIcon(option, skin: option == kind ? skin : .classic), scale: 2)
                             Text(option.name.uppercased()).font(Theme.body(10))
                         }
                         .frame(maxWidth: .infinity)
@@ -264,6 +279,28 @@ private struct CommanderResearchCard: View {
                     .buttonStyle(option == kind ? PixelButtonStyle.gold
                                  : PixelButtonStyle(color: Theme.panel, highlight: Theme.panelLight, shade: Theme.border, minHeight: 44))
                     .accessibilityLabel("\(option.name)\(option == kind ? ", selected" : "")")
+                }
+            }
+            let medals = PlayerProgress.earnedMedals.count
+            HStack(spacing: 6) {
+                ForEach(CommanderSkin.allCases, id: \.self) { option in
+                    let unlocked = medals >= option.medalsNeeded
+                    Button {
+                        onSkin(option)
+                    } label: {
+                        VStack(spacing: 2) {
+                            PixelImage(image: Art.commanderIcon(kind, skin: option), scale: 1)
+                                .opacity(unlocked ? 1 : 0.35)
+                            Text(unlocked ? option.name.uppercased() : "\(option.medalsNeeded) MEDALS")
+                                .font(Theme.body(8))
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.7)
+                        }
+                        .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(option == skin ? PixelButtonStyle.gold
+                                 : PixelButtonStyle(color: Theme.panel, highlight: Theme.panelLight, shade: Theme.border, minHeight: 36))
+                    .accessibilityLabel(unlocked ? "\(option.name) skin" : "\(option.name) skin, needs \(option.medalsNeeded) medals")
                 }
             }
             let xp = PlayerProgress.commanderXP(kind)
