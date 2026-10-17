@@ -121,7 +121,7 @@ struct GameOverView: View {
                     statRow("VILLAINS DEFEATED", "\(session.stats.enemiesDefeated)")
                     statRow("POWERS UNLEASHED", "\(session.stats.powersUsed)")
                     statRow("GOLD EARNED", "\(session.stats.goldEarned)")
-                    statRow("LIVES LEFT", "\(session.lives)/\(session.map.startingLives)")
+                    statRow("LIVES LEFT", "\(session.lives)/\(session.engine.startingLives)")
                 }
                 .padding(10)
                 .background(Color(pixel: Pal.ink).opacity(0.5))

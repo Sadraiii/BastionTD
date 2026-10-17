@@ -12,7 +12,7 @@ struct GameStats: Equatable {
 }
 
 enum PlacementResult: Equatable {
-    case ok, outOfBounds, onPath, blocked, occupied, insufficientGold, locked
+    case ok, outOfBounds, onPath, blocked, occupied, insufficientGold, locked, banned
 
     var message: String {
         switch self {
@@ -23,6 +23,7 @@ enum PlacementResult: Equatable {
         case .occupied: "A hero is already there"
         case .insufficientGold: "Not enough gold"
         case .locked: "Recruit this hero in the Research Lab"
+        case .banned: "Not allowed in this challenge"
         }
     }
 }
@@ -82,6 +83,8 @@ final class GameEngine {
     var path: PathGeometry { paths[0] }
     let waves: [WaveDefinition]
     let research: ResearchState
+    let setup: MatchSetup
+    let startingLives: Int
 
     private(set) var towers: [Tower] = []
     private(set) var enemies: [Enemy] = []
@@ -116,13 +119,15 @@ final class GameEngine {
     private var lastImmuneEvent: Double = -1
 
     init(map: MapDefinition, waves: [WaveDefinition] = WaveLibrary.standard,
-         research: ResearchState = ResearchState(), seed: UInt64 = 0x5EED) {
+         research: ResearchState = ResearchState(), setup: MatchSetup = MatchSetup(), seed: UInt64 = 0x5EED) {
         self.map = map
         self.paths = map.routes.map { PathGeometry(waypoints: $0) }
         self.waves = waves
         self.research = research
+        self.setup = setup
+        self.startingLives = setup.modifiers.contains(.ironCrystal) ? 1 : map.startingLives
         self.gold = map.startingGold
-        self.lives = map.startingLives
+        self.lives = startingLives
         self.rng = SplitMix64(seed: seed)
     }
 
@@ -163,12 +168,18 @@ final class GameEngine {
 
     func placementCheck(_ kind: TowerKind, at cell: GridPoint) -> PlacementResult {
         guard research.isHeroUnlocked(kind) else { return .locked }
+        guard allows(kind) else { return .banned }
         guard map.contains(cell) else { return .outOfBounds }
         if map.pathCells.contains(cell) { return .onPath }
         if map.obstacles.contains(cell) { return .blocked }
         if towersByCell[cell] != nil { return .occupied }
         if gold < kind.cost { return .insufficientGold }
         return .ok
+    }
+
+    /// Whether the match's challenge rules let this hero be recruited.
+    func allows(_ kind: TowerKind) -> Bool {
+        !(setup.modifiers.contains(.noFire) && kind.baseStats.damageType == .fire)
     }
 
     func upgradeStatus(towerID: Int, path: Int) -> UpgradeStatus {
@@ -259,8 +270,8 @@ final class GameEngine {
     /// Triggers the tower's hero power. Returns false if it isn't ready or would hit nothing.
     @discardableResult
     func activatePower(towerID: Int) -> Bool {
-        guard !phase.isOver, let tower = tower(id: towerID), let power = tower.power, tower.isPowerReady,
-              powerHasTargets(towerID: towerID) else { return false }
+        guard !phase.isOver, !setup.modifiers.contains(.noPowers), let tower = tower(id: towerID),
+              let power = tower.power, tower.isPowerReady, powerHasTargets(towerID: towerID) else { return false }
         tower.powerCooldown = power.cooldown
         stats.powersUsed += 1
         let range = CGFloat(tower.stats.range)
@@ -409,7 +420,8 @@ final class GameEngine {
     private func spawn(_ kind: EnemyKind, at distance: CGFloat, route: Int) -> Enemy {
         let wave = max(1, waveNumber)
         let health = kind.baseHealth * WaveLibrary.healthMultiplier(wave: wave) * map.difficulty.healthMultiplier
-        let bounty = max(1, Int((Double(kind.bounty) * WaveLibrary.bountyMultiplier(wave: wave)).rounded()))
+        let goldFactor = setup.modifiers.contains(.halfGold) ? 0.5 : 1
+        let bounty = max(1, Int((Double(kind.bounty) * WaveLibrary.bountyMultiplier(wave: wave) * goldFactor).rounded()))
         let lane = kind.isBoss ? 0 : CGFloat(Double.random(in: -0.14...0.14, using: &rng))
         let enemy = Enemy(id: makeID(), kind: kind, maxHealth: health, bounty: bounty, route: route, distance: distance, laneOffset: lane)
         place(enemy)
@@ -428,6 +440,11 @@ final class GameEngine {
         for enemy in incoming { enemiesByID[enemy.id] = enemy }
         enemies.append(contentsOf: incoming)
         incoming.removeAll(keepingCapacity: true)
+    }
+
+    /// Tiles per second, including the Fast Villains modifier.
+    private func speed(of enemy: Enemy) -> Double {
+        enemy.currentSpeed * (setup.modifiers.contains(.fastVillains) ? 1.5 : 1)
     }
 
     /// Distance left to the crystal, comparable across routes of different lengths.
@@ -465,11 +482,11 @@ final class GameEngine {
             }
             if enemy.confuseTimer > 0 {
                 enemy.confuseTimer -= dt
-                enemy.distance = max(Self.spawnDistance, enemy.distance - CGFloat(enemy.currentSpeed * 0.7 * dt))
+                enemy.distance = max(Self.spawnDistance, enemy.distance - CGFloat(speed(of: enemy) * 0.7 * dt))
                 place(enemy)
                 continue
             }
-            enemy.distance += CGFloat(enemy.currentSpeed * dt)
+            enemy.distance += CGFloat(speed(of: enemy) * dt)
             if remaining(enemy) <= 0 {
                 leak(enemy)
                 if phase.isOver { return }
@@ -682,7 +699,7 @@ final class GameEngine {
 
         case .lob:
             let path = paths[primary.route]
-            let lead = primary.distance + CGFloat(primary.currentSpeed * Self.mortarFlightTime)
+            let lead = primary.distance + CGFloat(speed(of: primary) * Self.mortarFlightTime)
             let clamped = min(lead, path.totalLength)
             let impact = path.point(at: clamped) + path.direction(at: clamped).perpendicular * primary.laneOffset
             projectiles.append(Projectile(

@@ -16,8 +16,8 @@ struct RootView: View {
             if let session {
                 GameView(
                     session: session,
-                    onRestart: { start(session.map) },
-                    onNextMap: session.map.next.map { next in { start(next) } },
+                    onRestart: { start(session.map, session.setup) },
+                    onNextMap: session.map.next.map { next in { start(next, session.setup) } },
                     onQuit: { quit(to: .home) },
                     onResearch: { quit(to: .research) },
                     onHowToPlay: { showOnboarding = true }
@@ -94,17 +94,17 @@ struct RootView: View {
         }
     }
 
-    private func start(_ map: MapDefinition) {
+    private func start(_ map: MapDefinition, _ setup: MatchSetup = MatchSetup()) {
         PlayerProgress.savedMatch = nil
         withAnimation(.easeInOut(duration: 0.25)) {
-            session = GameSession(map: map)
+            session = GameSession(map: map, setup: setup)
         }
     }
 
     private func resume(_ saved: SavedMatch) {
         guard let map = saved.map else { return }
         withAnimation(.easeInOut(duration: 0.25)) {
-            session = GameSession(map: map, resuming: saved)
+            session = GameSession(map: map, setup: saved.setup, resuming: saved)
         }
     }
 }

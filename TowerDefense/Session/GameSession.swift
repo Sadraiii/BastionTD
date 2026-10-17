@@ -88,6 +88,7 @@ struct SavedMatch: Codable {
     }
 
     let mapID: String
+    let setup: MatchSetup
     let research: ResearchState
     var entries: [Entry] = []
     var steps = 0
@@ -105,6 +106,7 @@ struct SavedMatch: Codable {
 final class GameSession {
     let id = UUID()
     let map: MapDefinition
+    let setup: MatchSetup
     let totalWaves: Int
     @ObservationIgnored let engine: GameEngine
     @ObservationIgnored let scene: GameScene
@@ -150,15 +152,16 @@ final class GameSession {
 
     private static let fixedStep = 1.0 / 60.0
 
-    init(map: MapDefinition, resuming saved: SavedMatch? = nil) {
+    init(map: MapDefinition, setup: MatchSetup = MatchSetup(), resuming saved: SavedMatch? = nil) {
         self.map = map
+        self.setup = setup
         let research = saved?.research ?? PlayerProgress.research
-        let engine = GameEngine(map: map, research: research)
+        let engine = GameEngine(map: map, research: research, setup: setup)
         self.engine = engine
         self.totalWaves = engine.totalWaves
         self.scene = GameScene(map: map, paths: engine.paths)
         self.coachEnabled = !PlayerProgress.coachCompleted
-        self.save = SavedMatch(mapID: map.id, research: research)
+        self.save = SavedMatch(mapID: map.id, setup: setup, research: research)
         scene.session = self
         if let saved { replay(saved) }
         #if DEBUG
@@ -212,8 +215,8 @@ final class GameSession {
             case let .towerUpgraded(_, _, tier):
                 highestTier = max(highestTier, tier)
             case .victory:
-                victoryStars = Self.stars(lives: engine.lives, starting: map.startingLives)
-                awardedPoints = ResearchRewards.points(for: map, wavesCleared: engine.wavesCleared, victory: true, stars: victoryStars)
+                victoryStars = Self.stars(lives: engine.lives, starting: engine.startingLives)
+                awardedPoints = researchPoints(wavesCleared: engine.wavesCleared, victory: true)
             default:
                 break
             }
@@ -278,7 +281,7 @@ final class GameSession {
             case let .powerActivated(_, _, name):
                 showToast(name.uppercased() + "!")
             case .victory:
-                victoryStars = Self.stars(lives: engine.lives, starting: map.startingLives)
+                victoryStars = Self.stars(lives: engine.lives, starting: engine.startingLives)
                 PlayerProgress.recordVictory(on: map, stars: victoryStars)
                 PlayerProgress.savedMatch = nil
                 outcome = .victory(stars: victoryStars)
@@ -317,7 +320,7 @@ final class GameSession {
         stats = engine.stats
 
         let cleared = engine.wavesCleared
-        let total = ResearchRewards.points(for: map, wavesCleared: cleared, victory: victory, stars: victoryStars)
+        let total = researchPoints(wavesCleared: cleared, victory: victory)
         let earned = max(0, total - awardedPoints)
         awardedPoints = total
 
@@ -332,6 +335,12 @@ final class GameSession {
             researchPoints: rewards.researchPoints + earned + medals.reduce(0) { $0 + $1.reward },
             medals: rewards.medals + medals
         )
+    }
+
+    /// Research Points for the run so far, with the challenge bonus.
+    private func researchPoints(wavesCleared: Int, victory: Bool) -> Int {
+        let points = ResearchRewards.points(for: map, wavesCleared: wavesCleared, victory: victory, stars: victoryStars)
+        return points * (100 + setup.bonusPercent) / 100
     }
 
     /// Copies engine state into observable properties, touching only what changed.
@@ -401,10 +410,15 @@ final class GameSession {
 
     var canStartWave: Bool { outcome == nil && engine.canStartWave }
 
-    func isHeroUnlocked(_ kind: TowerKind) -> Bool { engine.research.isHeroUnlocked(kind) }
+    func isHeroUnlocked(_ kind: TowerKind) -> Bool { engine.research.isHeroUnlocked(kind) && engine.allows(kind) }
 
     func chooseBuild(_ kind: TowerKind) {
         guard outcome == nil else { return }
+        guard engine.allows(kind) else {
+            showToast("NOT ALLOWED IN THIS CHALLENGE")
+            SoundEngine.shared.play(.error)
+            return
+        }
         guard isHeroUnlocked(kind) else {
             showToast("RECRUIT \(kind.name.uppercased()) IN THE LAB")
             SoundEngine.shared.play(.error)
@@ -511,6 +525,11 @@ final class GameSession {
 
     func activatePower(towerID: Int) {
         guard outcome == nil, !isPaused else { return }
+        guard !setup.modifiers.contains(.noPowers) else {
+            showToast("POWERS ARE OFF")
+            SoundEngine.shared.play(.error)
+            return
+        }
         if engine.activatePower(towerID: towerID) {
             record(.power(towerID: towerID))
             Haptics.impact(.heavy)

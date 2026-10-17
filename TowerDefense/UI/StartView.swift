@@ -2,7 +2,7 @@ import SwiftUI
 
 /// Title screen with the map picker.
 struct StartView: View {
-    let onPlay: (MapDefinition) -> Void
+    let onPlay: (MapDefinition, MatchSetup) -> Void
     let onResume: (() -> Void)?
     let onHowToPlay: () -> Void
     let onResearch: () -> Void
@@ -182,8 +182,10 @@ struct PixelBackdrop: View {
 /// Map picker cards with a pixel preview of each battlefield.
 struct MapSelectView: View {
     let landscape: Bool
-    let onSelect: (MapDefinition) -> Void
+    let onSelect: (MapDefinition, MatchSetup) -> Void
     let onBack: () -> Void
+
+    @State private var modifiers: Set<Modifier> = []
 
     var body: some View {
         VStack(spacing: landscape ? 10 : 16) {
@@ -199,11 +201,13 @@ struct MapSelectView: View {
             }
             .padding(.horizontal, 16)
 
+            challenges
+
             ScrollView(landscape ? .horizontal : .vertical, showsIndicators: false) {
                 let cards = ForEach(MapDefinition.all) { map in
                     MapCard(map: map) {
                         playTap()
-                        onSelect(map)
+                        onSelect(map, MatchSetup(modifiers: modifiers))
                     }
                 }
                 if landscape {
@@ -214,6 +218,36 @@ struct MapSelectView: View {
             }
         }
         .padding(.top, 8)
+    }
+
+    /// Toggles for the challenge modifiers and the Research Point bonus they add.
+    private var challenges: some View {
+        VStack(spacing: 6) {
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    ForEach(Modifier.allCases) { modifier in
+                        let on = modifiers.contains(modifier)
+                        Button {
+                            playTap()
+                            if on { modifiers.remove(modifier) } else { modifiers.insert(modifier) }
+                        } label: {
+                            PixelText("\(modifier.title) +\(modifier.bonus)%", pixel: 2, shadow: nil)
+                        }
+                        .buttonStyle(on ? PixelButtonStyle.gold : PixelButtonStyle(
+                            color: Theme.panel, highlight: Theme.panelLight, shade: Theme.border, minHeight: 36))
+                        .accessibilityLabel("\(modifier.title), \(on ? "on" : "off"). \(modifier.detail)")
+                    }
+                }
+                .padding(.horizontal, 16)
+            }
+            Text(modifiers.isEmpty
+                 ? "Challenges: harder rules for more Research Points."
+                 : Modifier.allCases.filter(modifiers.contains).map(\.detail).joined(separator: " ")
+                    + " +\(MatchSetup(modifiers: modifiers).bonusPercent)% RP.")
+                .font(Theme.body(11, weight: .regular))
+                .foregroundStyle(Theme.secondaryText)
+                .padding(.horizontal, 16)
+        }
     }
 }
 
