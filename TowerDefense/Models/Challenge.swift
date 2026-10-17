@@ -2,7 +2,7 @@ import Foundation
 
 /// Optional rules that make a match harder in exchange for extra Research Points.
 enum Modifier: String, CaseIterable, Codable, Identifiable {
-    case noFire, fastVillains, halfGold, ironCrystal, noPowers
+    case noFire, fastVillains, halfGold, ironCrystal, noPowers, hardMode
 
     var id: String { rawValue }
 
@@ -13,6 +13,7 @@ enum Modifier: String, CaseIterable, Codable, Identifiable {
         case .halfGold: "Half Gold"
         case .ironCrystal: "Iron Crystal"
         case .noPowers: "No Powers"
+        case .hardMode: "Hard Mode"
         }
     }
 
@@ -23,6 +24,7 @@ enum Modifier: String, CaseIterable, Codable, Identifiable {
         case .halfGold: "Villains drop half the gold."
         case .ironCrystal: "The crystal has a single life."
         case .noPowers: "Hero powers are switched off."
+        case .hardMode: "One life, no selling and no bonus gold."
         }
     }
 
@@ -34,6 +36,7 @@ enum Modifier: String, CaseIterable, Codable, Identifiable {
         case .halfGold: 30
         case .ironCrystal: 50
         case .noPowers: 25
+        case .hardMode: 100
         }
     }
 }
@@ -56,7 +59,7 @@ struct MatchSetup: Codable, Equatable {
         let day = parts.year! * 10000 + parts.month! * 100 + parts.day!
         var rng = SplitMix64(seed: UInt64(day))
         let map = MapDefinition.all.randomElement(using: &rng)!
-        let modifiers = Modifier.allCases.filter { $0 != .ironCrystal }.shuffled(using: &rng).prefix(2)
+        let modifiers = Modifier.allCases.filter { $0 != .ironCrystal && $0 != .hardMode }.shuffled(using: &rng).prefix(2)
         let spotter = TowerKind.allCases.filter(\.baseStats.detectsCamo).randomElement(using: &rng)!
         let others = TowerKind.allCases.filter { $0 != spotter }.shuffled(using: &rng).prefix(3)
         let setup = MatchSetup(modifiers: Set(modifiers), heroPool: Set(others + [spotter]), seed: UInt64(day), day: day)

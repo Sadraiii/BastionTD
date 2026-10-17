@@ -127,7 +127,7 @@ final class GameEngine {
         self.waves = waves
         self.research = research
         self.setup = setup
-        self.startingLives = setup.modifiers.contains(.ironCrystal) ? 1 : map.startingLives + (research.has(.sturdyCrystal) ? 5 : 0)
+        self.startingLives = setup.modifiers.contains(.ironCrystal) || setup.modifiers.contains(.hardMode) ? 1 : map.startingLives + (research.has(.sturdyCrystal) ? 5 : 0)
         self.gold = map.startingGold + (research.has(.richStart) ? 50 : 0)
         self.lives = startingLives
         self.rng = SplitMix64(seed: seed)
@@ -158,7 +158,8 @@ final class GameEngine {
 
     /// Gold awarded for calling the next wave before the countdown ends.
     var earlyCallBonus: Int {
-        phase == .intermission ? max(0, Int(intermissionRemaining * Self.earlyCallGoldPerSecond)) : 0
+        guard phase == .intermission, !setup.modifiers.contains(.hardMode) else { return 0 }
+        return max(0, Int(intermissionRemaining * Self.earlyCallGoldPerSecond))
     }
 
     var waveProgress: Double {
@@ -247,7 +248,8 @@ final class GameEngine {
 
     @discardableResult
     func sell(towerID: Int) -> Int? {
-        guard !phase.isOver, let index = towers.firstIndex(where: { $0.id == towerID }) else { return nil }
+        guard !phase.isOver, !setup.modifiers.contains(.hardMode),
+              let index = towers.firstIndex(where: { $0.id == towerID }) else { return nil }
         let tower = towers.remove(at: index)
         towersByCell[tower.cell] = nil
         let refund = tower.sellValue
@@ -469,6 +471,7 @@ final class GameEngine {
             events.append(.timeStop(duration: duration))
 
         case let .payout(gold):
+            guard !setup.modifiers.contains(.hardMode) else { break }
             earn(gold)
             events.append(.towerIncome(towerID: tower.id, at: tower.position, amount: gold))
 
@@ -1211,11 +1214,13 @@ final class GameEngine {
 
     private func checkWaveCompletion() {
         guard phase == .waveActive, spawnQueue.isEmpty, incoming.isEmpty, enemies.isEmpty else { return }
-        let bonus = WaveLibrary.clearBonus(wave: waveNumber)
+        // Hard mode pays no wave bonus and no hero income.
+        let hardMode = setup.modifiers.contains(.hardMode)
+        let bonus = hardMode ? 0 : WaveLibrary.clearBonus(wave: waveNumber)
         earn(bonus)
         fields.removeAll()
         events.append(.waveCleared(number: waveNumber, bonus: bonus))
-        for tower in towers where tower.stats.income > 0 {
+        for tower in towers where tower.stats.income > 0 && !hardMode {
             earn(tower.stats.income)
             events.append(.towerIncome(towerID: tower.id, at: tower.position, amount: tower.stats.income))
         }

@@ -618,6 +618,11 @@ final class GameSession {
 
     func sellSelected() {
         guard let id = selectedTowerID else { return }
+        guard !setup.modifiers.contains(.hardMode) else {
+            showToast("NO SELLING IN HARD MODE")
+            SoundEngine.shared.play(.error)
+            return
+        }
         if engine.sell(towerID: id) != nil { record(.sell(towerID: id)) }
         selectedTowerID = nil
         sync()
