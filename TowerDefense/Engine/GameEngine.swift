@@ -179,7 +179,7 @@ final class GameEngine {
 
     /// Whether the match's challenge rules let this hero be recruited.
     func allows(_ kind: TowerKind) -> Bool {
-        !(setup.modifiers.contains(.noFire) && kind.baseStats.damageType == .fire)
+        (setup.heroPool?.contains(kind) ?? true) && !(setup.modifiers.contains(.noFire) && kind.baseStats.damageType == .fire)
     }
 
     func upgradeStatus(towerID: Int, path: Int) -> UpgradeStatus {

@@ -4,6 +4,7 @@ import SwiftUI
 struct StartView: View {
     let onPlay: (MapDefinition, MatchSetup) -> Void
     let onResume: (() -> Void)?
+    let onDaily: () -> Void
     let onHowToPlay: () -> Void
     let onResearch: () -> Void
     let onMedals: () -> Void
@@ -64,6 +65,22 @@ struct StartView: View {
                     PixelText("PLAY", pixel: 3).frame(width: 236)
                 }
                 .buttonStyle(PixelButtonStyle.primary)
+
+                Button {
+                    playTap()
+                    onDaily()
+                } label: {
+                    let daily = MatchSetup.daily(for: Date())
+                    let best = PlayerProgress.bestDaily(daily.setup.day ?? 0)
+                    VStack(spacing: 4) {
+                        PixelText("DAILY: \(daily.map.name)", pixel: 2)
+                        if best > 0 {
+                            PixelText("BEST TODAY: WAVE \(best)", pixel: 1, shadow: nil)
+                        }
+                    }
+                    .frame(width: 236)
+                }
+                .buttonStyle(PixelButtonStyle.gold)
 
                 HStack(spacing: 12) {
                     Button {

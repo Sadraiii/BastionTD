@@ -41,6 +41,24 @@ enum Modifier: String, CaseIterable, Codable, Identifiable {
 /// The rules a match is played with, besides the map.
 struct MatchSetup: Codable, Equatable {
     var modifiers: Set<Modifier> = []
+    /// The only heroes allowed, for daily challenges. Nil allows every recruited hero.
+    var heroPool: Set<TowerKind>?
+    var seed: UInt64 = 0x5EED
+    /// The daily challenge's date, such as 20261018.
+    var day: Int?
 
     var bonusPercent: Int { modifiers.reduce(0) { $0 + $1.bonus } }
+
+    /// The challenge for a date: a map, two modifiers and four heroes, one of which can see cloaked villains.
+    static func daily(for date: Date) -> (map: MapDefinition, setup: MatchSetup) {
+        let parts = Calendar(identifier: .gregorian).dateComponents([.year, .month, .day], from: date)
+        let day = parts.year! * 10000 + parts.month! * 100 + parts.day!
+        var rng = SplitMix64(seed: UInt64(day))
+        let map = MapDefinition.all.randomElement(using: &rng)!
+        let modifiers = Modifier.allCases.filter { $0 != .ironCrystal }.shuffled(using: &rng).prefix(2)
+        let spotter = TowerKind.allCases.filter(\.baseStats.detectsCamo).randomElement(using: &rng)!
+        let others = TowerKind.allCases.filter { $0 != spotter }.shuffled(using: &rng).prefix(3)
+        let setup = MatchSetup(modifiers: Set(modifiers), heroPool: Set(others + [spotter]), seed: UInt64(day), day: day)
+        return (map, setup)
+    }
 }

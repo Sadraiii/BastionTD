@@ -155,8 +155,9 @@ final class GameSession {
     init(map: MapDefinition, setup: MatchSetup = MatchSetup(), resuming saved: SavedMatch? = nil) {
         self.map = map
         self.setup = setup
-        let research = saved?.research ?? PlayerProgress.research
-        let engine = GameEngine(map: map, research: research, setup: setup)
+        // Daily challenges give everyone the full research tree.
+        let research = saved?.research ?? (setup.day == nil ? PlayerProgress.research : .complete)
+        let engine = GameEngine(map: map, research: research, setup: setup, seed: setup.seed)
         self.engine = engine
         self.totalWaves = engine.totalWaves
         self.scene = GameScene(map: map, paths: engine.paths)
@@ -164,6 +165,10 @@ final class GameSession {
         self.save = SavedMatch(mapID: map.id, setup: setup, research: research)
         scene.session = self
         if let saved { replay(saved) }
+        if let pool = setup.heroPool {
+            let rules = (TowerKind.allCases.filter(pool.contains).map(\.name) + Modifier.allCases.filter(setup.modifiers.contains).map(\.title))
+            showBanner(title: "DAILY CHALLENGE", subtitle: rules.joined(separator: ", ").uppercased(), isBoss: false)
+        }
         #if DEBUG
         if ProcessInfo.processInfo.arguments.contains("-richStart") { engine.debugGrantGold(5000) }
         if ProcessInfo.processInfo.arguments.contains("-demo") { setUpDemo() }
@@ -282,7 +287,7 @@ final class GameSession {
                 showToast(name.uppercased() + "!")
             case .victory:
                 victoryStars = Self.stars(lives: engine.lives, starting: engine.startingLives)
-                PlayerProgress.recordVictory(on: map, stars: victoryStars)
+                if setup.day == nil { PlayerProgress.recordVictory(on: map, stars: victoryStars) }
                 PlayerProgress.savedMatch = nil
                 outcome = .victory(stars: victoryStars)
                 finishRun(victory: true)
@@ -328,9 +333,15 @@ final class GameSession {
             map: map, victory: victory, wavesCleared: cleared, livesLost: engine.stats.livesLost,
             stats: engine.stats, towerCount: engine.towers.count, highestTier: highestTier
         )
-        let medals = PlayerProgress.awardMedals(for: run)
+        // Daily challenges don't count toward map progress or medals.
+        var medals: [Medal] = []
+        if let day = setup.day {
+            PlayerProgress.recordDaily(day, wavesCleared: cleared)
+        } else {
+            medals = PlayerProgress.awardMedals(for: run)
+            PlayerProgress.recordEndless(on: map, wave: cleared)
+        }
         PlayerProgress.researchPoints += earned
-        PlayerProgress.recordEndless(on: map, wave: cleared)
         rewards = RunRewards(
             researchPoints: rewards.researchPoints + earned + medals.reduce(0) { $0 + $1.reward },
             medals: rewards.medals + medals
