@@ -138,6 +138,16 @@ final class GameScene: SKScene {
         }
     }
 
+    /// Adds nodes for towers that already exist when a saved match is resumed.
+    func restoreTowers() {
+        guard let engine = session?.engine else { return }
+        for tower in engine.towers {
+            let node = TowerNode(towerID: tower.id, kind: tower.kind, tiers: tower.tiers)
+            towerLayer.addChild(node)
+            towerNodes[tower.id] = node
+        }
+    }
+
     // MARK: Layout
 
     override func didMove(to view: SKView) {

@@ -9,6 +9,7 @@ enum StorageKey {
     static let researchPoints = "progress.researchPoints"
     static let researchState = "progress.research"
     static let medals = "progress.medals"
+    static let savedMatch = "progress.savedMatch"
     static func bestStars(_ mapID: String) -> String { "progress.stars.\(mapID)" }
     static func bestEndless(_ mapID: String) -> String { "progress.endless.\(mapID)" }
 }
@@ -38,6 +39,12 @@ enum PlayerProgress {
         if stars > bestStars(for: map) {
             defaults.set(stars, forKey: StorageKey.bestStars(map.id))
         }
+    }
+
+    /// The match in progress, kept so it can be resumed after the app is closed.
+    static var savedMatch: SavedMatch? {
+        get { defaults.data(forKey: StorageKey.savedMatch).flatMap { try? JSONDecoder().decode(SavedMatch.self, from: $0) } }
+        set { defaults.set(newValue.flatMap { try? JSONEncoder().encode($0) }, forKey: StorageKey.savedMatch) }
     }
 
     // MARK: Research

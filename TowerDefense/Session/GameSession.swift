@@ -69,6 +69,32 @@ struct RunRewards: Equatable {
     var medals: [Medal] = []
 }
 
+/// A match in progress, stored as the player's commands and the step each happened on.
+/// The engine is deterministic, so replaying them rebuilds the exact same battlefield.
+struct SavedMatch: Codable {
+    enum Command: Codable {
+        case build(TowerKind, GridPoint)
+        case upgrade(towerID: Int, path: Int)
+        case sell(towerID: Int)
+        case targeting(TargetingMode, towerID: Int)
+        case power(towerID: Int)
+        case startWave
+        case continueEndless
+    }
+
+    struct Entry: Codable {
+        let step: Int
+        let command: Command
+    }
+
+    let mapID: String
+    let research: ResearchState
+    var entries: [Entry] = []
+    var steps = 0
+
+    var map: MapDefinition? { MapDefinition.all.first { $0.id == mapID } }
+}
+
 /// Connects the engine, the SpriteKit scene and the SwiftUI interface.
 ///
 /// The scene calls `tick` every frame; the session advances the engine with a fixed
@@ -120,22 +146,78 @@ final class GameSession {
     @ObservationIgnored private var highestTier = 0
     @ObservationIgnored private var isDemo = false
     @ObservationIgnored private var demoClock: Double = 0
+    @ObservationIgnored private var save: SavedMatch
 
     private static let fixedStep = 1.0 / 60.0
 
-    init(map: MapDefinition) {
+    init(map: MapDefinition, resuming saved: SavedMatch? = nil) {
         self.map = map
-        let engine = GameEngine(map: map, research: PlayerProgress.research)
+        let research = saved?.research ?? PlayerProgress.research
+        let engine = GameEngine(map: map, research: research)
         self.engine = engine
         self.totalWaves = engine.totalWaves
         self.scene = GameScene(map: map, path: engine.path)
         self.coachEnabled = !PlayerProgress.coachCompleted
+        self.save = SavedMatch(mapID: map.id, research: research)
         scene.session = self
+        if let saved { replay(saved) }
         #if DEBUG
         if ProcessInfo.processInfo.arguments.contains("-richStart") { engine.debugGrantGold(5000) }
         if ProcessInfo.processInfo.arguments.contains("-demo") { setUpDemo() }
         #endif
         sync()
+    }
+
+    // MARK: Saving and resuming
+
+    private func record(_ command: SavedMatch.Command) {
+        save.entries.append(SavedMatch.Entry(step: save.steps, command: command))
+        PlayerProgress.savedMatch = save
+    }
+
+    /// Rebuilds a saved match by rerunning its commands on the steps they happened on.
+    private func replay(_ saved: SavedMatch) {
+        for entry in saved.entries {
+            advance(to: entry.step)
+            switch entry.command {
+            case let .build(kind, cell): engine.build(kind, at: cell)
+            case let .upgrade(id, path): engine.upgrade(towerID: id, path: path)
+            case let .sell(id): engine.sell(towerID: id)
+            case let .targeting(mode, id): engine.setTargeting(mode, towerID: id)
+            case let .power(id): engine.activatePower(towerID: id)
+            case .startWave: engine.startNextWave()
+            case .continueEndless: engine.continueEndless()
+            }
+            save.entries.append(entry)
+        }
+        advance(to: saved.steps)
+        scene.restoreTowers()
+        isPaused = true
+    }
+
+    /// Steps the engine without rendering.
+    private func advance(to step: Int) {
+        drainReplayEvents()
+        while save.steps < step {
+            engine.step(Self.fixedStep)
+            save.steps += 1
+            drainReplayEvents()
+        }
+    }
+
+    /// Keeps only what the session needs from replayed events; the rest were shown last time.
+    private func drainReplayEvents() {
+        for event in engine.drainEvents() {
+            switch event {
+            case let .towerUpgraded(_, _, tier):
+                highestTier = max(highestTier, tier)
+            case .victory:
+                victoryStars = Self.stars(lives: engine.lives, starting: map.startingLives)
+                awardedPoints = ResearchRewards.points(for: map, wavesCleared: engine.wavesCleared, victory: true, stars: victoryStars)
+            default:
+                break
+            }
+        }
     }
 
     // MARK: Frame update
@@ -155,6 +237,7 @@ final class GameSession {
             var steps = 0
             while accumulator >= Self.fixedStep && steps < 12 {
                 engine.step(Self.fixedStep)
+                save.steps += 1
                 accumulator -= Self.fixedStep
                 steps += 1
             }
@@ -197,9 +280,11 @@ final class GameSession {
             case .victory:
                 victoryStars = Self.stars(lives: engine.lives, starting: map.startingLives)
                 PlayerProgress.recordVictory(on: map, stars: victoryStars)
+                PlayerProgress.savedMatch = nil
                 outcome = .victory(stars: victoryStars)
                 finishRun(victory: true)
             case .defeat:
+                PlayerProgress.savedMatch = nil
                 outcome = .defeat
                 finishRun(victory: victoryStars > 0)
             default:
@@ -364,6 +449,7 @@ final class GameSession {
             Haptics.notify(.warning)
             return
         }
+        record(.build(kind, cell))
         cancelBuild()
         sync()
     }
@@ -393,7 +479,9 @@ final class GameSession {
 
     func upgradeSelected(path: Int) {
         guard let id = selectedTowerID else { return }
-        if !engine.upgrade(towerID: id, path: path) {
+        if engine.upgrade(towerID: id, path: path) {
+            record(.upgrade(towerID: id, path: path))
+        } else {
             switch engine.upgradeStatus(towerID: id, path: path) {
             case .needsResearch: showToast("UNLOCK IT IN THE RESEARCH LAB")
             case .blocked: showToast("ONLY ONE PATH CAN GO PAST TIER 2")
@@ -408,7 +496,7 @@ final class GameSession {
 
     func sellSelected() {
         guard let id = selectedTowerID else { return }
-        engine.sell(towerID: id)
+        if engine.sell(towerID: id) != nil { record(.sell(towerID: id)) }
         selectedTowerID = nil
         sync()
     }
@@ -416,6 +504,7 @@ final class GameSession {
     func setTargeting(_ mode: TargetingMode) {
         guard let id = selectedTowerID else { return }
         engine.setTargeting(mode, towerID: id)
+        record(.targeting(mode, towerID: id))
         SoundEngine.shared.play(.tap)
         sync()
     }
@@ -423,6 +512,7 @@ final class GameSession {
     func activatePower(towerID: Int) {
         guard outcome == nil, !isPaused else { return }
         if engine.activatePower(towerID: towerID) {
+            record(.power(towerID: towerID))
             Haptics.impact(.heavy)
         } else {
             if let tower = engine.tower(id: towerID), tower.isPowerReady {
@@ -437,13 +527,14 @@ final class GameSession {
 
     func startWave() {
         guard canStartWave else { return }
-        engine.startNextWave()
+        if engine.startNextWave() { record(.startWave) }
         sync()
     }
 
     func continueEndless() {
         guard case .victory = outcome else { return }
         engine.continueEndless()
+        record(.continueEndless)
         outcome = nil
         showBanner(title: "ENDLESS MODE", subtitle: "HOW LONG CAN THE BASTION HOLD?", isBoss: false)
         sync()
@@ -455,9 +546,11 @@ final class GameSession {
         SoundEngine.shared.play(.tap)
     }
 
-    /// Pauses when the app leaves the foreground.
+    /// Pauses and saves when the app leaves the foreground, since iOS may close it from there.
     func pauseForInterruption() {
-        if outcome == nil { isPaused = true }
+        guard outcome == nil else { return }
+        isPaused = true
+        PlayerProgress.savedMatch = save
     }
 
     func cycleSpeed() {

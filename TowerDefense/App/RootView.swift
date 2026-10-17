@@ -29,6 +29,7 @@ struct RootView: View {
                 case .home:
                     StartView(
                         onPlay: start,
+                        onResume: PlayerProgress.savedMatch.map { saved in { resume(saved) } },
                         onHowToPlay: { showOnboarding = true },
                         onResearch: { withAnimation(.easeOut(duration: 0.2)) { screen = .research } },
                         onMedals: { withAnimation(.easeOut(duration: 0.2)) { screen = .medals } },
@@ -86,6 +87,7 @@ struct RootView: View {
     }
 
     private func quit(to destination: Screen) {
+        PlayerProgress.savedMatch = nil
         withAnimation(.easeInOut(duration: 0.25)) {
             screen = destination
             session = nil
@@ -93,8 +95,16 @@ struct RootView: View {
     }
 
     private func start(_ map: MapDefinition) {
+        PlayerProgress.savedMatch = nil
         withAnimation(.easeInOut(duration: 0.25)) {
             session = GameSession(map: map)
+        }
+    }
+
+    private func resume(_ saved: SavedMatch) {
+        guard let map = saved.map else { return }
+        withAnimation(.easeInOut(duration: 0.25)) {
+            session = GameSession(map: map, resuming: saved)
         }
     }
 }

@@ -3,6 +3,7 @@ import SwiftUI
 /// Title screen with the map picker.
 struct StartView: View {
     let onPlay: (MapDefinition) -> Void
+    let onResume: (() -> Void)?
     let onHowToPlay: () -> Void
     let onResearch: () -> Void
     let onMedals: () -> Void
@@ -47,6 +48,15 @@ struct StartView: View {
             .padding(.vertical, landscape ? 0 : 8)
 
             VStack(spacing: 12) {
+                if let onResume {
+                    Button {
+                        playTap()
+                        onResume()
+                    } label: {
+                        PixelText("RESUME", pixel: 3).frame(width: 236)
+                    }
+                    .buttonStyle(PixelButtonStyle.primary)
+                }
                 Button {
                     playTap()
                     withAnimation(.easeOut(duration: 0.15)) { showMaps = true }
