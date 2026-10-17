@@ -125,7 +125,7 @@ final class GameScene: SKScene {
         }
 
         for row in 0..<map.rows {
-            for col in 0..<map.columns where map.isBuildable(GridPoint(col, row)) {
+            for col in 0..<map.columns where map.isBuildable(GridPoint(col, row)) || map.water.contains(GridPoint(col, row)) {
                 let sprite = SKSpriteNode(texture: Art.bracket)
                 sprite.colorBlendFactor = 1
                 highlightLayer.addChild(sprite)
@@ -349,6 +349,7 @@ final class GameScene: SKScene {
         if let kind = state.buildKind {
             for (cell, sprite) in highlightNodes {
                 sprite.isHidden = session.engine.tower(at: cell) != nil || cell == state.pendingCell
+                    || map.water.contains(cell) != kind.isNaval
                 sprite.color = Pal.towerLight(kind).uiColor
             }
         }
@@ -524,7 +525,7 @@ final class GameScene: SKScene {
                 }
             }
             switch kind {
-            case .pulse, .aegis, .weaver: SoundEngine.shared.play(.pulse)
+            case .pulse, .aegis, .weaver, .tide: SoundEngine.shared.play(.pulse)
             case .cyclone: SoundEngine.shared.play(.gust)
             case .mortar: SoundEngine.shared.play(.mortar)
             case .tesla: SoundEngine.shared.play(.tesla)

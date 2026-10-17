@@ -164,6 +164,10 @@ enum Art {
             c.fillEllipse(cx: 8, cy: 7.5, rx: 3.6, ry: 2.6, Pal.ocean)
             for (x, y) in [(8, 2), (14, 5), (14, 10), (8, 12), (1, 10), (1, 5)] { c.set(x, y, Pal.yellow) }
 
+        case .tide:
+            c.fillEllipse(cx: 8, cy: 8.5, rx: 7.2, ry: 4.8, Pal.blue)
+            c.ring(cx: 8, cy: 8, r: 6, Pal.cyan) { x, y in (x + y * 2) % 5 != 0 }
+
         case .midas:
             disc(top: Pal.rust, side: Pal.bark, rim: Pal.amber)
             for (x, y) in [(3, 7), (13, 7), (8, 4), (8, 11)] { c.set(x, y, Pal.yellow) }
@@ -378,6 +382,15 @@ enum Art {
                 }
             }
             if level == 3 { c.ring(cx: 8, cy: 10, r: 4.5, Pal.amber) { x, y in (x + y) % 3 == 0 } }
+
+        case .tide:
+            // A small submarine seen from above, with a periscope.
+            c.fillEllipse(cx: 8, cy: 8.5, rx: 3.2, ry: 6, Pal.steel)
+            c.fillEllipse(cx: 8, cy: 8.5, rx: 2.2, ry: 4.8, Pal.silver)
+            c.fillRect(7, 6, 2, 3, Pal.slate)
+            c.set(8, 2, level >= 2 ? Pal.yellow : Pal.mist)
+            c.set(7, 13, Pal.cyan); c.set(8, 14, Pal.cyan)
+            if level == 3 { c.set(5, 8, Pal.red); c.set(10, 8, Pal.red) }
 
         case .midas:
             // A stack of coins that grows with each level.
@@ -845,6 +858,10 @@ enum Art {
             let cx = min(max(x, 0), w - 1), cy = min(max(y, 0), h - 1)
             return map.pathCells.contains(GridPoint(cx / tilePixels, cy / tilePixels))
         }
+        func isWater(_ x: Int, _ y: Int) -> Bool {
+            let cx = min(max(x, 0), w - 1), cy = min(max(y, 0), h - 1)
+            return map.water.contains(GridPoint(cx / tilePixels, cy / tilePixels))
+        }
         for y in 0..<h {
             for x in 0..<w {
                 let n = PixelNoise.value(x, y, seed: 7)
@@ -856,6 +873,9 @@ enum Art {
                     color = colors.path
                     if n < 60 { color = colors.pathLight } else if n < 110 { color = colors.pathMid } else if n < 150 { color = colors.pathDark }
                     if edge { color = colors.pathDark }
+                } else if isWater(x, y) {
+                    color = n < 120 ? Pal.blue : n >= 985 ? Pal.cyan : Pal.ocean
+                    if !isWater(x - 1, y) || !isWater(x + 1, y) || !isWater(x, y - 1) || !isWater(x, y + 1) { color = Pal.deepTeal }
                 } else {
                     let cell = GridPoint(x / tilePixels, y / tilePixels)
                     color = (cell.col + cell.row) % 2 == 0 ? colors.groundA : colors.groundB
@@ -884,7 +904,7 @@ enum Art {
                         c.set(x, y, Pal.silver); c.set(x + 1, y, Pal.mist)
                         c.set(x, y + 1, Pal.steel); c.set(x + 1, y + 1, Pal.steel)
                     }
-                } else if roll < 600 {
+                } else if roll < 600 && !map.water.contains(cell) {
                     c.set(x, y, colors.light)
                     c.set(x - 1, y + 1, colors.light); c.set(x + 1, y + 1, colors.light)
                     c.set(x, y + 1, colors.dark)

@@ -116,6 +116,7 @@ enum Pal {
         case .chrono: sand
         case .star: yellow
         case .midas: amber
+        case .tide: ocean
         }
     }
 
@@ -136,6 +137,7 @@ enum Pal {
         case .chrono: yellow
         case .star: white
         case .midas: yellow
+        case .tide: cyan
         }
     }
 

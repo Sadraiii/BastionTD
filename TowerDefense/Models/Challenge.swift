@@ -65,8 +65,9 @@ struct MatchSetup: Codable, Equatable {
         var rng = SplitMix64(seed: UInt64(day))
         let map = MapDefinition.all.randomElement(using: &rng)!
         let modifiers = Modifier.allCases.filter { $0 != .ironCrystal && $0 != .hardMode }.shuffled(using: &rng).prefix(2)
-        let spotter = TowerKind.allCases.filter(\.baseStats.detectsCamo).randomElement(using: &rng)!
-        let others = TowerKind.allCases.filter { $0 != spotter }.shuffled(using: &rng).prefix(3)
+        let land = TowerKind.allCases.filter { !$0.isNaval }
+        let spotter = land.filter(\.baseStats.detectsCamo).randomElement(using: &rng)!
+        let others = land.filter { $0 != spotter }.shuffled(using: &rng).prefix(3)
         let setup = MatchSetup(modifiers: Set(modifiers), heroPool: Set(others + [spotter]), seed: UInt64(day), day: day)
         return (map, setup)
     }

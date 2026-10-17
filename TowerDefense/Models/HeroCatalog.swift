@@ -67,6 +67,7 @@ enum HeroCatalog {
         case .chrono: chrono
         case .star: starlight
         case .midas: midas
+        case .tide: riptide
         }
     }
 
@@ -662,6 +663,48 @@ enum HeroCatalog {
                                      .rally(duration: 10, rate: 2, damage: 1.5, rangeScale: 1.2))) {
                 $0.buffDamage += 0.1
                 $0.buffRate += 0.1
+            },
+        ]),
+    ]
+
+    // MARK: Riptide - sea hero
+
+    private static let riptide: [UpgradePath] = [
+        UpgradePath(name: "Torpedoes", tiers: [
+            UpgradeTier(name: "Twin Tubes", detail: "Fires at two enemies at once.", cost: 70, research: 0) {
+                $0.multishot = 2
+            },
+            UpgradeTier(name: "Heavy Warheads", detail: "+8 damage per torpedo.", cost: 150, research: 4) {
+                $0.damage += 8
+            },
+            UpgradeTier(name: "Depth Charge", detail: "POWER: a big blast around Riptide.", cost: 300, research: 10,
+                        power: power("Depth Charge", "Damage and stun everything nearby.", cooldown: 25,
+                                     .burst(damage: 200, stun: 1, knockback: 0.5, rangeScale: 1.1, groundOnly: false))) {
+                $0.multishot = 3
+            },
+            UpgradeTier(name: "Kraken", detail: "Five torpedoes at once. Much bigger Depth Charge.", cost: 900, research: 20,
+                        power: power("Kraken", "Huge damage and a long stun nearby.", cooldown: 25,
+                                     .burst(damage: 600, stun: 2, knockback: 1, rangeScale: 1.4, groundOnly: false))) {
+                $0.multishot = 5
+                $0.damage += 10
+            },
+        ]),
+        UpgradePath(name: "Sonar", tiers: [
+            UpgradeTier(name: "Long Sonar", detail: "Much longer range.", cost: 80, research: 0) {
+                $0.range += 0.8
+            },
+            UpgradeTier(name: "Armor Piercing", detail: "Torpedoes ignore armor.", cost: 160, research: 4) {
+                $0.piercesArmor = true
+            },
+            UpgradeTier(name: "Whirlpool", detail: "POWER: a whirlpool that slows and hurts.", cost: 280, research: 10,
+                        power: power("Whirlpool", "6-second whirlpool: damage and a 50% slow.", cooldown: 30,
+                                     .field(duration: 6, dps: 30, slow: 0.5, rangeScale: 1, type: .kinetic))) {
+                $0.fireInterval *= 0.8
+            },
+            UpgradeTier(name: "Maelstrom", detail: "Faster torpedoes. Whirlpool lasts 9s.", cost: 850, research: 20,
+                        power: power("Maelstrom", "9-second whirlpool: heavy damage and a 70% slow.", cooldown: 30,
+                                     .field(duration: 9, dps: 80, slow: 0.7, rangeScale: 1.3, type: .kinetic))) {
+                $0.fireInterval *= 0.7
             },
         ]),
     ]

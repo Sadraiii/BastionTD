@@ -83,7 +83,7 @@ struct TowerStats: Equatable {
 /// unlocked in the Research Lab. Each hero has two upgrade paths (`HeroCatalog`).
 enum TowerKind: String, CaseIterable, Codable, Identifiable {
     case pulse, frost, mortar, tesla, rail
-    case inferno, weaver, aegis, cyclone, echo, mind, chrono, star, midas
+    case inferno, weaver, aegis, cyclone, echo, mind, chrono, star, midas, tide
 
     var id: String { rawValue }
 
@@ -104,6 +104,7 @@ enum TowerKind: String, CaseIterable, Codable, Identifiable {
         case .chrono: "Chrono"
         case .star: "Starlight"
         case .midas: "Midas"
+        case .tide: "Riptide"
         }
     }
 
@@ -132,6 +133,7 @@ enum TowerKind: String, CaseIterable, Codable, Identifiable {
         case .chrono: "Time Keeper"
         case .star: "Cosmic Hero"
         case .midas: "Gold Hero"
+        case .tide: "Sea Hero"
         }
     }
 
@@ -152,12 +154,13 @@ enum TowerKind: String, CaseIterable, Codable, Identifiable {
         case .chrono: "Time aura slows villains; can freeze time itself."
         case .star: "Long-range cosmic beam. Bonus damage to bosses."
         case .midas: "Makes gold after every wave. Doesn't attack."
+        case .tide: "Fires torpedoes from water tiles. Sees cloaked foes."
         }
     }
 
     var attackStyle: AttackStyle {
         switch self {
-        case .pulse, .weaver, .aegis, .cyclone: .bolt
+        case .pulse, .weaver, .aegis, .cyclone, .tide: .bolt
         case .mortar: .lob
         case .frost, .chrono, .midas: .aura
         case .tesla: .chain
@@ -183,6 +186,7 @@ enum TowerKind: String, CaseIterable, Codable, Identifiable {
         case .chrono: 130
         case .star: 170
         case .midas: 120
+        case .tide: 110
         }
     }
 
@@ -192,12 +196,15 @@ enum TowerKind: String, CaseIterable, Codable, Identifiable {
         case .pulse, .frost, .mortar, .tesla, .rail: 0
         case .inferno, .weaver: 6
         case .aegis, .cyclone, .midas: 8
-        case .echo: 10
+        case .echo, .tide: 10
         case .mind: 12
         case .chrono: 15
         case .star: 18
         }
     }
+
+    /// Naval heroes can only be placed on water.
+    var isNaval: Bool { self == .tide }
 
     static var starters: [TowerKind] { allCases.filter { $0.unlockCost == 0 } }
 
@@ -207,7 +214,7 @@ enum TowerKind: String, CaseIterable, Codable, Identifiable {
     /// Turrets that turn to face their target.
     var rotates: Bool {
         switch self {
-        case .pulse, .mortar, .rail, .inferno, .weaver, .echo, .star: true
+        case .pulse, .mortar, .rail, .inferno, .weaver, .echo, .star, .tide: true
         default: false
         }
     }
@@ -244,6 +251,8 @@ enum TowerKind: String, CaseIterable, Codable, Identifiable {
             TowerStats(damage: 90, range: 5.5, fireInterval: 2.6, damageType: .energy, bossMultiplier: 1.25)
         case .midas:
             TowerStats(damage: 0, range: 2.0, fireInterval: 1, income: 25)
+        case .tide:
+            TowerStats(damage: 12, range: 3.2, fireInterval: 0.7, detectsCamo: true, projectileSpeed: 9, pierce: 2)
         }
     }
 

@@ -12,7 +12,7 @@ struct GameStats: Equatable {
 }
 
 enum PlacementResult: Equatable {
-    case ok, outOfBounds, onPath, blocked, occupied, insufficientGold, locked, banned
+    case ok, outOfBounds, onPath, blocked, occupied, insufficientGold, locked, banned, needsWater, onWater
 
     var message: String {
         switch self {
@@ -24,6 +24,8 @@ enum PlacementResult: Equatable {
         case .insufficientGold: "Not enough gold"
         case .locked: "Recruit this hero in the Research Lab"
         case .banned: "Not allowed in this challenge"
+        case .needsWater: "This hero goes on water"
+        case .onWater: "Only sea heroes go on water"
         }
     }
 }
@@ -185,6 +187,7 @@ final class GameEngine {
         guard map.contains(cell) else { return .outOfBounds }
         if map.pathCells.contains(cell) { return .onPath }
         if map.obstacles.contains(cell) { return .blocked }
+        if map.water.contains(cell) != kind.isNaval { return kind.isNaval ? .needsWater : .onWater }
         if towersByCell[cell] != nil || commander?.cell == cell { return .occupied }
         if gold < kind.cost { return .insufficientGold }
         return .ok

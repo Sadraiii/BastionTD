@@ -38,6 +38,8 @@ struct MapDefinition: Identifiable, Hashable {
     /// The main route followed by any branches.
     let routes: [[GridPoint]]
     let obstacles: Set<GridPoint>
+    /// Water tiles: only naval heroes can be placed there.
+    let water: Set<GridPoint>
     let startingGold: Int
     let startingLives: Int
     let pathCells: Set<GridPoint>
@@ -53,6 +55,7 @@ struct MapDefinition: Identifiable, Hashable {
         waypoints: [GridPoint],
         branches: [[GridPoint]] = [],
         obstacles: Set<GridPoint>,
+        water: Set<GridPoint> = [],
         startingGold: Int,
         startingLives: Int
     ) {
@@ -66,6 +69,7 @@ struct MapDefinition: Identifiable, Hashable {
         self.waypoints = waypoints
         self.routes = [waypoints] + branches
         self.obstacles = obstacles
+        self.water = water
         self.startingGold = startingGold
         self.startingLives = startingLives
         self.pathCells = routes.reduce(into: Set()) { $0.formUnion(Self.cells(along: $1, columns: columns, rows: rows)) }
@@ -78,7 +82,7 @@ struct MapDefinition: Identifiable, Hashable {
     }
 
     func isBuildable(_ cell: GridPoint) -> Bool {
-        contains(cell) && !pathCells.contains(cell) && !obstacles.contains(cell)
+        contains(cell) && !pathCells.contains(cell) && !obstacles.contains(cell) && !water.contains(cell)
     }
 
     static func == (lhs: MapDefinition, rhs: MapDefinition) -> Bool { lhs.id == rhs.id }
@@ -197,6 +201,20 @@ extension MapDefinition {
         startingLives: 15
     )
 
+    static let harbor = MapDefinition(
+        id: "harbor",
+        name: "Harbor",
+        tagline: "The path circles a lake. Riptide can fight from the water.",
+        difficulty: .hard,
+        columns: 18,
+        rows: 10,
+        waypoints: points([(-1, 1), (16, 1), (16, 8), (2, 8), (2, 4)]),
+        obstacles: Set(points([(0, 9), (17, 0), (17, 9), (9, 0)])),
+        water: Set((5...12).flatMap { col in (3...6).map { GridPoint(col, $0) } }),
+        startingGold: 320,
+        startingLives: 25
+    )
+
     /// The Boss Rush event map. It isn't part of the campaign.
     static let arena = MapDefinition(
         id: "arena",
@@ -212,7 +230,7 @@ extension MapDefinition {
         startingLives: 10
     )
 
-    static let all: [MapDefinition] = [circuit, switchback, overload, dunes, bayou, glacier, caldera]
+    static let all: [MapDefinition] = [circuit, switchback, overload, dunes, bayou, glacier, caldera, harbor]
 
     /// The map after this one in the campaign list, if any.
     var next: MapDefinition? {
