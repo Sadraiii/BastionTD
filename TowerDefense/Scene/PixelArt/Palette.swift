@@ -144,6 +144,8 @@ enum Pal {
         case .knight: amber
         case .mage: magenta
         case .ranger: lime
+        case .engineer: orange
+        case .healer: pink
         }
     }
 

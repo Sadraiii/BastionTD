@@ -243,6 +243,8 @@ final class Commander {
     /// All XP gained this match, kept toward the permanent rank.
     var earnedXP = 0
     var cooldown: Double = 0
+    /// Sentry Mode: attacks faster while this counts down.
+    var overdriveTimer: Double = 0
     var skillCooldowns: [Double]
 
     init(loadout: CommanderLoadout, cell: GridPoint) {

@@ -272,7 +272,7 @@ private struct CommanderResearchCard: View {
                     } label: {
                         VStack(spacing: 2) {
                             PixelImage(image: Art.commanderIcon(option, skin: option == kind ? skin : .classic), scale: 2)
-                            Text(option.name.uppercased()).font(Theme.body(10))
+                            Text(option.name.uppercased()).font(Theme.body(10)).lineLimit(1).minimumScaleFactor(0.6)
                         }
                         .frame(maxWidth: .infinity)
                     }

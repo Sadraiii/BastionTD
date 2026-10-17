@@ -376,6 +376,38 @@ final class GameEngine {
                 }
             }
             events.append(.powerStrikes(points: points, splash: 1.2))
+        case (.engineer, 0):
+            commander.overdriveTimer = 8
+        case (.engineer, 1), (.healer, 1):
+            radius = 2.5
+            let isEngineer = commander.kind == .engineer
+            for tower in towers where tower.position.distance(to: commander.position) <= radius {
+                tower.rallyTimer = 8
+                tower.rallyRate = isEngineer ? 1.2 + 0.1 * level : 1
+                tower.rallyDamage = isEngineer ? 1 : 1.15 + 0.1 * level
+            }
+        case (.engineer, 2):
+            let spots = paths.flatMap { $0.samples(spacing: 0.5) }
+            center = spots.min { $0.distance(to: commander.position) < $1.distance(to: commander.position) }!
+            radius = 1.2
+            fields.append(PowerField(id: makeID(), center: center, radius: radius, dps: 20 * level * power,
+                                     slow: 0.3, type: .explosive, duration: 8))
+            events.append(.fieldStarted(center: center, radius: radius, duration: 8, type: .explosive))
+        case (.engineer, 3):
+            for tower in towers { tower.powerCooldown = 0 }
+        case (.healer, 0), (.healer, 3):
+            guard lives < startingLives + 5 else { return false }
+            lives = min(startingLives + 5, lives + (index == 0 ? Int(level) : 5))
+        case (.healer, 2):
+            radius = commander.range
+            let targets = enemies.filter { $0.isTargetable && $0.position.distance(to: commander.position) <= radius }
+            guard !targets.isEmpty else { return false }
+            hit.armorShred = 4 + 2 * level
+            for enemy in targets {
+                enemy.revealed = true
+                enemy.shield = 0
+                apply(hit, to: enemy, from: nil, showNumber: false)
+            }
         case (.ranger, 3):
             radius = 3
             let targets = enemies.filter { $0.isTargetable && (!$0.isHidden || commander.kind.detectsCamo) }
@@ -794,6 +826,7 @@ final class GameEngine {
     private func updateCommander(_ dt: Double) {
         guard let commander else { return }
         commander.cooldown = max(0, commander.cooldown - dt)
+        commander.overdriveTimer = max(0, commander.overdriveTimer - dt)
         for i in commander.skillCooldowns.indices {
             commander.skillCooldowns[i] = max(0, commander.skillCooldowns[i] - dt)
         }
@@ -807,7 +840,7 @@ final class GameEngine {
         }
 
         guard commander.cooldown <= 0, let target = commanderTargets(within: commander.range).first else { return }
-        commander.cooldown = commander.kind.attackInterval
+        commander.cooldown = commander.kind.attackInterval / (commander.overdriveTimer > 0 ? 3 : 1)
         commander.aim = (target.position - commander.position).normalized
         let hit = HitPayload(damage: commander.kind.damage * commander.power, type: commander.kind.damageType,
                              detectsCamo: commander.kind.detectsCamo)

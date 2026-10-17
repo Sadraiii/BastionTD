@@ -470,6 +470,8 @@ enum SpriteMaps {
         case .knight: [knight(legs: "...nn.nn...."), knight(legs: "..nn...nn...")]
         case .mage: [mage(feet: "..uu...uu..."), mage(feet: "...uu.uu....")]
         case .ranger: [ranger(legs: "...DD.DD...."), ranger(legs: "..DD...DD...")]
+        case .engineer: [engineer(legs: "...nn.nn...."), engineer(legs: "..nn...nn...")]
+        case .healer: [healer(feet: "..uu...uu..."), healer(feet: "...uu.uu....")]
         }
     }
 
@@ -503,6 +505,40 @@ enum SpriteMaps {
             "...PpppP.s..",
             "...ppppp.s..",
             "..ppppppp...",
+            feet,
+        ]
+    }
+
+    private static func engineer(legs: String) -> [String] {
+        [
+            "....yyyy....",
+            "...yYYYYy...",
+            "..yYYYYYYy..",
+            "...eeeee....",
+            "...eKeKe....",
+            "...eeeee....",
+            "..OOOOOOO.s.",
+            ".eOyOOOyOss.",
+            ".eOOOOOOO.s.",
+            "..OOOOOOO.s.",
+            "...bbbbb....",
+            legs,
+        ]
+    }
+
+    private static func healer(feet: String) -> [String] {
+        [
+            "....WWW.....",
+            "...WWWWW....",
+            "...weeew....",
+            "...eKeKe....",
+            "...weeew....",
+            "..WWWGWWW...",
+            ".eWWGGGWWe..",
+            ".eWWWGWWWe..",
+            "..WWWWWWW...",
+            "..WWWWWWW...",
+            "..wwwwwww...",
             feet,
         ]
     }

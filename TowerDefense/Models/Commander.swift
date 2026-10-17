@@ -2,7 +2,7 @@ import Foundation
 
 /// The player's own hero: one per match, movable, levels up from kills during the match.
 enum CommanderKind: String, CaseIterable, Codable, Identifiable {
-    case knight, mage, ranger
+    case knight, mage, ranger, engineer, healer
 
     var id: String { rawValue }
 
@@ -13,6 +13,8 @@ enum CommanderKind: String, CaseIterable, Codable, Identifiable {
         case .knight: "Close combat. Stuns villains and boosts nearby heroes."
         case .mage: "Spells that hit groups and slow them."
         case .ranger: "Long range. Sees cloaked villains."
+        case .engineer: "Rapid nail gun. Speeds up heroes and lays mines."
+        case .healer: "Repairs the crystal and strengthens heroes."
         }
     }
 
@@ -21,6 +23,8 @@ enum CommanderKind: String, CaseIterable, Codable, Identifiable {
         case .knight: 18
         case .mage: 16
         case .ranger: 20
+        case .engineer: 9
+        case .healer: 10
         }
     }
 
@@ -29,6 +33,8 @@ enum CommanderKind: String, CaseIterable, Codable, Identifiable {
         case .knight: 1.3
         case .mage: 2.4
         case .ranger: 3.6
+        case .engineer: 2.6
+        case .healer: 2.2
         }
     }
 
@@ -37,6 +43,8 @@ enum CommanderKind: String, CaseIterable, Codable, Identifiable {
         case .knight: 0.7
         case .mage: 1.4
         case .ranger: 0.9
+        case .engineer: 0.45
+        case .healer: 0.9
         }
     }
 
@@ -44,7 +52,8 @@ enum CommanderKind: String, CaseIterable, Codable, Identifiable {
         switch self {
         case .knight: .kinetic
         case .mage: .fire
-        case .ranger: .kinetic
+        case .ranger, .engineer: .kinetic
+        case .healer: .energy
         }
     }
 
@@ -53,7 +62,7 @@ enum CommanderKind: String, CaseIterable, Codable, Identifiable {
         switch self {
         case .knight: 0.5
         case .mage: 0.8
-        case .ranger: 0
+        case .ranger, .engineer, .healer: 0
         }
     }
     var hitsAir: Bool { self != .knight }
@@ -78,6 +87,18 @@ enum CommanderKind: String, CaseIterable, Codable, Identifiable {
             CommanderSkill(name: "Hunter's Mark", detail: "Shows cloaked villains and removes armor.", cooldown: 18),
             CommanderSkill(name: "Snipe", detail: "A huge shot at the toughest villain on the map.", cooldown: 35),
             CommanderSkill(name: "Arrow Storm", detail: "Hits every villain on the map.", cooldown: 60),
+        ]
+        case .engineer: [
+            CommanderSkill(name: "Sentry Mode", detail: "Attacks three times as fast for 8s.", cooldown: 20),
+            CommanderSkill(name: "Overclock", detail: "Nearby heroes attack faster for 8s.", cooldown: 25),
+            CommanderSkill(name: "Mine Field", detail: "Mines on the nearest path hurt and slow villains for 8s.", cooldown: 30),
+            CommanderSkill(name: "Recharge", detail: "Every hero power is ready again.", cooldown: 90),
+        ]
+        case .healer: [
+            CommanderSkill(name: "Mend", detail: "Gives the crystal back lives.", cooldown: 40),
+            CommanderSkill(name: "Blessing", detail: "Nearby heroes deal more damage for 8s.", cooldown: 25),
+            CommanderSkill(name: "Purify", detail: "Removes shields, armor and cloaks in range.", cooldown: 20),
+            CommanderSkill(name: "Sanctuary", detail: "Gives the crystal back 5 lives.", cooldown: 90),
         ]
         }
     }

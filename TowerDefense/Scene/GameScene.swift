@@ -724,8 +724,8 @@ final class GameScene: SKScene {
             case .mage:
                 playFrames(Art.explosionFrames(radius: 12), at: toWorld(to), timePerFrame: 0.05)
                 SoundEngine.shared.play(.flame)
-            case .ranger:
-                let (texture, origin) = Art.beam(from: toWorld(from), to: toWorld(to), glow: Pal.lime, edge: Pal.green)
+            case .ranger, .engineer, .healer:
+                let (texture, origin) = Art.beam(from: toWorld(from), to: toWorld(to), glow: Pal.commander(kind), edge: Pal.ink)
                 flicker(texture, origin: origin)
                 SoundEngine.shared.play(.pulse)
             }
