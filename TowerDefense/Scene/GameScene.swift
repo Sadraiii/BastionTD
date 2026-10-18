@@ -496,7 +496,16 @@ final class GameScene: SKScene {
         case let .towerUpgraded(id, _, _):
             guard let node = towerNodes[id], let tower = session?.engine.tower(id: id) else { break }
             node.setTiers(tower.tiers)
-            playFrames(Art.sparkleFrames, at: node.position, timePerFrame: 0.08)
+            let target = toWorld(tower.cell.center)
+            node.removeAction(forKey: "hop")
+            node.position = target
+            node.run(.sequence([
+                .move(to: target + CGPoint(x: 0, y: 3), duration: 0.06),
+                .move(to: target, duration: 0.06),
+            ]), withKey: "hop")
+            playFrames(Art.ringFrames(radius: 14, color: Pal.tower(tower.kind), accent: Pal.towerLight(tower.kind)),
+                       at: target, timePerFrame: 0.05, z: -2)
+            playFrames(Art.sparkleFrames, at: target, timePerFrame: 0.08)
             SoundEngine.shared.play(.upgrade)
             Haptics.impact(.medium)
 

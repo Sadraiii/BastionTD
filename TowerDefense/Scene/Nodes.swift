@@ -32,7 +32,7 @@ final class TowerNode: SKNode {
         self.kind = kind
         self.tiers = tiers
         base = SKSpriteNode(texture: Art.towerBase(kind, tiers: tiers))
-        turret = SKSpriteNode(texture: Art.turret(kind, level: TowerKind.visualLevel(tiers: tiers)))
+        turret = SKSpriteNode(texture: Art.turret(kind, tiers: tiers))
         super.init()
         base.zPosition = 0
         turret.zPosition = 1
@@ -57,7 +57,7 @@ final class TowerNode: SKNode {
     func setTiers(_ tiers: [Int]) {
         self.tiers = tiers
         base.texture = Art.towerBase(kind, tiers: tiers)
-        turret.texture = Art.turret(kind, level: TowerKind.visualLevel(tiers: tiers))
+        turret.texture = Art.turret(kind, tiers: tiers)
     }
 
     /// Tints the whole tower, used for the invalid-placement ghost.
