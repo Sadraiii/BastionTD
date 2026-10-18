@@ -591,142 +591,152 @@ enum SpriteMaps {
 
     static func commanderFrames(_ kind: CommanderKind) -> [[String]] {
         switch kind {
-        case .knight: [knight(legs: "......nn..nn...."), knight(legs: ".....nn....nn...")]
-        case .mage: [mage(feet: "....uu...uu....."), mage(feet: ".....uu.uu......")]
-        case .ranger: [ranger(legs: "....DD...DD....."), ranger(legs: ".....DD.DD......")]
-        case .engineer: [engineer(legs: "....nn...nn....."), engineer(legs: ".....nn.nn......")]
-        case .healer: [healer(feet: "....uu...uu....."), healer(feet: ".....uu.uu......")]
+        case .knight: [knight(legs: ".......nn..nn....."), knight(legs: "......nn....nn....")]
+        case .mage: [mage(feet: "......uu...uu....."), mage(feet: ".......uu.uu......")]
+        case .ranger: [ranger(legs: ".....DD...DD......"), ranger(legs: "......DD.DD.......")]
+        case .engineer: [engineer(legs: ".....nn...nn......"), engineer(legs: "......nn.nn.......")]
+        case .healer: [healer(feet: "......uu...uu....."), healer(feet: ".......uu.uu......")]
         }
     }
 
     /// Colors for the digits in the commander maps. Commanders gain gear as they level up
-    /// in a match: stage 1 from level 5, stage 2 at max level. Digits left out stay hidden.
+    /// in a match, in four stages (see `Art.commanderStage`). Digits left out stay hidden.
     static func commanderGear(_ kind: CommanderKind, stage: Int) -> [Character: PixelColor] {
         switch (kind, stage) {
-        case (.knight, 0): ["2": Pal.steel, "5": Pal.silver]
-        case (.knight, 1): ["1": Pal.crimson, "2": Pal.steel, "5": Pal.silver, "6": Pal.red]
-        case (.knight, _): ["1": Pal.crimson, "2": Pal.yellow, "3": Pal.yellow, "5": Pal.white, "6": Pal.red]
+        case (.knight, 0): ["2": Pal.steel, "4": Pal.silver]
+        case (.knight, 1): ["1": Pal.crimson, "2": Pal.steel, "4": Pal.silver, "6": Pal.red]
+        case (.knight, 2): ["1": Pal.crimson, "2": Pal.yellow, "4": Pal.silver, "5": Pal.silver, "6": Pal.red, "7": Pal.silver]
+        case (.knight, _): ["1": Pal.crimson, "2": Pal.yellow, "3": Pal.yellow, "4": Pal.white, "5": Pal.white, "6": Pal.red, "7": Pal.amber]
         case (.mage, 0): ["2": Pal.purple]
-        case (.mage, 1): ["1": Pal.plum, "2": Pal.purple]
-        case (.mage, _): ["1": Pal.plum, "2": Pal.yellow, "3": Pal.cyan]
-        case (.ranger, 0): ["2": Pal.lime, "3": Pal.green, "4": Pal.mist]
-        case (.ranger, 1): ["1": Pal.forest, "2": Pal.lime, "3": Pal.green, "4": Pal.mist]
-        case (.ranger, _): ["1": Pal.forest, "2": Pal.yellow, "3": Pal.lime, "4": Pal.yellow]
-        case (.engineer, 0): ["2": Pal.amber]
-        case (.engineer, 1): ["1": Pal.steel, "2": Pal.slate]
-        case (.engineer, _): ["1": Pal.steel, "2": Pal.cyan, "4": Pal.orange]
+        case (.mage, 1): ["1": Pal.plum, "2": Pal.purple, "6": Pal.purple]
+        case (.mage, 2): ["1": Pal.plum, "2": Pal.yellow, "5": Pal.cyan, "6": Pal.purple]
+        case (.mage, _): ["1": Pal.plum, "2": Pal.yellow, "3": Pal.white, "5": Pal.cyan, "6": Pal.purple, "7": Pal.magenta, "8": Pal.sand]
+        case (.ranger, 0): ["4": Pal.mist]
+        case (.ranger, 1): ["1": Pal.forest, "4": Pal.mist, "6": Pal.bark]
+        case (.ranger, 2): ["1": Pal.forest, "2": Pal.yellow, "4": Pal.mist, "5": Pal.bark, "6": Pal.bark]
+        case (.ranger, _): ["1": Pal.forest, "2": Pal.yellow, "3": Pal.lime, "4": Pal.yellow, "5": Pal.bark, "6": Pal.bark, "8": Pal.yellow]
+        case (.engineer, 0): ["2": Pal.amber, "4": Pal.silver]
+        case (.engineer, 1): ["1": Pal.steel, "2": Pal.cyan, "4": Pal.silver]
+        case (.engineer, 2): ["1": Pal.steel, "2": Pal.cyan, "5": Pal.steel, "6": Pal.steel, "9": Pal.cyan]
+        case (.engineer, _): ["1": Pal.steel, "2": Pal.cyan, "5": Pal.steel, "6": Pal.steel, "7": Pal.orange, "9": Pal.cyan]
         case (.healer, 0): [:]
         case (.healer, 1): ["3": Pal.yellow]
-        case (.healer, _): ["1": Pal.white, "3": Pal.yellow]
+        case (.healer, 2): ["2": Pal.yellow, "3": Pal.yellow, "5": Pal.copper, "9": Pal.pink]
+        case (.healer, _): ["1": Pal.white, "2": Pal.yellow, "3": Pal.yellow, "5": Pal.copper, "9": Pal.pink]
         }
     }
 
     private static func knight(legs: String) -> [String] {
         [
-            "......3.3.3.....",
-            "......33333.66..",
-            "......sssss6RR..",
-            ".....sSSSSSsR...",
-            ".....SwwwwwS....",
-            ".....SKKKKKS..5.",
-            "....1SSwSwSS1.5W",
-            "...11.SSSSS.115W",
-            "..bbbsS222Ss1.5W",
-            ".bBBBbsS2SSs1.5W",
-            ".bBYBbSS2SSs1YYY",
-            ".bYYYbsSSSSs1.e.",
-            ".bBYBbsSSSSs1.e.",
-            "..bBb1sSSSSs1...",
-            "...b11SnYnnS11..",
-            "....11.SS.SS11..",
+            "...............5..",
+            ".......3.3.3..555.",
+            ".......33333.6555.",
+            ".......sssss66555.",
+            "......sSSSSSsR555.",
+            "......SwwwwwS.545.",
+            "......SKKKKKS.545.",
+            "....77SSwSwSS7545.",
+            "...777.SSSSS.7545.",
+            "..bbbsS22222s1545.",
+            ".bBBBbsS222Ss1545.",
+            ".bBYBbSS222Ss1YYYY",
+            ".bYYYbsS2SSSs1.e..",
+            ".bBYBbsSSSSSs1.e..",
+            "..bBb1sSSSSSs1....",
+            "...b11SnnYnnS11...",
+            "....11.SS.SS.11...",
             legs,
         ]
     }
 
     private static func mage(feet: String) -> [String] {
         [
-            ".......p........",
-            "......pp....3...",
-            ".....ppp2..C3C..",
-            "....pp2ppp..W...",
-            "...ppppppppp.s..",
-            ".....eeeee...s..",
-            ".....eKeKe...s..",
-            "....1eeeee1..s..",
-            "...1PpppppP1.s..",
-            "..1PPpp2ppPPes..",
-            "..1.Ppp2pp1..s..",
-            "..1.ppp2pp1..s..",
-            "..1.ppp2pp1..s..",
-            "..1pppp2ppp1.s..",
-            "..1ppppppppp1s..",
-            "..11ppppppp11...",
+            ".........66...3...",
+            "........66...353..",
+            ".......p6...35553.",
+            "......ppp....353..",
+            ".....ppppp....C...",
+            "....ppppppp..CWC..",
+            "..pppppppppppp.s..",
+            "......eeeee....s..",
+            "......eKeKe....s..",
+            ".....1eeeee1...s..",
+            "78..1PpppppP1..s..",
+            "787.1PPp2ppPPees..",
+            "78..1PppppppP..s..",
+            "....1ppp2pp2p1.s..",
+            "....1p2ppppppp1s..",
+            "....11ppp2ppp11s..",
+            "....11ppppppp11...",
             feet,
         ]
     }
 
     private static func ranger(legs: String) -> [String] {
         [
-            ".....hhhh.......",
-            "....hgggghh.....",
-            "...hg3g3ggh..D..",
-            "...geeeeeg..DD..",
-            "...eeKeKee..D.4.",
-            "...geeeeeg.D..4.",
-            "..1hgGGGgh1D..4.",
-            "..1eGGGGGe1D..4.",
-            ".11eGG2GGeDD..4.",
-            ".1.eGGGGGe1D..4.",
-            ".1..GDDDG.1.D.4.",
-            ".1..GGGGG.1..DD.",
-            ".1..gg.gg.1...D.",
-            "....gg.gg.......",
-            "....gg.gg.......",
-            "....gg.gg.......",
+            "..............5...",
+            "......hhhh....55..",
+            ".....hg3g3hh..D5..",
+            "....hgggggghh..D..",
+            "....geeeeeg6..DD4.",
+            "....eeKeKee6..D.4.",
+            "....geeeeeg6.D..4.",
+            "...1hgGGGgh61D..4.",
+            "...1eGGGGGe1D...4.",
+            "..11eGG2GGe8D8888.",
+            "..1.eGGGGGe1D...4.",
+            "..1..GDDDG.1.D..4.",
+            "..1..GGGGG.1..D.4.",
+            "..1..gg.gg.1..DD4.",
+            ".....gg.gg......5.",
+            ".....gg.gg.....55.",
+            ".....gg.gg.....5..",
             legs,
         ]
     }
 
     private static func engineer(legs: String) -> [String] {
         [
-            ".....yyyyy......",
-            "....yYYYYYy.....",
-            "...yYYYYYYYy....",
-            "..yyy22222yyy...",
-            "....eCeeeCe.....",
-            "....eeeeeee.....",
-            ".....eeeee......",
-            "..11OOOOOOO11.s.",
-            "..1eOyOOOyOe1ss.",
-            "..1eOOOOOOOe1.s.",
-            "..1eOOOOOOOe1.s.",
-            "..11OOOOOOO11.s.",
-            "...1bbbbbbb1....",
-            "....bbYbbbb.....",
-            "..4.bb...bb.4...",
-            "..4.bb...bb.4...",
+            ".66...............",
+            "6996..yyyyy.......",
+            ".66..yYYYYYy......",
+            "....yYYYYYYYy.....",
+            "...yyy22222yyy....",
+            ".....eeeeeee......",
+            ".....eeeeeee...55.",
+            "......eeeee...5555",
+            "...11OOOOOOO11.55.",
+            "...1eOyOOOyOe1.4s.",
+            "...1eOOOOOOOe1ss..",
+            "...1eOOOOOOOe1.s..",
+            "...11OOOOOOO11.s..",
+            "....1bbbbbbb1.....",
+            ".....bbYbbbb......",
+            "...7.bb...bb.7....",
+            "..777bb...bb777...",
             legs,
         ]
     }
 
     private static func healer(feet: String) -> [String] {
         [
-            "......33333.....",
-            ".....3.....3....",
-            "......WWWWW.....",
-            ".....WWWWWWW....",
-            ".....WweeewW....",
-            ".....WeKeKeW....",
-            "..1..WweeewW..1.",
-            ".11.WWWWGWWWW.11",
-            "111eWWWGGGWWWe11",
-            "11..WWWWGWWWW..1",
-            "1...WWWWWWWWW...",
-            "....WWWWWWWWW...",
-            "....wwwwwwwww...",
-            "....WWWWWWWWW...",
-            "....WWWWWWWWW...",
-            "....wwwwwwwww...",
+            ".......33333......",
+            "......3.....3.....",
+            "1......WWWWW.....1",
+            "11....WWWWWWW...11",
+            "111...WweeewW..111",
+            "1111..WeKeKeW.1111",
+            ".1111.WweeewW1111.",
+            "..1111WWWGWWW111..",
+            "5..1eWWWGGGWWWe1..",
+            "555.WWWWWGWWWWW...",
+            "595.WWWWWWWWWWW...",
+            "555.WWWWWWWWWWW...",
+            ".5..wwwwwwwwwww...",
+            ".5..WWWWWWWWWWW...",
+            ".5..WWWWWWWWWWW...",
+            ".5..22222222222...",
+            ".5................",
             feet,
         ]
     }

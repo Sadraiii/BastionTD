@@ -43,6 +43,7 @@ final class GameScene: SKScene {
     private let commanderBody = SKSpriteNode()
     private let commanderBadge = SKSpriteNode()
     private let commanderRing = SKSpriteNode()
+    private let commanderGlow = SKSpriteNode(texture: Art.shadow(width: 18))
     private var commanderLevel = 0
     private var overlayState: OverlayState?
 
@@ -240,13 +241,21 @@ final class GameScene: SKScene {
         } else {
             node = SKNode()
             let shadow = SKSpriteNode(texture: Art.shadow(width: 12))
-            shadow.position = CGPoint(x: 0, y: -9)
+            shadow.position = CGPoint(x: 0, y: -10)
+            // A pulsing glow under the commander once it reaches max level.
+            commanderGlow.position = shadow.position
+            commanderGlow.color = Pal.commander(commander.kind).uiColor
+            commanderGlow.colorBlendFactor = 1
+            commanderGlow.isHidden = true
+            commanderGlow.run(.repeatForever(.sequence([
+                .fadeAlpha(to: 0.4, duration: 0.6), .fadeAlpha(to: 1, duration: 0.6),
+            ])))
             commanderBody.texture = frames[0]
             commanderBody.size = frames[0].size()
             commanderBody.usePixelAnchor()
             commanderBadge.position = CGPoint(x: 0, y: 14)
             commanderRing.zPosition = -2
-            for child in [commanderRing, shadow, commanderBody, commanderBadge] { node.addChild(child) }
+            for child in [commanderRing, commanderGlow, shadow, commanderBody, commanderBadge] { node.addChild(child) }
             towerLayer.addChild(node)
             commanderNode = node
         }
@@ -262,6 +271,7 @@ final class GameScene: SKScene {
             let ring = Art.rangeRing(range: Double(commander.range), color: Pal.commander(commander.kind))
             commanderRing.texture = ring
             commanderRing.size = ring.size()
+            commanderGlow.isHidden = commander.level < CommanderKind.maxLevel
         }
         commanderRing.isHidden = !session.isCommanderSelected
     }
@@ -750,6 +760,17 @@ final class GameScene: SKScene {
 
         case let .commanderLevelUp(level, at):
             playFrames(Art.sparkleFrames, at: toWorld(at), timePerFrame: 0.08)
+            if Art.commanderStage(level: level) != Art.commanderStage(level: level - 1), let kind = session?.engine.commander?.kind {
+                // New gear: a white flash and a burst in the commander's color.
+                playFrames(Art.ringFrames(radius: 16, color: Pal.commander(kind), accent: Pal.white),
+                           at: toWorld(at), timePerFrame: 0.05, z: -2)
+                sparks(at: toWorld(at), color: Pal.commander(kind), count: 16)
+                commanderBody.run(.sequence([
+                    .run { [weak commanderBody] in commanderBody?.color = .white; commanderBody?.colorBlendFactor = 1 },
+                    .wait(forDuration: 0.15),
+                    .run { [weak commanderBody] in commanderBody?.colorBlendFactor = 0 },
+                ]))
+            }
             floatText("LEVEL \(level)", color: Pal.yellow, at: toWorld(at) + CGPoint(x: 0, y: 14))
             SoundEngine.shared.play(.upgrade)
 

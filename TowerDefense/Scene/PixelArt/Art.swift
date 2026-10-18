@@ -723,9 +723,9 @@ enum Art {
         return canvas
     }
 
-    /// Which gear a commander wears at an in-match level: new gear at level 5 and at max level.
+    /// Which gear a commander wears at an in-match level: new gear at levels 3, 6 and max.
     static func commanderStage(level: Int) -> Int {
-        level >= CommanderKind.maxLevel ? 2 : level >= 5 ? 1 : 0
+        level >= CommanderKind.maxLevel ? 3 : level >= 6 ? 2 : level >= 3 ? 1 : 0
     }
 
     static func commanderFrames(_ kind: CommanderKind, skin: CommanderSkin, level: Int = 1) -> [SKTexture] {
