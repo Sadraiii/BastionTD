@@ -14,6 +14,10 @@ enum VillainAbility: Equatable {
     case stoneForm(duration: Double)
     /// Blinks forward along the path.
     case teleport(distance: Double)
+    /// Digs underground: stands still and ignores all damage for a while.
+    case burrow(duration: Double)
+    /// Hides nearby allies from heroes without detection.
+    case cloakAllies(radius: Double, duration: Double)
 }
 
 /// Every villain in the game. To add one: add a case, fill in its stats and
@@ -23,6 +27,7 @@ enum EnemyKind: String, CaseIterable, Codable {
     case drone, runner, brute, medic, wisp, splitter, shardling, berserker, phantom, hexer
     case ironclad, pyrefiend, frostborn, voidling, blastguard, husk, mirage, gargoyle, warper
     case titan, dreadnought, overlord
+    case sandworm, yeti, magmaGolem, lavaBlob, bogWitch, crab, caveBat
 
     var name: String {
         switch self {
@@ -48,6 +53,13 @@ enum EnemyKind: String, CaseIterable, Codable {
         case .titan: "Titan"
         case .dreadnought: "Dreadnought"
         case .overlord: "Overlord"
+        case .sandworm: "Sandworm"
+        case .yeti: "Yeti"
+        case .magmaGolem: "Magma Golem"
+        case .lavaBlob: "Lava Blob"
+        case .bogWitch: "Bog Witch"
+        case .crab: "Crab"
+        case .caveBat: "Cave Bat"
         }
     }
 
@@ -76,6 +88,13 @@ enum EnemyKind: String, CaseIterable, Codable {
         case .titan: "Boss. Heavy armor, resists slows, launches Drones."
         case .dreadnought: "Flying boss airship. Can't be slowed. Drops Ironclads."
         case .overlord: "Final boss. EMP blasts shut down nearby heroes."
+        case .sandworm: "Burrows underground now and then to dodge hits."
+        case .yeti: "Freezes nearby heroes for a moment. Immune to cold."
+        case .magmaGolem: "Splits into lava blobs. Immune to fire."
+        case .lavaBlob: "Hot leftovers of a Magma Golem."
+        case .bogWitch: "Heals nearby villains and hides them from heroes."
+        case .crab: "Thick shell. Explosives crack it."
+        case .caveBat: "Fast flying swarm."
         }
     }
 
@@ -103,6 +122,13 @@ enum EnemyKind: String, CaseIterable, Codable {
         case .titan: 800
         case .dreadnought: 950
         case .overlord: 1300
+        case .sandworm: 90
+        case .yeti: 160
+        case .magmaGolem: 180
+        case .lavaBlob: 22
+        case .bogWitch: 75
+        case .crab: 120
+        case .caveBat: 20
         }
     }
 
@@ -131,6 +157,13 @@ enum EnemyKind: String, CaseIterable, Codable {
         case .titan: 0.45
         case .dreadnought: 0.42
         case .overlord: 0.4
+        case .sandworm: 1.0
+        case .yeti: 0.75
+        case .magmaGolem: 0.7
+        case .lavaBlob: 1.5
+        case .bogWitch: 0.85
+        case .crab: 0.85
+        case .caveBat: 2.3
         }
     }
 
@@ -138,8 +171,10 @@ enum EnemyKind: String, CaseIterable, Codable {
     var armor: Double {
         switch self {
         case .brute: 4
-        case .medic, .splitter, .hexer: 1
-        case .berserker, .ironclad, .frostborn: 2
+        case .medic, .splitter, .hexer, .bogWitch: 1
+        case .berserker, .ironclad, .frostborn, .yeti: 2
+        case .crab: 5
+        case .magmaGolem: 3
         case .blastguard: 3
         case .gargoyle: 4
         case .titan, .overlord: 6
@@ -153,7 +188,8 @@ enum EnemyKind: String, CaseIterable, Codable {
         switch self {
         case .ironclad: [.kinetic]
         case .pyrefiend: [.fire]
-        case .frostborn: [.cold]
+        case .frostborn, .yeti: [.cold]
+        case .magmaGolem, .lavaBlob: [.fire]
         case .voidling: [.energy]
         case .blastguard: [.explosive]
         case .husk: [.psychic, .toxic]
@@ -164,8 +200,9 @@ enum EnemyKind: String, CaseIterable, Codable {
     /// Damage types that hit this villain twice as hard.
     var weaknesses: Set<DamageType> {
         switch self {
-        case .pyrefiend: [.cold]
-        case .frostborn: [.fire]
+        case .pyrefiend, .magmaGolem, .lavaBlob: [.cold]
+        case .frostborn, .yeti: [.fire]
+        case .crab: [.explosive]
         case .ironclad: [.sonic]
         default: []
         }
@@ -195,13 +232,20 @@ enum EnemyKind: String, CaseIterable, Codable {
         case .titan: 120
         case .dreadnought: 200
         case .overlord: 300
+        case .sandworm: 8
+        case .yeti: 11
+        case .magmaGolem: 12
+        case .lavaBlob: 2
+        case .bogWitch: 11
+        case .crab: 9
+        case .caveBat: 2
         }
     }
 
     /// Lives lost when this villain reaches the crystal.
     var livesCost: Int {
         switch self {
-        case .brute, .splitter, .berserker, .frostborn, .blastguard, .gargoyle: 2
+        case .brute, .splitter, .berserker, .frostborn, .blastguard, .gargoyle, .yeti, .magmaGolem: 2
         case .titan: 5
         case .dreadnought: 8
         case .overlord: 15
@@ -211,7 +255,7 @@ enum EnemyKind: String, CaseIterable, Codable {
 
     var isFlying: Bool {
         switch self {
-        case .wisp, .mirage, .gargoyle, .dreadnought: true
+        case .wisp, .mirage, .gargoyle, .dreadnought, .caveBat: true
         default: false
         }
     }
@@ -227,6 +271,7 @@ enum EnemyKind: String, CaseIterable, Codable {
         case .frostborn, .dreadnought: 1
         case .titan: 0.6
         case .overlord: 0.7
+        case .yeti: 0.5
         default: 0
         }
     }
@@ -250,6 +295,7 @@ enum EnemyKind: String, CaseIterable, Codable {
         switch self {
         case .splitter: (.shardling, 3)
         case .dreadnought: (.ironclad, 4)
+        case .magmaGolem: (.lavaBlob, 3)
         default: nil
         }
     }
@@ -262,6 +308,9 @@ enum EnemyKind: String, CaseIterable, Codable {
         case .warper: [.teleport(distance: 2)]
         case .titan: [.summon(.drone, count: 2)]
         case .overlord: [.disruptTowers(radius: 2.0, duration: 1.5), .summon(.phantom, count: 2)]
+        case .sandworm: [.burrow(duration: 2)]
+        case .yeti: [.disruptTowers(radius: 1.4, duration: 1.2)]
+        case .bogWitch: [.heal(radius: 1.6, fraction: 0.08), .cloakAllies(radius: 1.6, duration: 3)]
         default: []
         }
     }
@@ -275,6 +324,9 @@ enum EnemyKind: String, CaseIterable, Codable {
         case .warper: 4
         case .titan: 7
         case .overlord: 8
+        case .sandworm: 5
+        case .yeti: 6
+        case .bogWitch: 4
         default: 0
         }
     }
@@ -299,6 +351,10 @@ enum EnemyKind: String, CaseIterable, Codable {
         case .titan: 0.42
         case .dreadnought: 0.5
         case .overlord: 0.45
+        case .sandworm, .bogWitch: 0.25
+        case .yeti, .magmaGolem: 0.29
+        case .lavaBlob, .caveBat: 0.17
+        case .crab: 0.27
         }
     }
 
@@ -316,5 +372,5 @@ enum EnemyKind: String, CaseIterable, Codable {
     }
 
     /// Villains worth showing in the codex (shards only appear from Splitters).
-    static var codex: [EnemyKind] { allCases.filter { $0 != .shardling } }
+    static var codex: [EnemyKind] { allCases.filter { $0 != .shardling && $0 != .lavaBlob } }
 }

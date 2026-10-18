@@ -34,6 +34,8 @@ final class Enemy {
     var stoneTimer: Double = 0
     /// A cloaked villain that has been exposed (Sonic Shatter) can be seen by anyone.
     var revealed = false
+    /// Hidden by a Bog Witch while this counts down.
+    var cloakTimer: Double = 0
     var abilityTimer: Double
     /// Counts down after a hit so the renderer can flash the sprite.
     var hitFlash: Double = 0
@@ -59,7 +61,7 @@ final class Enemy {
     var isPoisoned: Bool { poisonTimer > 0 }
     var isConfused: Bool { confuseTimer > 0 }
     var isStone: Bool { stoneTimer > 0 }
-    var isHidden: Bool { kind.isCamo && !revealed }
+    var isHidden: Bool { (kind.isCamo || cloakTimer > 0) && !revealed }
     var effectiveArmor: Double { max(0, kind.armor - armorShred) }
 
     var currentSpeed: Double {

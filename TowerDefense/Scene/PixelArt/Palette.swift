@@ -193,6 +193,13 @@ enum Pal {
         case .titan: hotRed
         case .dreadnought: silver
         case .overlord: lime
+        case .sandworm: tan
+        case .yeti: mist
+        case .magmaGolem: orange
+        case .lavaBlob: amber
+        case .bogWitch: green
+        case .crab: red
+        case .caveBat: purple
         }
     }
 }

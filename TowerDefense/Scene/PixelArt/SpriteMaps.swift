@@ -29,8 +29,132 @@ enum SpriteMaps {
         case .titan: [titan(step: false), titan(step: true)]
         case .dreadnought: [dreadnought(spin: false), dreadnought(spin: true)]
         case .overlord: [overlord(step: false), overlord(step: true)]
+        case .sandworm: [sandworm(tail: false), sandworm(tail: true)]
+        case .yeti: [yeti(legs: "..www.www.."), yeti(legs: "...ww.ww...")]
+        case .magmaGolem: [magmaGolem(legs: "..NN...NN.."), magmaGolem(legs: "...NN.NN...")]
+        case .lavaBlob: [lavaBlob(drip: ".R.R.R."), lavaBlob(drip: "R.R.R.R")]
+        case .bogWitch: [bogWitch(feet: "..uu...uu.."), bogWitch(feet: "...uu.uu...")]
+        case .crab: [crab(legs: ".r.r...r.r."), crab(legs: "r.r.....r.r")]
+        case .caveBat: [caveBatUp, caveBatDown]
         }
     }
+
+    private static func sandworm(tail: Bool) -> [String] {
+        [
+            "...LLL.....",
+            "..LeeeL....",
+            ".LeKeKeL...",
+            ".LeeeeeL...",
+            ".LdXXXdL...",
+            "..LddddL...",
+            "...LddL....",
+            "...LeeL....",
+        ] + (tail ? [
+            "....LeeL...",
+            ".....LddL..",
+            "......LeeL.",
+            ".......LL..",
+        ] : [
+            "..LeeL.....",
+            ".LddL......",
+            "LeeeL......",
+            ".LLL.......",
+        ])
+    }
+
+    private static func yeti(legs: String) -> [String] {
+        [
+            "...WWWWW...",
+            "..WWwwwWW..",
+            "..WbKbKbW..",
+            "..WbbbbbW..",
+            ".WWWbWbWWW.",
+            "WWwWWWWWwWW",
+            "WWwWWWWWwWW",
+            "Ww.WWWWW.wW",
+            "...WWWWW...",
+            "...WW.WW...",
+            legs,
+        ]
+    }
+
+    private static func magmaGolem(legs: String) -> [String] {
+        [
+            "...NNNNN...",
+            "..NnOnnON..",
+            ".NnYKnKYnN.",
+            ".NnnnOnnnN.",
+            "NNNnOOOnNNN",
+            "NnNnnOnnNnN",
+            "NnNOnnnONnN",
+            "NO.NnOnN.ON",
+            "...NnnnN...",
+            "...NN.NN...",
+            legs,
+        ]
+    }
+
+    private static func lavaBlob(drip: String) -> [String] {
+        [
+            "..OOO..",
+            ".OYYYO.",
+            "OYKYKYO",
+            "OOYYYOO",
+            ".ROOOR.",
+            drip,
+        ]
+    }
+
+    private static func bogWitch(feet: String) -> [String] {
+        [
+            "....uu.....",
+            "...uuu.....",
+            "..uuuuu....",
+            ".uuuuuuu.G.",
+            "...gGg...C.",
+            "...KgK...s.",
+            "..pPPPp..s.",
+            ".gpPPPpg.s.",
+            "..pPPPp..s.",
+            "..ppppp....",
+            ".ppppppp...",
+            feet,
+        ]
+    }
+
+    private static func crab(legs: String) -> [String] {
+        [
+            "..R.....R..",
+            ".RR.....RR.",
+            ".R.......R.",
+            "..rRRRRRr..",
+            ".rRRRRRRRr.",
+            "rRRKRRRKRRr",
+            "rRRRRRRRRRr",
+            ".rrrrrrrrr.",
+            legs,
+        ]
+    }
+
+    private static let caveBatUp = [
+        "p.........p",
+        "pp.......pp",
+        "ppp.uuu.ppp",
+        ".ppuKuKupp.",
+        "..pupupup..",
+        "....uuu....",
+        ".....u.....",
+    ]
+
+    private static let caveBatDown = [
+        "...........",
+        "....uuu....",
+        "...uKuKu...",
+        ".ppupupupp.",
+        "ppppuuupppp",
+        "pp...u...pp",
+        "p.........p",
+    ]
 
     private static func ironclad(step: Bool) -> [String] {
         [

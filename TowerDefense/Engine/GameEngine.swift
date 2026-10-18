@@ -644,6 +644,7 @@ final class GameEngine {
     private func updateEnemies(_ dt: Double) {
         for enemy in enemies where !enemy.isResolved {
             if enemy.hitFlash > 0 { enemy.hitFlash -= dt }
+            if enemy.cloakTimer > 0 { enemy.cloakTimer -= dt }
             if enemy.slowTimer > 0 {
                 enemy.slowTimer -= dt
                 if enemy.slowTimer <= 0 { enemy.slowAmount = 0 }
@@ -739,6 +740,15 @@ final class GameEngine {
             case let .stoneForm(duration):
                 enemy.stoneTimer = duration
                 events.append(.enemyPetrified(at: enemy.position))
+
+            case let .burrow(duration):
+                enemy.stoneTimer = duration
+
+            case let .cloakAllies(radius, duration):
+                for other in enemies where other !== enemy && other.isTargetable
+                    && other.position.distance(to: enemy.position) <= CGFloat(radius) {
+                    other.cloakTimer = max(other.cloakTimer, duration)
+                }
 
             case let .teleport(distance):
                 let from = enemy.position

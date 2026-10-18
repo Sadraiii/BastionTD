@@ -198,7 +198,7 @@ final class EnemyNode: SKNode {
         position = layout.snappedWorldPoint(enemy.position)
 
         let rate: Double = switch kind {
-        case .runner, .shardling: 9
+        case .runner, .shardling, .caveBat, .lavaBlob: 9
         case .wisp: 7
         case .titan, .brute: 3.5
         default: 5
@@ -216,10 +216,16 @@ final class EnemyNode: SKNode {
         }
 
         shieldBubble.isHidden = enemy.shield <= 0
+        // Burrowed sandworms sink out of sight; cloaked allies of a Bog Witch fade.
+        if kind == .sandworm {
+            body.alpha = enemy.isStone ? 0.25 : 1
+        } else if !kind.isCamo {
+            body.alpha = enemy.isHidden ? 0.5 : 1
+        }
         if enemy.hitFlash > 0 {
             body.color = .white
             body.colorBlendFactor = 0.85
-        } else if enemy.isStone {
+        } else if enemy.isStone && kind != .sandworm {
             body.color = Pal.steel.uiColor
             body.colorBlendFactor = 0.9
         } else if enemy.isStunned {
