@@ -708,9 +708,10 @@ enum Art {
 
     // MARK: Commanders
 
-    static func commanderCanvas(_ kind: CommanderKind, frame: Int, skin: CommanderSkin) -> PixelCanvas {
+    static func commanderCanvas(_ kind: CommanderKind, frame: Int, skin: CommanderSkin, stage: Int) -> PixelCanvas {
         let maps = SpriteMaps.commanderFrames(kind)
-        var canvas = PixelCanvas(map: maps[frame % maps.count]).padded(1)
+        let palette = Pal.chars.merging(SpriteMaps.commanderGear(kind, stage: stage)) { $1 }
+        var canvas = PixelCanvas(map: maps[frame % maps.count], palette: palette).padded(1)
         if let ramp = Pal.ramp(skin) {
             // Keep the light and shade of each pixel, but in the skin's colours.
             canvas = canvas.recolored { color in
@@ -722,14 +723,23 @@ enum Art {
         return canvas
     }
 
-    static func commanderFrames(_ kind: CommanderKind, skin: CommanderSkin) -> [SKTexture] {
-        frames("commander.\(kind.rawValue).\(skin.rawValue)") {
-            (0..<SpriteMaps.commanderFrames(kind).count).map { commanderCanvas(kind, frame: $0, skin: skin) }
+    /// Which gear a commander wears at an in-match level: new gear at level 5 and at max level.
+    static func commanderStage(level: Int) -> Int {
+        level >= CommanderKind.maxLevel ? 2 : level >= 5 ? 1 : 0
+    }
+
+    static func commanderFrames(_ kind: CommanderKind, skin: CommanderSkin, level: Int = 1) -> [SKTexture] {
+        let stage = commanderStage(level: level)
+        return frames("commander.\(kind.rawValue).\(skin.rawValue).\(stage)") {
+            (0..<SpriteMaps.commanderFrames(kind).count).map { commanderCanvas(kind, frame: $0, skin: skin, stage: stage) }
         }
     }
 
-    static func commanderIcon(_ kind: CommanderKind, skin: CommanderSkin) -> UIImage {
-        image("commanderIcon.\(kind.rawValue).\(skin.rawValue)") { commanderCanvas(kind, frame: 0, skin: skin) }
+    static func commanderIcon(_ kind: CommanderKind, skin: CommanderSkin, level: Int = 1) -> UIImage {
+        let stage = commanderStage(level: level)
+        return image("commanderIcon.\(kind.rawValue).\(skin.rawValue).\(stage)") {
+            commanderCanvas(kind, frame: 0, skin: skin, stage: stage)
+        }
     }
 
     static func enemyCanvas(_ kind: EnemyKind, frame: Int) -> PixelCanvas {

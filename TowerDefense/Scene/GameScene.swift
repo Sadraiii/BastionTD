@@ -233,18 +233,18 @@ final class GameScene: SKScene {
     /// Mirrors the commander: a walk cycle while moving, its level and, when selected, its range.
     private func syncCommander(_ layout: BoardLayout, now: TimeInterval) {
         guard let session, let commander = session.engine.commander else { return }
-        let frames = Art.commanderFrames(commander.kind, skin: commander.skin)
+        let frames = Art.commanderFrames(commander.kind, skin: commander.skin, level: commander.level)
         let node: SKNode
         if let commanderNode {
             node = commanderNode
         } else {
             node = SKNode()
-            let shadow = SKSpriteNode(texture: Art.shadow(width: 10))
-            shadow.position = CGPoint(x: 0, y: -7)
+            let shadow = SKSpriteNode(texture: Art.shadow(width: 12))
+            shadow.position = CGPoint(x: 0, y: -9)
             commanderBody.texture = frames[0]
             commanderBody.size = frames[0].size()
             commanderBody.usePixelAnchor()
-            commanderBadge.position = CGPoint(x: 0, y: 11)
+            commanderBadge.position = CGPoint(x: 0, y: 14)
             commanderRing.zPosition = -2
             for child in [commanderRing, shadow, commanderBody, commanderBadge] { node.addChild(child) }
             towerLayer.addChild(node)

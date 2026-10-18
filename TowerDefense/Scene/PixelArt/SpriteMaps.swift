@@ -591,96 +591,143 @@ enum SpriteMaps {
 
     static func commanderFrames(_ kind: CommanderKind) -> [[String]] {
         switch kind {
-        case .knight: [knight(legs: "...nn.nn...."), knight(legs: "..nn...nn...")]
-        case .mage: [mage(feet: "..uu...uu..."), mage(feet: "...uu.uu....")]
-        case .ranger: [ranger(legs: "...DD.DD...."), ranger(legs: "..DD...DD...")]
-        case .engineer: [engineer(legs: "...nn.nn...."), engineer(legs: "..nn...nn...")]
-        case .healer: [healer(feet: "..uu...uu..."), healer(feet: "...uu.uu....")]
+        case .knight: [knight(legs: "......nn..nn...."), knight(legs: ".....nn....nn...")]
+        case .mage: [mage(feet: "....uu...uu....."), mage(feet: ".....uu.uu......")]
+        case .ranger: [ranger(legs: "....DD...DD....."), ranger(legs: ".....DD.DD......")]
+        case .engineer: [engineer(legs: "....nn...nn....."), engineer(legs: ".....nn.nn......")]
+        case .healer: [healer(feet: "....uu...uu....."), healer(feet: ".....uu.uu......")]
+        }
+    }
+
+    /// Colors for the digits in the commander maps. Commanders gain gear as they level up
+    /// in a match: stage 1 from level 5, stage 2 at max level. Digits left out stay hidden.
+    static func commanderGear(_ kind: CommanderKind, stage: Int) -> [Character: PixelColor] {
+        switch (kind, stage) {
+        case (.knight, 0): ["2": Pal.steel, "5": Pal.silver]
+        case (.knight, 1): ["1": Pal.crimson, "2": Pal.steel, "5": Pal.silver, "6": Pal.red]
+        case (.knight, _): ["1": Pal.crimson, "2": Pal.yellow, "3": Pal.yellow, "5": Pal.white, "6": Pal.red]
+        case (.mage, 0): ["2": Pal.purple]
+        case (.mage, 1): ["1": Pal.plum, "2": Pal.purple]
+        case (.mage, _): ["1": Pal.plum, "2": Pal.yellow, "3": Pal.cyan]
+        case (.ranger, 0): ["2": Pal.lime, "3": Pal.green, "4": Pal.mist]
+        case (.ranger, 1): ["1": Pal.forest, "2": Pal.lime, "3": Pal.green, "4": Pal.mist]
+        case (.ranger, _): ["1": Pal.forest, "2": Pal.yellow, "3": Pal.lime, "4": Pal.yellow]
+        case (.engineer, 0): ["2": Pal.amber]
+        case (.engineer, 1): ["1": Pal.steel, "2": Pal.slate]
+        case (.engineer, _): ["1": Pal.steel, "2": Pal.cyan, "4": Pal.orange]
+        case (.healer, 0): [:]
+        case (.healer, 1): ["3": Pal.yellow]
+        case (.healer, _): ["1": Pal.white, "3": Pal.yellow]
         }
     }
 
     private static func knight(legs: String) -> [String] {
         [
-            ".....RR.....",
-            "....RRs.....",
-            "...swwws....",
-            "...wKwKw....",
-            "...swwws....",
-            "....sss.....",
-            "..BsSSSsY...",
-            ".BBsSwSsY...",
-            ".BBsSSSsY...",
-            ".BB.sSs.Y...",
-            "....sSs.....",
+            "......3.3.3.....",
+            "......33333.66..",
+            "......sssss6RR..",
+            ".....sSSSSSsR...",
+            ".....SwwwwwS....",
+            ".....SKKKKKS..5.",
+            "....1SSwSwSS1.5W",
+            "...11.SSSSS.115W",
+            "..bbbsS222Ss1.5W",
+            ".bBBBbsS2SSs1.5W",
+            ".bBYBbSS2SSs1YYY",
+            ".bYYYbsSSSSs1.e.",
+            ".bBYBbsSSSSs1.e.",
+            "..bBb1sSSSSs1...",
+            "...b11SnYnnS11..",
+            "....11.SS.SS11..",
             legs,
         ]
     }
 
     private static func mage(feet: String) -> [String] {
         [
-            ".....p......",
-            "....ppp.....",
-            "...ppppp....",
-            "..ppppppp.C.",
-            "....eee..CW.",
-            "....eKe..s..",
-            "...PpppP.s..",
-            "..PPpppPPs..",
-            "...PpppP.s..",
-            "...ppppp.s..",
-            "..ppppppp...",
-            feet,
-        ]
-    }
-
-    private static func engineer(legs: String) -> [String] {
-        [
-            "....yyyy....",
-            "...yYYYYy...",
-            "..yYYYYYYy..",
-            "...eeeee....",
-            "...eKeKe....",
-            "...eeeee....",
-            "..OOOOOOO.s.",
-            ".eOyOOOyOss.",
-            ".eOOOOOOO.s.",
-            "..OOOOOOO.s.",
-            "...bbbbb....",
-            legs,
-        ]
-    }
-
-    private static func healer(feet: String) -> [String] {
-        [
-            "....WWW.....",
-            "...WWWWW....",
-            "...weeew....",
-            "...eKeKe....",
-            "...weeew....",
-            "..WWWGWWW...",
-            ".eWWGGGWWe..",
-            ".eWWWGWWWe..",
-            "..WWWWWWW...",
-            "..WWWWWWW...",
-            "..wwwwwww...",
+            ".......p........",
+            "......pp....3...",
+            ".....ppp2..C3C..",
+            "....pp2ppp..W...",
+            "...ppppppppp.s..",
+            ".....eeeee...s..",
+            ".....eKeKe...s..",
+            "....1eeeee1..s..",
+            "...1PpppppP1.s..",
+            "..1PPpp2ppPPes..",
+            "..1.Ppp2pp1..s..",
+            "..1.ppp2pp1..s..",
+            "..1.ppp2pp1..s..",
+            "..1pppp2ppp1.s..",
+            "..1ppppppppp1s..",
+            "..11ppppppp11...",
             feet,
         ]
     }
 
     private static func ranger(legs: String) -> [String] {
         [
-            "....hhh.....",
-            "...hgggh....",
-            "...geeeg..D.",
-            "...eKeKe.D..",
-            "...geeeg.Dw.",
-            "..hgGGGghDw.",
-            "..eGGGGG.Dw.",
-            "..eGGGGG.D..",
-            "...GGGG...D.",
-            "...gg.gg....",
-            "...gg.gg....",
+            ".....hhhh.......",
+            "....hgggghh.....",
+            "...hg3g3ggh..D..",
+            "...geeeeeg..DD..",
+            "...eeKeKee..D.4.",
+            "...geeeeeg.D..4.",
+            "..1hgGGGgh1D..4.",
+            "..1eGGGGGe1D..4.",
+            ".11eGG2GGeDD..4.",
+            ".1.eGGGGGe1D..4.",
+            ".1..GDDDG.1.D.4.",
+            ".1..GGGGG.1..DD.",
+            ".1..gg.gg.1...D.",
+            "....gg.gg.......",
+            "....gg.gg.......",
+            "....gg.gg.......",
             legs,
+        ]
+    }
+
+    private static func engineer(legs: String) -> [String] {
+        [
+            ".....yyyyy......",
+            "....yYYYYYy.....",
+            "...yYYYYYYYy....",
+            "..yyy22222yyy...",
+            "....eCeeeCe.....",
+            "....eeeeeee.....",
+            ".....eeeee......",
+            "..11OOOOOOO11.s.",
+            "..1eOyOOOyOe1ss.",
+            "..1eOOOOOOOe1.s.",
+            "..1eOOOOOOOe1.s.",
+            "..11OOOOOOO11.s.",
+            "...1bbbbbbb1....",
+            "....bbYbbbb.....",
+            "..4.bb...bb.4...",
+            "..4.bb...bb.4...",
+            legs,
+        ]
+    }
+
+    private static func healer(feet: String) -> [String] {
+        [
+            "......33333.....",
+            ".....3.....3....",
+            "......WWWWW.....",
+            ".....WWWWWWW....",
+            ".....WweeewW....",
+            ".....WeKeKeW....",
+            "..1..WweeewW..1.",
+            ".11.WWWWGWWWW.11",
+            "111eWWWGGGWWWe11",
+            "11..WWWWGWWWW..1",
+            "1...WWWWWWWWW...",
+            "....WWWWWWWWW...",
+            "....wwwwwwwww...",
+            "....WWWWWWWWW...",
+            "....WWWWWWWWW...",
+            "....wwwwwwwww...",
+            feet,
         ]
     }
 
