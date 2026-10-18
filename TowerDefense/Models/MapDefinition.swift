@@ -17,7 +17,7 @@ enum Difficulty: String, CaseIterable, Codable {
 
 /// The look of a battlefield: ground and path colors and the decoration sprites.
 enum Terrain: String {
-    case grassland, desert, snowfield, volcanic, swamp
+    case grassland, desert, snowfield, volcanic, swamp, beach, caves
 }
 
 /// A battlefield layout: grid size, the enemy route and unbuildable decoration.

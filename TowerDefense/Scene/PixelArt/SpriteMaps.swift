@@ -568,8 +568,56 @@ enum SpriteMaps {
         case .snowfield: [pine, iceRock]
         case .volcanic: [deadTree(bark: "N", light: "n"), obsidian]
         case .swamp: [deadTree(bark: "D", light: "d"), mossRock]
+        case .beach: [palm, beachRock]
+        case .caves: [crystals, stalagmite]
         }
     }
+
+    static let palm = [
+        "..gg..gg....",
+        ".gGGggGGg...",
+        "gGg.GGgg.Gg.",
+        "g...GGg...g.",
+        ".....Dd.....",
+        ".....Dd.....",
+        "....Dd......",
+        "....Dd......",
+        "....Dd......",
+        "...DDdD.....",
+    ]
+
+    static let beachRock = [
+        "....eee.....",
+        "..eeEEeLL...",
+        ".eEEeLLLLd..",
+        ".eLLLLLdLLd.",
+        "LLLLLdLLLLdd",
+        ".ddLLLLdddd.",
+        "..dddddddd..",
+    ]
+
+    static let crystals = [
+        ".....C......",
+        "....CW..C...",
+        "....CWC.CW..",
+        "..C.CWC.CW..",
+        "..CWCBC.BC..",
+        "..CWBBCBBC..",
+        ".bCBBbBBbB..",
+        ".bbBbbbBbbb.",
+        "..nnnnnnnn..",
+    ]
+
+    static let stalagmite = [
+        ".....n......",
+        "....nS......",
+        "....nSn.....",
+        "...nSSn..n..",
+        "...nSSSn.nS.",
+        "..nSSSSnnSS.",
+        ".nnSSSSSnSSn",
+        "..nnnnnnnnn.",
+    ]
 
     static let cactus = [
         "....f.......",

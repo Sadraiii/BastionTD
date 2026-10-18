@@ -76,6 +76,14 @@ enum Pal {
             TerrainColors(groundA: PixelColor(0x2B4F45), groundB: PixelColor(0x284A41), light: PixelColor(0x3E6B4F), dark: deepTeal,
                           sparkles: [lime, magenta, cyan],
                           path: PixelColor(0x8A5A44), pathLight: clay, pathMid: bark, pathDark: plum)
+        case .beach:
+            TerrainColors(groundA: sand, groundB: PixelColor(0xE2CB9E), light: white, dark: tan,
+                          sparkles: [white, pink, cyan],
+                          path: PixelColor(0xC28569), pathLight: tan, pathMid: PixelColor(0xB0775A), pathDark: bark)
+        case .caves:
+            TerrainColors(groundA: PixelColor(0x2A2238), groundB: PixelColor(0x262033), light: PixelColor(0x3D3352), dark: ink,
+                          sparkles: [cyan, magenta, white],
+                          path: slate, pathLight: steel, pathMid: PixelColor(0x323A58), pathDark: navy)
         }
     }
 
