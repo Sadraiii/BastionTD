@@ -87,7 +87,7 @@ struct GreedyPlayer {
 }
 
 func simulate(_ map: MapDefinition, research: ResearchState, label: String, maxTowers: Int, endless: Bool = false) {
-    let engine = GameEngine(map: map, research: research)
+    let engine = GameEngine(map: map, waves: map.waves, research: research)
     var player = GreedyPlayer(research: research, maxTowers: maxTowers)
     let dt = 1.0 / 60.0
     var clock = 0.0

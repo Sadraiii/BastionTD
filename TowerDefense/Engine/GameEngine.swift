@@ -601,6 +601,7 @@ final class GameEngine {
     private func spawn(_ kind: EnemyKind, at distance: CGFloat, route: Int) -> Enemy {
         let wave = max(1, waveNumber)
         let health = kind.baseHealth * WaveLibrary.healthMultiplier(wave: wave) * map.difficulty.healthMultiplier
+            * levelHealthScale(wave: wave)
             * (setup.bossRush ? 2 : 1)
         let goldFactor = (setup.modifiers.contains(.halfGold) ? 0.5 : 1) * (research.has(.bounty) ? 1.1 : 1)
         let bounty = max(1, Int((Double(kind.bounty) * WaveLibrary.bountyMultiplier(wave: wave) * goldFactor).rounded()))
@@ -627,6 +628,12 @@ final class GameEngine {
     /// Tiles per second, including the Fast Villains modifier.
     private func speed(of enemy: Enemy) -> Double {
         enemy.currentSpeed * (setup.modifiers.contains(.fastVillains) ? 1.5 : 1)
+    }
+
+    /// Later worlds' extra villain health, building up over the level.
+    private func levelHealthScale(wave: Int) -> Double {
+        guard let plan = map.wavePlan else { return 1 }
+        return 1 + (plan.healthScale - 1) * min(1, Double(wave) / Double(plan.count))
     }
 
     /// Distance left to the crystal, comparable across routes of different lengths.
@@ -745,7 +752,8 @@ final class GameEngine {
                 enemy.stoneTimer = duration
 
             case let .cloakAllies(radius, duration):
-                for other in enemies where other !== enemy && other.isTargetable
+                // Witches can't hide each other, so a group of them stays visible.
+                for other in enemies where other.kind != enemy.kind && other.isTargetable
                     && other.position.distance(to: enemy.position) <= CGFloat(radius) {
                     other.cloakTimer = max(other.cloakTimer, duration)
                 }

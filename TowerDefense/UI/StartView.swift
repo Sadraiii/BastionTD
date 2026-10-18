@@ -218,6 +218,7 @@ struct MapSelectView: View {
     let onBack: () -> Void
 
     @State private var modifiers: Set<Modifier> = []
+    @State private var world = MapDefinition.all.last(where: PlayerProgress.isUnlocked)?.world ?? .grassland
 
     var body: some View {
         VStack(spacing: landscape ? 10 : 16) {
@@ -233,10 +234,11 @@ struct MapSelectView: View {
             }
             .padding(.horizontal, 16)
 
+            worldTabs
             challenges
 
             ScrollView(landscape ? .horizontal : .vertical, showsIndicators: false) {
-                let cards = ForEach(MapDefinition.all) { map in
+                let cards = ForEach(MapDefinition.all.filter { $0.world == world }) { map in
                     MapCard(map: map) {
                         playTap()
                         onSelect(map, MatchSetup(modifiers: modifiers))
@@ -250,6 +252,33 @@ struct MapSelectView: View {
             }
         }
         .padding(.top, 8)
+    }
+
+    /// One tab per world, with the stars earned there.
+    private var worldTabs: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                ForEach(World.allCases) { option in
+                    let maps = MapDefinition.all.filter { $0.world == option }
+                    let stars = maps.reduce(0) { $0 + PlayerProgress.bestStars(for: $1) }
+                    let open = maps.contains(where: PlayerProgress.isUnlocked)
+                    Button {
+                        playTap()
+                        world = option
+                    } label: {
+                        VStack(spacing: 3) {
+                            PixelText("\(option.rawValue + 1). \(option.name)", pixel: 2, shadow: nil)
+                            PixelText(open ? "\(stars)/\(maps.count * 3) STARS" : "LOCKED", pixel: 1, shadow: nil)
+                        }
+                    }
+                    .buttonStyle(option == world ? PixelButtonStyle.gold
+                                 : PixelButtonStyle(color: Theme.panel, highlight: Theme.panelLight, shade: Theme.border, minHeight: 40))
+                    .opacity(open ? 1 : 0.5)
+                    .accessibilityLabel("\(option.name), \(open ? "\(stars) stars" : "locked")")
+                }
+            }
+            .padding(.horizontal, 16)
+        }
     }
 
     /// Toggles for the challenge modifiers and the Research Point bonus they add.
@@ -311,7 +340,7 @@ struct MapCard: View {
                             }
                         }
                     }
-                PixelText(map.name.uppercased(), pixel: 3)
+                PixelText("\(map.levelLabel) \(map.name.uppercased())", pixel: 3)
                 Text(map.tagline)
                     .font(Theme.body(11, weight: .regular))
                     .foregroundStyle(Theme.secondaryText)

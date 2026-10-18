@@ -191,7 +191,7 @@ final class GameSession {
         self.setup = setup
         // Daily challenges give everyone the full research tree.
         let research = saved?.research ?? (setup.day == nil ? PlayerProgress.research : .complete)
-        let engine = GameEngine(map: map, waves: setup.bossRush ? WaveLibrary.bossRush : WaveLibrary.standard,
+        let engine = GameEngine(map: map, waves: setup.bossRush ? WaveLibrary.bossRush : map.waves,
                                 research: research, setup: setup, seed: setup.seed)
         self.engine = engine
         self.totalWaves = engine.totalWaves

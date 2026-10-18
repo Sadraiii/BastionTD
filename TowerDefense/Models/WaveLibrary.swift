@@ -10,6 +10,15 @@ struct SpawnGroup {
     let delay: Double
 }
 
+/// How a level's waves are made: how many, which villains (introduced in this order),
+/// the boss of the last wave and extra health for later worlds.
+struct WavePlan {
+    let count: Int
+    let villains: [EnemyKind]
+    let boss: EnemyKind
+    var healthScale: Double = 1
+}
+
 struct WaveDefinition {
     let groups: [SpawnGroup]
 
@@ -49,6 +58,31 @@ enum WaveLibrary {
         WaveDefinition(groups: [g(.overlord, 1, every: 1, after: 2), g(.brute, 6, every: 1.3, after: 4), g(.hexer, 2, every: 3, after: 5), g(.mirage, 5, every: 0.9, after: 8), g(.pyrefiend, 8, every: 0.7, after: 10)]),
     ]
 
+    /// A level's waves: the first two use only the plan's first villain, then the rest join
+    /// one by one, waves grow and speed up, and the boss arrives in the last wave.
+    static func level(_ plan: WavePlan, seed: UInt64) -> [WaveDefinition] {
+        var rng = SplitMix64(seed: seed)
+        return (1...plan.count).map { n in
+            let progress = Double(max(0, n - 2)) / Double(max(1, plan.count - 3))
+            let unlocked = min(plan.villains.count, 1 + Int((Double(plan.villains.count - 1) * progress).rounded(.down)))
+            let available = Array(plan.villains.prefix(unlocked))
+            let groupCount = n < 4 ? 1 : n < 9 ? 2 : 3
+            // Total villain health per wave, close to the classic campaign's curve.
+            let budget = 240 + 90 * Double(n - 1) + 6 * Double((n - 1) * (n - 1))
+            var groups: [SpawnGroup] = []
+            for i in 0..<groupCount {
+                // The newest villain leads every wave until the next one joins.
+                let kind = i == 0 ? available[available.count - 1] : available[Int(rng.next() % UInt64(available.count))]
+                // Fast and supporting villains weigh more, so they come in smaller groups.
+                let weight = kind.baseHealth * max(1, kind.speed / 1.15) * (kind.abilities.isEmpty ? 1 : 2)
+                let count = max(2, Int(budget / Double(groupCount) / weight))
+                groups.append(g(kind, count, every: max(0.35, 1.0 - Double(n) * 0.04), after: Double(i) * 3))
+            }
+            if n == plan.count { groups.append(g(plan.boss, 1, every: 1, after: 4)) }
+            return WaveDefinition(groups: groups)
+        }
+    }
+
     /// Ten boss waves for the Boss Rush event.
     static let bossRush: [WaveDefinition] = [
         WaveDefinition(groups: [g(.drone, 6, every: 0.8), g(.titan, 1, every: 1, after: 4)]),
@@ -84,7 +118,7 @@ enum WaveLibrary {
         var rng = SplitMix64(seed: UInt64(number) &* 0x9E37_79B9)
         let pool: [EnemyKind] = [.drone, .runner, .brute, .medic, .wisp, .splitter, .berserker, .phantom, .hexer,
                                  .ironclad, .pyrefiend, .frostborn, .voidling, .blastguard, .husk, .mirage, .gargoyle, .warper]
-        let extra = number - standard.count
+        let extra = max(0, number - standard.count)
         var groups: [SpawnGroup] = []
         for i in 0..<4 {
             let kind = pool[Int(rng.next() % UInt64(pool.count))]
