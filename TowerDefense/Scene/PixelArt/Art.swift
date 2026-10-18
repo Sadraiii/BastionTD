@@ -847,14 +847,22 @@ enum Art {
     // MARK: Projectiles and effects
 
     static var bolt: SKTexture {
-        texture("bolt") { PixelCanvas(map: [".C.", "CWC", ".C."]) }
+        texture("bolt") {
+            var c = PixelCanvas(map: [".C.", "CWC", ".C."]).padded(1)
+            c.outline()
+            return c
+        }
     }
 
     /// Projectile sprite for a bolt-style hero.
     static func bolt(for kind: TowerKind) -> SKTexture {
         switch kind {
         case .weaver:
-            texture("bolt.weaver") { PixelCanvas(map: [".w.", "wWw", ".w."]) }
+            texture("bolt.weaver") {
+                var c = PixelCanvas(map: [".w.", "wWw", ".w."]).padded(1)
+                c.outline()
+                return c
+            }
         case .aegis:
             texture("bolt.aegis") {
                 var c = PixelCanvas(map: [".YYY.", "YBBBY", "YBWBY", "YBBBY", ".YYY."])
@@ -863,7 +871,11 @@ enum Art {
                 return c
             }
         case .cyclone:
-            texture("bolt.cyclone") { PixelCanvas(map: ["w...w", ".wWw.", "..W.."]) }
+            texture("bolt.cyclone") {
+                var c = PixelCanvas(map: ["w...w", ".wWw.", "..W.."]).padded(1)
+                c.outline()
+                return c
+            }
         default:
             bolt
         }

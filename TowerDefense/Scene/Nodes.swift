@@ -139,6 +139,16 @@ final class EnemyNode: SKNode {
     private let healthFill: SKSpriteNode
     private let shieldBubble: SKSpriteNode
     private let confusedMark = SKSpriteNode(texture: Art.text("?", color: Pal.pink))
+    /// One dot each for slowed, burning, poisoned and stunned, since the body only shows one tint.
+    private let statusDots: [SKSpriteNode] = [Pal.cyan, Pal.orange, Pal.lime, Pal.mist].map { color in
+        let dot = SKSpriteNode(color: Pal.ink.uiColor, size: CGSize(width: 4, height: 4))
+        dot.anchorPoint = .zero
+        let fill = SKSpriteNode(color: color.uiColor, size: CGSize(width: 2, height: 2))
+        fill.anchorPoint = .zero
+        fill.position = CGPoint(x: 1, y: 1)
+        dot.addChild(fill)
+        return dot
+    }
     private let barWidth: CGFloat
     private var frameIndex = 0
     private var animationClock: Double
@@ -153,9 +163,11 @@ final class EnemyNode: SKNode {
         let shadowWidth = max(4, Int(spriteSize.width) - 3) & ~1
         shadow = SKSpriteNode(texture: Art.shadow(width: shadowWidth))
         shadow.usePixelAnchor()
-        barWidth = max(8, min(16, (spriteSize.width - 3).rounded()))
-        healthBack = SKSpriteNode(color: Pal.ink.uiColor, size: CGSize(width: barWidth + 2, height: 3))
-        healthFill = SKSpriteNode(color: Pal.lime.uiColor, size: CGSize(width: barWidth, height: 1))
+        // Bosses get a longer, thicker bar.
+        barWidth = kind.isBoss ? max(20, (spriteSize.width - 3).rounded()) : max(8, min(16, (spriteSize.width - 3).rounded()))
+        let barHeight: CGFloat = kind.isBoss ? 2 : 1
+        healthBack = SKSpriteNode(color: Pal.ink.uiColor, size: CGSize(width: barWidth + 2, height: barHeight + 2))
+        healthFill = SKSpriteNode(color: Pal.lime.uiColor, size: CGSize(width: barWidth, height: barHeight))
         animationClock = Double(enemyID % 7) * 0.13
         shieldBubble = SKSpriteNode(texture: Art.shieldBubble(width: Int(spriteSize.width)))
         super.init()
@@ -183,6 +195,12 @@ final class EnemyNode: SKNode {
         confusedMark.zPosition = 3
         confusedMark.isHidden = true
         addChild(confusedMark)
+        for dot in statusDots {
+            dot.position.y = healthBack.position.y + barHeight + 3
+            dot.zPosition = 3
+            dot.isHidden = true
+            addChild(dot)
+        }
         if kind.isCamo {
             body.alpha = 0.5
             body.run(.repeatForever(.sequence([
@@ -216,6 +234,14 @@ final class EnemyNode: SKNode {
         }
 
         shieldBubble.isHidden = enemy.shield <= 0
+        let effects = [enemy.isSlowed, enemy.isBurning, enemy.isPoisoned, enemy.isStunned]
+        var dotX = -CGFloat(effects.filter { $0 }.count * 3 + 1) / 2
+        for (dot, active) in zip(statusDots, effects) {
+            dot.isHidden = !active
+            guard active else { continue }
+            dot.position.x = dotX.rounded(.down)
+            dotX += 3
+        }
         // Burrowed sandworms sink out of sight; cloaked allies of a Bog Witch fade.
         if kind == .sandworm {
             body.alpha = enemy.isStone ? 0.25 : 1
