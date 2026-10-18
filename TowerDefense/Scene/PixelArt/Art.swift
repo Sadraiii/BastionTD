@@ -164,6 +164,18 @@ enum Art {
             c.fillEllipse(cx: 8, cy: 7.5, rx: 3.6, ry: 2.6, Pal.ocean)
             for (x, y) in [(8, 2), (14, 5), (14, 10), (8, 12), (1, 10), (1, 5)] { c.set(x, y, Pal.yellow) }
 
+        case .sniper:
+            platform(octagon, top: Pal.slate, side: Pal.navy)
+            c.ring(cx: 8, cy: 7.5, r: 3.4, Pal.red) { x, y in (x + y) % 2 == 0 }
+
+        case .tamer:
+            disc(top: Pal.forest, side: Pal.deepTeal, rim: Pal.bark)
+            for (x, y) in [(4, 6), (5, 5), (11, 6), (10, 5)] { c.set(x, y, Pal.tan) }
+
+        case .alchemist:
+            platform(hexagon, top: Pal.plum, side: Pal.ink)
+            for (x, y) in [(3, 7), (13, 7), (8, 4), (8, 11)] { c.set(x, y, Pal.lime) }
+
         case .tide:
             c.fillEllipse(cx: 8, cy: 8.5, rx: 7.2, ry: 4.8, Pal.blue)
             c.ring(cx: 8, cy: 8, r: 6, Pal.cyan) { x, y in (x + y * 2) % 5 != 0 }
@@ -382,6 +394,35 @@ enum Art {
                 }
             }
             if level == 3 { c.ring(cx: 8, cy: 10, r: 4.5, Pal.amber) { x, y in (x + y) % 3 == 0 } }
+
+        case .sniper:
+            // A long rifle with a scope.
+            for y in (level == 3 ? 0 : 1)...8 { c.set(8, y, Pal.silver) }
+            c.fillRect(7, 6, 3, 3, Pal.steel)
+            c.fillRect(9, 4, 2, 2, level >= 2 ? Pal.red : Pal.ink)
+            c.fillCircle(cx: 8, cy: 10.5, r: 2.8, Pal.slate)
+            c.fillCircle(cx: 8, cy: 10.5, r: 1.6, Pal.tan)
+
+        case .tamer:
+            // A wolf's head with pointed ears.
+            c.fillPolygon([(4, 4), (6, 7), (3, 8)], Pal.steel)
+            c.fillPolygon([(12, 4), (10, 7), (13, 8)], Pal.steel)
+            c.fillCircle(cx: 8, cy: 9, r: 4, Pal.steel)
+            c.fillEllipse(cx: 8, cy: 11.5, rx: 2, ry: 1.6, Pal.silver)
+            c.set(6, 8, level >= 2 ? Pal.yellow : Pal.ink)
+            c.set(10, 8, level >= 2 ? Pal.yellow : Pal.ink)
+            c.set(8, 12, Pal.ink)
+            if level == 3 { c.set(5, 5, Pal.red); c.set(11, 5, Pal.red) }
+
+        case .alchemist:
+            // A round flask of bubbling acid.
+            c.fillRect(7, 2, 2, 4, Pal.mist)
+            c.fillCircle(cx: 8, cy: 9.5, r: 4.2, Pal.mist)
+            c.fillCircle(cx: 8, cy: 10, r: 3.4, Pal.lime)
+            c.set(7, 9, Pal.white)
+            c.set(9, 11, Pal.green)
+            c.set(8, level == 3 ? 1 : 3, Pal.lime)
+            if level >= 2 { c.set(6, 11, Pal.yellow); c.set(10, 9, Pal.yellow) }
 
         case .tide:
             // A small submarine seen from above, with a periscope.

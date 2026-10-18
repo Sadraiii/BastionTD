@@ -68,6 +68,9 @@ enum HeroCatalog {
         case .star: starlight
         case .midas: midas
         case .tide: riptide
+        case .sniper: hawkeye
+        case .tamer: fang
+        case .alchemist: vial
         }
     }
 
@@ -705,6 +708,130 @@ enum HeroCatalog {
                         power: power("Maelstrom", "9-second whirlpool: heavy damage and a 70% slow.", cooldown: 30,
                                      .field(duration: 9, dps: 80, slow: 0.7, rangeScale: 1.3, type: .kinetic))) {
                 $0.fireInterval *= 0.7
+            },
+        ]),
+    ]
+
+    // MARK: Hawkeye - sniper
+
+    private static let hawkeye: [UpgradePath] = [
+        UpgradePath(name: "Marksman", tiers: [
+            UpgradeTier(name: "Heavy Rounds", detail: "+30 damage per shot.", cost: 120, research: 0) {
+                $0.damage += 30
+            },
+            UpgradeTier(name: "Armor Breaker", detail: "Shots ignore armor.", cost: 220, research: 4) {
+                $0.piercesArmor = true
+            },
+            UpgradeTier(name: "Headshot", detail: "POWER: one huge shot at the toughest foe.", cost: 400, research: 10,
+                        power: power("Headshot", "A huge shot at the toughest enemy in range.", cooldown: 25,
+                                     .strikes(targets: 1, damage: 800, stun: 0, splash: 0.3, rangeScale: 1))) {
+                $0.bossMultiplier = 1.5
+            },
+            UpgradeTier(name: "Deadeye", detail: "Double damage. Headshot hits 3 foes.", cost: 1200, research: 20,
+                        power: power("Deadeye", "Huge shots at the 3 toughest enemies in range.", cooldown: 25,
+                                     .strikes(targets: 3, damage: 2000, stun: 0, splash: 0.3, rangeScale: 1))) {
+                $0.damage *= 2
+            },
+        ]),
+        UpgradePath(name: "Spotter", tiers: [
+            UpgradeTier(name: "Scope", detail: "Spots cloaked villains.", cost: 90, research: 0) {
+                $0.detectsCamo = true
+            },
+            UpgradeTier(name: "Steady Aim", detail: "Shoots 25% faster.", cost: 200, research: 4) {
+                $0.fireInterval *= 0.75
+            },
+            UpgradeTier(name: "Flare", detail: "POWER: strips cloaks, shields and armor.", cost: 350, research: 10,
+                        power: power("Flare", "Strip cloaks, shields and armor in range.", cooldown: 30,
+                                     .strip(damage: 50, rangeScale: 1))) {
+                $0.revealsCamo = true
+            },
+            UpgradeTier(name: "Overwatch", detail: "Shoots twice as fast. Stronger Flare.", cost: 1000, research: 20,
+                        power: power("Overwatch", "Strip everything in range and deal heavy damage.", cooldown: 30,
+                                     .strip(damage: 300, rangeScale: 1))) {
+                $0.fireInterval *= 0.5
+            },
+        ]),
+    ]
+
+    // MARK: Fang - beast tamer
+
+    private static let fang: [UpgradePath] = [
+        UpgradePath(name: "Pack", tiers: [
+            UpgradeTier(name: "Two Wolves", detail: "Attacks two enemies at once.", cost: 70, research: 0) {
+                $0.multishot = 2
+            },
+            UpgradeTier(name: "Sharp Fangs", detail: "+6 damage per bite.", cost: 150, research: 4) {
+                $0.damage += 6
+            },
+            UpgradeTier(name: "Beast Wall", detail: "POWER: beasts block the path for 4s.", cost: 300, research: 10,
+                        power: power("Beast Wall", "Beasts hold villains in place for 4 seconds.", cooldown: 25,
+                                     .field(duration: 4, dps: 10, slow: 0.95, rangeScale: 1, type: .kinetic))) {
+                $0.multishot = 3
+            },
+            UpgradeTier(name: "Stampede", detail: "Four wolves. Beasts hold for 6s.", cost: 900, research: 20,
+                        power: power("Stampede", "Beasts hold villains in place for 6 seconds and maul them.", cooldown: 25,
+                                     .field(duration: 6, dps: 50, slow: 1, rangeScale: 1.2, type: .kinetic))) {
+                $0.multishot = 4
+                $0.damage += 10
+            },
+        ]),
+        UpgradePath(name: "Wild", tiers: [
+            UpgradeTier(name: "Pounce", detail: "Bites push enemies back.", cost: 80, research: 0) {
+                $0.knockback = 0.2
+            },
+            UpgradeTier(name: "Savage", detail: "Stuns more often.", cost: 160, research: 4) {
+                $0.stunChance = 0.3
+            },
+            UpgradeTier(name: "Howl", detail: "POWER: a howl that stuns everything nearby.", cost: 280, research: 10,
+                        power: power("Howl", "Stun everything nearby for 2 seconds.", cooldown: 25,
+                                     .burst(damage: 40, stun: 2, knockback: 0.3, rangeScale: 1.2, groundOnly: false))) {
+                $0.range += 0.4
+            },
+            UpgradeTier(name: "Alpha", detail: "Bites stun longer. Howl stuns for 4s.", cost: 850, research: 20,
+                        power: power("Alpha Howl", "Stun everything nearby for 4 seconds.", cooldown: 25,
+                                     .burst(damage: 150, stun: 4, knockback: 0.6, rangeScale: 1.5, groundOnly: false))) {
+                $0.stunDuration = 1.2
+            },
+        ]),
+    ]
+
+    // MARK: Vial - alchemist
+
+    private static let vial: [UpgradePath] = [
+        UpgradePath(name: "Acids", tiers: [
+            UpgradeTier(name: "Strong Acid", detail: "Melts 2 more armor.", cost: 80, research: 0) {
+                $0.armorShred += 2
+            },
+            UpgradeTier(name: "Venom", detail: "Stronger poison.", cost: 170, research: 4) {
+                $0.poisonDPS += 8
+            },
+            UpgradeTier(name: "Acid Rain", detail: "POWER: a cloud that poisons and slows.", cost: 320, research: 10,
+                        power: power("Acid Rain", "6-second acid cloud: damage and a 20% slow.", cooldown: 30,
+                                     .field(duration: 6, dps: 40, slow: 0.2, rangeScale: 1.2, type: .toxic))) {
+                $0.splashRadius += 0.3
+            },
+            UpgradeTier(name: "Meltdown", detail: "Brutal poison. Acid Rain lasts 9s.", cost: 950, research: 20,
+                        power: power("Meltdown", "9-second acid cloud: heavy damage and a 30% slow.", cooldown: 30,
+                                     .field(duration: 9, dps: 120, slow: 0.3, rangeScale: 1.4, type: .toxic))) {
+                $0.poisonDPS += 25
+            },
+        ]),
+        UpgradePath(name: "Brews", tiers: [
+            UpgradeTier(name: "Long Toss", detail: "More range.", cost: 70, research: 0) {
+                $0.range += 0.6
+            },
+            UpgradeTier(name: "Quick Brew", detail: "Throws 20% faster.", cost: 160, research: 4) {
+                $0.fireInterval *= 0.8
+            },
+            UpgradeTier(name: "Elixir", detail: "POWER: heroes in range get stronger for 8s.", cost: 300, research: 10,
+                        power: power("Elixir", "Heroes in range attack 40% faster and hit 30% harder for 8 seconds.", cooldown: 35,
+                                     .rally(duration: 8, rate: 1.4, damage: 1.3, rangeScale: 1.2))) {
+                $0.damage += 8
+            },
+            UpgradeTier(name: "Philosopher's Stone", detail: "Strong flasks. Elixir lasts 12s.", cost: 900, research: 20,
+                        power: power("Philosopher's Stone", "Heroes in range attack 70% faster and hit 60% harder for 12 seconds.", cooldown: 35,
+                                     .rally(duration: 12, rate: 1.7, damage: 1.6, rangeScale: 1.5))) {
+                $0.damage += 20
             },
         ]),
     ]

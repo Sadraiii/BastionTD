@@ -125,6 +125,9 @@ enum Pal {
         case .star: yellow
         case .midas: amber
         case .tide: ocean
+        case .sniper: steel
+        case .tamer: rust
+        case .alchemist: lime
         }
     }
 
@@ -146,6 +149,9 @@ enum Pal {
         case .star: white
         case .midas: yellow
         case .tide: cyan
+        case .sniper: white
+        case .tamer: amber
+        case .alchemist: yellow
         }
     }
 

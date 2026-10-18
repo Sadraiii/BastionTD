@@ -84,6 +84,7 @@ struct TowerStats: Equatable {
 enum TowerKind: String, CaseIterable, Codable, Identifiable {
     case pulse, frost, mortar, tesla, rail
     case inferno, weaver, aegis, cyclone, echo, mind, chrono, star, midas, tide
+    case sniper, tamer, alchemist
 
     var id: String { rawValue }
 
@@ -105,6 +106,9 @@ enum TowerKind: String, CaseIterable, Codable, Identifiable {
         case .star: "Starlight"
         case .midas: "Midas"
         case .tide: "Riptide"
+        case .sniper: "Hawkeye"
+        case .tamer: "Fang"
+        case .alchemist: "Vial"
         }
     }
 
@@ -134,6 +138,9 @@ enum TowerKind: String, CaseIterable, Codable, Identifiable {
         case .star: "Cosmic Hero"
         case .midas: "Gold Hero"
         case .tide: "Sea Hero"
+        case .sniper: "Sniper"
+        case .tamer: "Beast Tamer"
+        case .alchemist: "Alchemist"
         }
     }
 
@@ -155,13 +162,16 @@ enum TowerKind: String, CaseIterable, Codable, Identifiable {
         case .star: "Long-range cosmic beam. Bonus damage to bosses."
         case .midas: "Makes gold after every wave. Doesn't attack."
         case .tide: "Fires torpedoes from water tiles. Sees cloaked foes."
+        case .sniper: "Huge range, slow and heavy shots."
+        case .tamer: "Beasts pounce and stun. Can block the path."
+        case .alchemist: "Acid flasks that poison and melt armor."
         }
     }
 
     var attackStyle: AttackStyle {
         switch self {
-        case .pulse, .weaver, .aegis, .cyclone, .tide: .bolt
-        case .mortar: .lob
+        case .pulse, .weaver, .aegis, .cyclone, .tide, .sniper, .tamer: .bolt
+        case .mortar, .alchemist: .lob
         case .frost, .chrono, .midas: .aura
         case .tesla: .chain
         case .rail, .star: .beam
@@ -187,6 +197,9 @@ enum TowerKind: String, CaseIterable, Codable, Identifiable {
         case .star: 170
         case .midas: 120
         case .tide: 110
+        case .sniper: 160
+        case .tamer: 100
+        case .alchemist: 120
         }
     }
 
@@ -196,7 +209,9 @@ enum TowerKind: String, CaseIterable, Codable, Identifiable {
         case .pulse, .frost, .mortar, .tesla, .rail: 0
         case .inferno, .weaver: 6
         case .aegis, .cyclone, .midas: 8
-        case .echo, .tide: 10
+        case .echo, .tide, .tamer: 10
+        case .alchemist: 12
+        case .sniper: 14
         case .mind: 12
         case .chrono: 15
         case .star: 18
@@ -214,12 +229,12 @@ enum TowerKind: String, CaseIterable, Codable, Identifiable {
     /// Turrets that turn to face their target.
     var rotates: Bool {
         switch self {
-        case .pulse, .mortar, .rail, .inferno, .weaver, .echo, .star, .tide: true
+        case .pulse, .mortar, .rail, .inferno, .weaver, .echo, .star, .tide, .sniper, .tamer, .alchemist: true
         default: false
         }
     }
 
-    var defaultTargeting: TargetingMode { self == .rail || self == .star ? .strongest : .first }
+    var defaultTargeting: TargetingMode { self == .rail || self == .star || self == .sniper ? .strongest : .first }
 
     var baseStats: TowerStats {
         switch self {
@@ -253,6 +268,13 @@ enum TowerKind: String, CaseIterable, Codable, Identifiable {
             TowerStats(damage: 0, range: 2.0, fireInterval: 1, income: 25)
         case .tide:
             TowerStats(damage: 12, range: 3.2, fireInterval: 0.7, detectsCamo: true, projectileSpeed: 9, pierce: 2)
+        case .sniper:
+            TowerStats(damage: 60, range: 7, fireInterval: 2.4, projectileSpeed: 25)
+        case .tamer:
+            TowerStats(damage: 14, range: 2.2, fireInterval: 0.9, projectileSpeed: 8, stunChance: 0.15, stunDuration: 0.6)
+        case .alchemist:
+            TowerStats(damage: 10, range: 2.6, fireInterval: 1.5, damageType: .toxic, splashRadius: 0.7,
+                       poisonDPS: 6, poisonDuration: 3, armorShred: 1)
         }
     }
 
