@@ -28,6 +28,7 @@ enum EnemyKind: String, CaseIterable, Codable {
     case ironclad, pyrefiend, frostborn, voidling, blastguard, husk, mirage, gargoyle, warper
     case titan, dreadnought, overlord
     case sandworm, yeti, magmaGolem, lavaBlob, bogWitch, crab, caveBat
+    case sapper, pickpocket, chameleon, gravecaller, shade
 
     var name: String {
         switch self {
@@ -60,6 +61,11 @@ enum EnemyKind: String, CaseIterable, Codable {
         case .bogWitch: "Bog Witch"
         case .crab: "Crab"
         case .caveBat: "Cave Bat"
+        case .sapper: "Sapper"
+        case .pickpocket: "Pickpocket"
+        case .chameleon: "Chameleon"
+        case .gravecaller: "Gravecaller"
+        case .shade: "Shade"
         }
     }
 
@@ -95,6 +101,11 @@ enum EnemyKind: String, CaseIterable, Codable {
         case .bogWitch: "Heals nearby villains and hides them from heroes."
         case .crab: "Thick shell. Explosives crack it."
         case .caveBat: "Fast flying swarm."
+        case .sapper: "Blows up when defeated and knocks nearby heroes out for 3s."
+        case .pickpocket: "Steals gold instead of lives if it gets through."
+        case .chameleon: "After each hit it ignores that damage type for 1.5s. Burning and poison still hurt it."
+        case .gravecaller: "Villains that fall near it rise again as Shades."
+        case .shade: "A risen villain. Fast and flying."
         }
     }
 
@@ -129,6 +140,11 @@ enum EnemyKind: String, CaseIterable, Codable {
         case .bogWitch: 75
         case .crab: 120
         case .caveBat: 20
+        case .sapper: 70
+        case .pickpocket: 40
+        case .chameleon: 90
+        case .gravecaller: 110
+        case .shade: 20
         }
     }
 
@@ -164,6 +180,11 @@ enum EnemyKind: String, CaseIterable, Codable {
         case .bogWitch: 0.85
         case .crab: 0.85
         case .caveBat: 2.3
+        case .sapper: 1.0
+        case .pickpocket: 1.8
+        case .chameleon: 0.95
+        case .gravecaller: 0.8
+        case .shade: 1.6
         }
     }
 
@@ -171,8 +192,8 @@ enum EnemyKind: String, CaseIterable, Codable {
     var armor: Double {
         switch self {
         case .brute: 4
-        case .medic, .splitter, .hexer, .bogWitch: 1
-        case .berserker, .ironclad, .frostborn, .yeti: 2
+        case .medic, .splitter, .hexer, .bogWitch, .sapper, .chameleon: 1
+        case .berserker, .ironclad, .frostborn, .yeti, .gravecaller: 2
         case .crab: 5
         case .magmaGolem: 3
         case .blastguard: 3
@@ -239,13 +260,19 @@ enum EnemyKind: String, CaseIterable, Codable {
         case .bogWitch: 11
         case .crab: 9
         case .caveBat: 2
+        case .sapper: 9
+        case .pickpocket: 15
+        case .chameleon: 10
+        case .gravecaller: 12
+        case .shade: 1
         }
     }
 
     /// Lives lost when this villain reaches the crystal.
     var livesCost: Int {
         switch self {
-        case .brute, .splitter, .berserker, .frostborn, .blastguard, .gargoyle, .yeti, .magmaGolem: 2
+        case .brute, .splitter, .berserker, .frostborn, .blastguard, .gargoyle, .yeti, .magmaGolem, .gravecaller: 2
+        case .pickpocket: 0
         case .titan: 5
         case .dreadnought: 8
         case .overlord: 15
@@ -255,7 +282,7 @@ enum EnemyKind: String, CaseIterable, Codable {
 
     var isFlying: Bool {
         switch self {
-        case .wisp, .mirage, .gargoyle, .dreadnought, .caveBat: true
+        case .wisp, .mirage, .gargoyle, .dreadnought, .caveBat, .shade: true
         default: false
         }
     }
@@ -355,6 +382,11 @@ enum EnemyKind: String, CaseIterable, Codable {
         case .yeti, .magmaGolem: 0.29
         case .lavaBlob, .caveBat: 0.17
         case .crab: 0.27
+        case .sapper: 0.24
+        case .pickpocket: 0.2
+        case .chameleon: 0.25
+        case .gravecaller: 0.26
+        case .shade: 0.18
         }
     }
 
@@ -372,5 +404,5 @@ enum EnemyKind: String, CaseIterable, Codable {
     }
 
     /// Villains worth showing in the codex (shards only appear from Splitters).
-    static var codex: [EnemyKind] { allCases.filter { $0 != .shardling && $0 != .lavaBlob } }
+    static var codex: [EnemyKind] { allCases.filter { $0 != .shardling && $0 != .lavaBlob && $0 != .shade } }
 }

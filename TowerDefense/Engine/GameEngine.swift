@@ -692,6 +692,7 @@ final class GameEngine {
                 enemy.markTimer -= dt
                 if enemy.markTimer <= 0 { enemy.markAmount = 0 }
             }
+            if enemy.adaptTimer > 0 { enemy.adaptTimer -= dt }
             tickDamageOverTime(enemy, dt)
             if enemy.isResolved { continue }
             if enemy.stoneTimer > 0 {
@@ -770,11 +771,7 @@ final class GameEngine {
                 if shieldedAny { events.append(.enemyShielded(center: enemy.position, radius: CGFloat(radius))) }
 
             case let .disruptTowers(radius, duration):
-                for tower in towers where tower.position.distance(to: enemy.position) <= CGFloat(radius) {
-                    tower.disabledTimer = max(tower.disabledTimer, duration)
-                    tower.frenzyTimer = 0
-                }
-                events.append(.towersDisrupted(center: enemy.position, radius: CGFloat(radius)))
+                disruptTowers(near: enemy.position, radius: CGFloat(radius), for: duration)
 
             case let .stoneForm(duration):
                 enemy.stoneTimer = duration
@@ -806,6 +803,11 @@ final class GameEngine {
         stats.livesLost += cost
         waveEnemiesResolved += 1
         events.append(.enemyLeaked(enemyID: enemy.id, kind: enemy.kind, livesLost: cost))
+        if enemy.kind == .pickpocket && gold > 0 {
+            let stolen = min(gold, max(10, min(100, gold * 15 / 100)))
+            gold -= stolen
+            events.append(.goldStolen(amount: stolen))
+        }
         if lives == 0 {
             phase = .defeat
             events.append(.defeat)
@@ -1231,6 +1233,17 @@ final class GameEngine {
         enemy.stunTimer = max(enemy.stunTimer, effective)
     }
 
+    /// Knocks heroes offline and ends their frenzy.
+    private func disruptTowers(near center: CGPoint, radius: CGFloat, for duration: Double) {
+        for tower in towers where tower.position.distance(to: center) <= radius {
+            tower.disabledTimer = max(tower.disabledTimer, duration)
+            tower.frenzyTimer = 0
+            tower.frenzyRate = 1
+            tower.frenzyDamage = 1
+        }
+        events.append(.towersDisrupted(center: center, radius: radius))
+    }
+
     private func roll(_ chance: Double) -> Bool {
         chance >= 1 || (chance > 0 && Double.random(in: 0..<1, using: &rng) < chance)
     }
@@ -1238,7 +1251,7 @@ final class GameEngine {
     /// Applies one hit: immunity, status effects, armor, weaknesses, shields, then health.
     private func apply(_ hit: HitPayload, to enemy: Enemy, from tower: Tower?, showNumber: Bool, flash: Bool = true) {
         guard enemy.isTargetable else { return }
-        if enemy.isStone || enemy.kind.immunities.contains(hit.type) {
+        if enemy.isStone || enemy.kind.immunities.contains(hit.type) || (enemy.adaptTimer > 0 && enemy.adaptedType == hit.type) {
             if flash && time - lastImmuneEvent > 0.25 {
                 lastImmuneEvent = time
                 events.append(.immune(at: enemy.position))
@@ -1289,6 +1302,10 @@ final class GameEngine {
         }
         let applied = min(dealt, enemy.health)
         enemy.health -= dealt
+        if enemy.kind == .chameleon {
+            enemy.adaptedType = hit.type
+            enemy.adaptTimer = 1.5
+        }
         if flash { enemy.hitFlash = 0.08 }
         tower?.damageDealt += applied
         stats.damageDealt += applied
@@ -1316,6 +1333,14 @@ final class GameEngine {
                 spawnChild(split.kind, at: enemy.distance + offset, route: enemy.route)
             }
             events.append(.enemySplit(at: enemy.position))
+        }
+        if enemy.kind == .sapper { disruptTowers(near: enemy.position, radius: 1.3, for: 3) }
+        let rises = enemy.kind != .shade && !enemy.kind.isBoss && enemies.contains {
+            $0.kind == .gravecaller && $0.isTargetable && $0.position.distance(to: enemy.position) <= 1.8
+        }
+        if rises {
+            spawnChild(.shade, at: enemy.distance, route: enemy.route)
+            events.append(.bossSummon(at: enemy.position))
         }
     }
 

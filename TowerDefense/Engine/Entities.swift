@@ -33,6 +33,9 @@ final class Enemy {
     /// Marked by Omen: takes `markAmount` more damage from every hit.
     var markAmount: Double = 0
     var markTimer: Double = 0
+    /// A Chameleon ignores the damage type that last hit it while this counts down.
+    var adaptedType: DamageType?
+    var adaptTimer: Double = 0
     /// Gargoyles in stone form ignore all damage.
     var stoneTimer: Double = 0
     /// A cloaked villain that has been exposed (Sonic Shatter) can be seen by anyone.

@@ -119,7 +119,8 @@ enum WaveLibrary {
     static func endlessWave(number: Int) -> WaveDefinition {
         var rng = SplitMix64(seed: UInt64(number) &* 0x9E37_79B9)
         let pool: [EnemyKind] = [.drone, .runner, .brute, .medic, .wisp, .splitter, .berserker, .phantom, .hexer,
-                                 .ironclad, .pyrefiend, .frostborn, .voidling, .blastguard, .husk, .mirage, .gargoyle, .warper]
+                                 .ironclad, .pyrefiend, .frostborn, .voidling, .blastguard, .husk, .mirage, .gargoyle, .warper,
+                                 .sapper, .chameleon, .gravecaller]
         let extra = max(0, number - standard.count)
         var groups: [SpawnGroup] = []
         for i in 0..<4 {

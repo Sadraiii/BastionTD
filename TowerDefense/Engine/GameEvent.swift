@@ -37,6 +37,7 @@ enum GameEvent {
 
     case enemyKilled(enemyID: Int, kind: EnemyKind, at: CGPoint, bounty: Int)
     case enemyLeaked(enemyID: Int, kind: EnemyKind, livesLost: Int)
+    case goldStolen(amount: Int)
     case enemyHealed(center: CGPoint, radius: CGFloat)
     case enemyShielded(center: CGPoint, radius: CGFloat)
     case enemySplit(at: CGPoint)

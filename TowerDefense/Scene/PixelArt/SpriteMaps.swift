@@ -36,6 +36,11 @@ enum SpriteMaps {
         case .bogWitch: [bogWitch(feet: "..uu...uu.."), bogWitch(feet: "...uu.uu...")]
         case .crab: [crab(legs: ".r.r...r.r."), crab(legs: "r.r.....r.r")]
         case .caveBat: [caveBatUp, caveBatDown]
+        case .sapper: [sapper(legs: "..oo...oo.."), sapper(legs: "...oo.oo...")]
+        case .pickpocket: [pickpocket(legs: "..b....b..."), pickpocket(legs: ".b......b..")]
+        case .chameleon: [chameleon(legs: "g..gg...gg..."), chameleon(legs: "g...gg.gg....")]
+        case .gravecaller: [gravecaller(feet: "..uu...uu.."), gravecaller(feet: "...uu.uu...")]
+        case .shade: [shade(wispUp), shade(wispDown)]
         }
     }
 
@@ -155,6 +160,76 @@ enum SpriteMaps {
         "pp...u...pp",
         "p.........p",
     ]
+
+    private static func sapper(legs: String) -> [String] {
+        [
+            "....LLL....",
+            "...LLYLL.y.",
+            "...eKeKe.O.",
+            "..ooeeeooL.",
+            ".oDDDDDDDL.",
+            ".eDdddddDe.",
+            "..SSSSSSS..",
+            "..DdRRRdD..",
+            "..DdddddD..",
+            "..SSSSSSS..",
+            "..DDDDDDD..",
+            legs,
+        ]
+    }
+
+    private static func pickpocket(legs: String) -> [String] {
+        [
+            "........D..",
+            "...bb..eEe.",
+            "..bBBb.EEEe",
+            ".bBBBBbEyEe",
+            ".bNyNybEEEe",
+            ".bNNNNbbee.",
+            "bBbBBbBb...",
+            "bBBBBBBb...",
+            ".bBBBBBb...",
+            "..bbbbb....",
+            legs,
+        ]
+    }
+
+    /// The first character of `legs` is the tip of the curled tail.
+    private static func chameleon(legs: String) -> [String] {
+        [
+            ".......gGg...",
+            ".....gGGGGGg.",
+            "....gGGGGGWKg",
+            "..ggGGyGGyGGG",
+            ".g.gGGGGGGGg.",
+            "g.g.gggggg...",
+            legs,
+            ".gg..........",
+        ]
+    }
+
+    private static func gravecaller(feet: String) -> [String] {
+        [
+            "....uu...D.",
+            "...uppu.DDD",
+            "..upppp..D.",
+            "..pKCKCp.D.",
+            "..pKKKKp.s.",
+            ".uppPpppsCs",
+            "upppPpppsWs",
+            "u.ppPpppsss",
+            "..ppPppp.D.",
+            ".uppPpppuD.",
+            ".uuuuuuuu..",
+            feet,
+        ]
+    }
+
+    /// A wisp in grave colors, risen by a Gravecaller.
+    private static func shade(_ wisp: [String]) -> [String] {
+        let colors: [Character: Character] = ["P": "n", "f": "s", "W": "C"]
+        return wisp.map { String($0.map { colors[$0] ?? $0 }) }
+    }
 
     private static func ironclad(step: Bool) -> [String] {
         [

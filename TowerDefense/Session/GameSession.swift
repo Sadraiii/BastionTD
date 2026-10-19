@@ -114,7 +114,7 @@ struct RunRewards: Equatable {
 /// The engine is deterministic, so replaying them rebuilds the exact same battlefield.
 struct SavedMatch: Codable {
     /// Raised whenever a change would make older saves replay differently, so those aren't offered for resume.
-    static let currentRules = 3
+    static let currentRules = 4
 
     enum Command: Codable {
         case build(TowerKind, GridPoint)
@@ -337,8 +337,10 @@ final class GameSession {
                 let title = number == totalWaves && !isEndless ? "FINAL WAVE" : "WAVE \(number)"
                 showBanner(title: title, subtitle: subtitle, isBoss: isBoss)
                 if number >= 2 { finishCoach() }
-            case .enemyLeaked:
+            case let .enemyLeaked(_, _, livesLost) where livesLost > 0:
                 damagePulse += 1
+            case .goldStolen:
+                showToast("GOLD STOLEN")
             case let .towerSold(towerID, _, _):
                 if towerID == selectedTowerID { selectedTowerID = nil }
             case let .towerUpgraded(_, _, tier):

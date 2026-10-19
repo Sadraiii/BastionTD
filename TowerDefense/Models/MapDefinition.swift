@@ -325,7 +325,7 @@ extension MapDefinition {
         water: Set((2...15).flatMap { col in (7...9).map { GridPoint(col, $0) } }),
         startingGold: 300,
         startingLives: 20,
-        wavePlan: WavePlan(count: 14, villains: [.runner, .crab, .sandworm, .wisp, .ironclad], boss: .dreadnought, healthScale: 1.2)
+        wavePlan: WavePlan(count: 14, villains: [.runner, .crab, .sandworm, .wisp, .ironclad, .pickpocket], boss: .dreadnought, healthScale: 1.2)
     )
 
     static let mire = MapDefinition(
@@ -341,7 +341,7 @@ extension MapDefinition {
         obstacles: Set(points([(1, 1), (7, 5), (12, 5), (16, 8), (0, 0)])),
         startingGold: 280,
         startingLives: 20,
-        wavePlan: WavePlan(count: 13, villains: [.drone, .splitter, .husk, .medic, .bogWitch, .phantom, .hexer], boss: .dreadnought, healthScale: 1.25)
+        wavePlan: WavePlan(count: 13, villains: [.drone, .splitter, .husk, .medic, .bogWitch, .phantom, .hexer, .gravecaller], boss: .dreadnought, healthScale: 1.25)
     )
 
     static let shore = MapDefinition(
@@ -422,7 +422,7 @@ extension MapDefinition {
         obstacles: Set(points([(0, 9), (6, 5), (10, 6), (15, 4), (16, 0)])),
         startingGold: 300,
         startingLives: 20,
-        wavePlan: WavePlan(count: 14, villains: [.drone, .pyrefiend, .berserker, .blastguard, .magmaGolem, .voidling, .gargoyle], boss: .titan, healthScale: 1.5, midBoss: .titan)
+        wavePlan: WavePlan(count: 14, villains: [.drone, .pyrefiend, .berserker, .blastguard, .magmaGolem, .voidling, .gargoyle, .sapper], boss: .titan, healthScale: 1.5, midBoss: .titan)
     )
 
     static let magmaFalls = MapDefinition(
@@ -504,7 +504,7 @@ extension MapDefinition {
         obstacles: Set(points([(2, 5), (8, 5), (12, 6), (17, 4), (0, 11), (19, 0), (3, 9)])),
         startingGold: 340,
         startingLives: 20,
-        wavePlan: WavePlan(count: 15, villains: [.drone, .caveBat, .voidling, .crab, .warper, .gargoyle, .phantom, .hexer], boss: .overlord, healthScale: 1.75, midBoss: .dreadnought)
+        wavePlan: WavePlan(count: 15, villains: [.drone, .caveBat, .voidling, .crab, .warper, .gargoyle, .phantom, .hexer, .chameleon], boss: .overlord, healthScale: 1.75, midBoss: .dreadnought)
     )
 
     static let deepCore = MapDefinition(

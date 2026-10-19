@@ -239,8 +239,8 @@ final class EnemyNode: SKNode {
         position = layout.snappedWorldPoint(enemy.position)
 
         let rate: Double = switch kind {
-        case .runner, .shardling, .caveBat, .lavaBlob: 9
-        case .wisp: 7
+        case .runner, .shardling, .caveBat, .lavaBlob, .pickpocket: 9
+        case .wisp, .shade: 7
         case .titan, .brute: 3.5
         default: 5
         }
@@ -271,7 +271,10 @@ final class EnemyNode: SKNode {
         } else if !kind.isCamo {
             body.alpha = enemy.isHidden ? 0.5 : 1
         }
-        if enemy.hitFlash > 0 {
+        if let type = enemy.adaptedType, enemy.adaptTimer > 0 {
+            body.color = Pal.damage(type).uiColor
+            body.colorBlendFactor = 0.7
+        } else if enemy.hitFlash > 0 {
             body.color = .white
             body.colorBlendFactor = 0.85
         } else if enemy.isStone && kind != .sandworm {

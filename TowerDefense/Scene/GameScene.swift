@@ -702,6 +702,8 @@ final class GameScene: SKScene {
             floatText("+\(bounty)", color: Pal.yellow, at: point + CGPoint(x: 0, y: 8))
 
         case let .enemyLeaked(_, _, livesLost):
+            // Pickpockets cost no lives; their stolen gold shows instead.
+            guard livesLost > 0 else { break }
             coreCrystal.removeAction(forKey: "hit")
             coreCrystal.run(.sequence([
                 .run { [weak self] in self?.coreCrystal.color = Pal.red.uiColor; self?.coreCrystal.colorBlendFactor = 0.8 },
@@ -716,6 +718,10 @@ final class GameScene: SKScene {
             shake(intensity: 2)
             SoundEngine.shared.play(.leak)
             Haptics.impact(.heavy)
+
+        case let .goldStolen(amount):
+            floatText("-\(amount)", color: Pal.red, at: corePedestal.position + CGPoint(x: 0, y: 22))
+            SoundEngine.shared.play(.leak)
 
         case let .enemyHealed(center, _):
             let point = toWorld(center)

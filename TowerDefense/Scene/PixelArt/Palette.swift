@@ -212,6 +212,11 @@ enum Pal {
         case .bogWitch: green
         case .crab: red
         case .caveBat: purple
+        case .sapper: copper
+        case .pickpocket: blue
+        case .chameleon: lime
+        case .gravecaller: magenta
+        case .shade: silver
         }
     }
 }
