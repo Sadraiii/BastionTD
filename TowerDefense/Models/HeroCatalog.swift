@@ -82,6 +82,7 @@ enum HeroCatalog {
         case .tamer: fang
         case .alchemist: vial
         case .siren: siren
+        case .bramble: bramble
         }
     }
 
@@ -934,6 +935,49 @@ enum HeroCatalog {
         ]),
     ]
 
+    // MARK: Bramble - thorn bush
+
+    private static let bramble: [UpgradePath] = [
+        UpgradePath(name: "Roots", tiers: [
+            UpgradeTier(name: "Deep Roots", detail: "Grows 7% stronger each wave instead of 5%.", cost: 60, research: 0) {
+                $0.growth = 0.07
+            },
+            UpgradeTier(name: "Snaring Vines", detail: "Thorns slow villains.", cost: 110, research: 4) {
+                $0.slow = 0.3
+                $0.slowDuration = 1.2
+            },
+            UpgradeTier(name: "Overgrowth", detail: "POWER: a thicket that slows and hurts.", cost: 240, research: 10,
+                        power: power("Overgrowth", "6-second thicket: damage and a 40% slow.", cooldown: 30,
+                                     .field(duration: 6, dps: 40, slow: 0.4, rangeScale: 1.2, type: .toxic))) {
+                $0.damage += 4
+            },
+            UpgradeTier(name: "Old Grove", detail: "+10 damage. Overgrowth lasts 8s.", cost: 650, research: 20,
+                        power: power("Old Grove", "8-second thicket: heavy damage and a 50% slow.", cooldown: 30,
+                                     .field(duration: 8, dps: 120, slow: 0.5, rangeScale: 1.5, type: .toxic))) {
+                $0.damage += 10
+            },
+        ]),
+        UpgradePath(name: "Thorns", tiers: [
+            UpgradeTier(name: "Sharp Thorns", detail: "+4 damage per thorn.", cost: 60, research: 0) {
+                $0.damage += 4
+            },
+            UpgradeTier(name: "Thorn Spray", detail: "Shoots two villains at once.", cost: 120, research: 4) {
+                $0.multishot = 2
+            },
+            UpgradeTier(name: "Thornburst", detail: "POWER: triple attack speed for 5s.", cost: 250, research: 10,
+                        power: power("Thornburst", "Triple attack speed and +20% damage for 5 seconds.", cooldown: 30,
+                                     .frenzy(duration: 5, rate: 3, damage: 1.2))) {
+                $0.pierce += 1
+            },
+            UpgradeTier(name: "Bramble Wall", detail: "Three targets, +8 damage. Thornburst lasts 8s at 4x.", cost: 700, research: 20,
+                        power: power("Bramble Wall", "4x attack speed and +50% damage for 8 seconds.", cooldown: 30,
+                                     .frenzy(duration: 8, rate: 4, damage: 1.5))) {
+                $0.multishot = 3
+                $0.damage += 8
+            },
+        ]),
+    ]
+
     // MARK: Combos
 
     static let combos: [HeroCombo] = [
@@ -1002,6 +1046,15 @@ enum HeroCatalog {
         HeroCombo(name: "Rip Current", detail: "Siren's song pushes villains back. Riptide's torpedoes hit one more villain.",
                   first: .siren, second: .tide) { kind, stats in
             if kind == .siren { stats.knockback += 0.15 } else { stats.pierce += 1 }
+        },
+        HeroCombo(name: "Frost Thorns", detail: "Bramble's thorns slow villains. Glacia reaches further.",
+                  first: .bramble, second: .frost) { kind, stats in
+            if kind == .bramble {
+                stats.slow = max(stats.slow, 0.25)
+                stats.slowDuration = max(stats.slowDuration, 1)
+            } else {
+                stats.range += 0.3
+            }
         },
     ]
 

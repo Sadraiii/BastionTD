@@ -75,6 +75,8 @@ struct TowerStats: Equatable {
     var buffDamage: Double = 0
     /// Gold paid after each wave.
     var income: Int = 0
+    /// Extra damage for every wave the hero survives, up to 20 waves.
+    var growth: Double = 0
 
     var shotsPerSecond: Double { 1 / fireInterval }
 }
@@ -84,7 +86,7 @@ struct TowerStats: Equatable {
 enum TowerKind: String, CaseIterable, Codable, Identifiable {
     case pulse, frost, mortar, tesla, rail
     case inferno, weaver, aegis, cyclone, echo, mind, chrono, star, midas, tide
-    case sniper, tamer, alchemist, siren
+    case sniper, tamer, alchemist, siren, bramble
 
     var id: String { rawValue }
 
@@ -110,6 +112,7 @@ enum TowerKind: String, CaseIterable, Codable, Identifiable {
         case .tamer: "Fang"
         case .alchemist: "Vial"
         case .siren: "Siren"
+        case .bramble: "Bramble"
         }
     }
 
@@ -143,6 +146,7 @@ enum TowerKind: String, CaseIterable, Codable, Identifiable {
         case .tamer: "Beast Tamer"
         case .alchemist: "Alchemist"
         case .siren: "Sea Singer"
+        case .bramble: "Thorn Bush"
         }
     }
 
@@ -168,12 +172,13 @@ enum TowerKind: String, CaseIterable, Codable, Identifiable {
         case .tamer: "Beasts pounce and stun. Can block the path."
         case .alchemist: "Acid flasks that poison and melt armor."
         case .siren: "Turns villains around and cracks shields. Goes on water."
+        case .bramble: "Grows stronger every wave it stays on the field."
         }
     }
 
     var attackStyle: AttackStyle {
         switch self {
-        case .pulse, .weaver, .aegis, .cyclone, .tide, .sniper, .tamer: .bolt
+        case .pulse, .weaver, .aegis, .cyclone, .tide, .sniper, .tamer, .bramble: .bolt
         case .mortar, .alchemist: .lob
         case .frost, .chrono, .midas: .aura
         case .tesla: .chain
@@ -204,6 +209,7 @@ enum TowerKind: String, CaseIterable, Codable, Identifiable {
         case .tamer: 100
         case .alchemist: 120
         case .siren: 100
+        case .bramble: 90
         }
     }
 
@@ -212,7 +218,7 @@ enum TowerKind: String, CaseIterable, Codable, Identifiable {
         switch self {
         case .pulse, .frost, .mortar, .tesla, .rail: 0
         case .inferno, .weaver: 6
-        case .aegis, .cyclone, .midas: 8
+        case .aegis, .cyclone, .midas, .bramble: 8
         case .echo, .tide, .tamer, .siren: 10
         case .alchemist: 12
         case .sniper: 14
@@ -282,6 +288,8 @@ enum TowerKind: String, CaseIterable, Codable, Identifiable {
         case .siren:
             TowerStats(damage: 6, range: 2.4, fireInterval: 1.0, damageType: .sonic, coneAngle: 1.0,
                        confuseChance: 0.12, confuseDuration: 1.2, shieldBreak: 2)
+        case .bramble:
+            TowerStats(damage: 7, range: 2.2, fireInterval: 0.8, projectileSpeed: 9, growth: 0.05)
         }
     }
 

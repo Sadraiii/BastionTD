@@ -23,6 +23,8 @@ final class TowerNode: SKNode {
     private let badge = SKSpriteNode(texture: Art.powerReady)
     /// Yellow pip in the corner while the hero is part of a combo.
     private let comboPip = SKSpriteNode(color: Pal.ink.uiColor, size: CGSize(width: 4, height: 4))
+    /// Sprouts on a Bramble's base after 5, 10 and 20 waves.
+    private let leaves: [SKSpriteNode]
     private var displayedAngle: CGFloat = .pi / 2
     private var targetAngle: CGFloat = .pi / 2
     private var state = VisualState.normal
@@ -35,6 +37,7 @@ final class TowerNode: SKNode {
         self.tiers = tiers
         base = SKSpriteNode(texture: Art.towerBase(kind, tiers: tiers))
         turret = SKSpriteNode(texture: Art.turret(kind, tiers: tiers))
+        leaves = kind == .bramble ? (0..<3).map { _ in SKSpriteNode(texture: Art.leaf) } : []
         super.init()
         base.zPosition = 0
         turret.zPosition = 1
@@ -58,6 +61,13 @@ final class TowerNode: SKNode {
         addChild(turret)
         addChild(badge)
         addChild(comboPip)
+        for (leaf, position) in zip(leaves, [CGPoint(x: -7, y: -4), CGPoint(x: 7, y: -4), CGPoint(x: 8, y: 4)]) {
+            leaf.usePixelAnchor()
+            leaf.position = position
+            leaf.zPosition = 2
+            leaf.isHidden = true
+            addChild(leaf)
+        }
     }
 
     @available(*, unavailable)
@@ -82,6 +92,7 @@ final class TowerNode: SKNode {
     func update(tower: Tower, aimAngle: CGFloat, dt: Double) {
         badge.isHidden = !tower.isPowerReady
         comboPip.isHidden = tower.combos.isEmpty
+        for (leaf, waves) in zip(leaves, [5, 10, 20]) { leaf.isHidden = tower.wavesHeld < waves }
         let newState: VisualState = tower.isDisabled ? .disabled : (tower.isFrenzied || tower.isRallied) ? .frenzied : .normal
         if newState != state {
             state = newState

@@ -92,6 +92,8 @@ final class Tower {
     var totalInvested: Int
     var kills = 0
     var damageDealt: Double = 0
+    /// Waves survived on the field, for heroes that grow.
+    var wavesHeld = 0
     var powerCooldown: Double = 0
     var frenzyTimer: Double = 0
     var frenzyRate: Double = 1
@@ -127,7 +129,9 @@ final class Tower {
 
     /// Combined attack-speed multiplier from powers and allies.
     var rateMultiplier: Double { frenzyRate * (1 + auraRate) * (isRallied ? rallyRate : 1) }
-    var damageMultiplier: Double { frenzyDamage * (1 + auraDamage) * (isRallied ? rallyDamage : 1) }
+    var damageMultiplier: Double { frenzyDamage * (1 + auraDamage) * (isRallied ? rallyDamage : 1) * (1 + growthBonus) }
+    /// Extra damage from the waves survived; it stops growing after 20.
+    var growthBonus: Double { stats.growth * Double(min(wavesHeld, 20)) }
 
     func nextTier(onPath path: Int) -> UpgradeTier? {
         let current = tiers[path]

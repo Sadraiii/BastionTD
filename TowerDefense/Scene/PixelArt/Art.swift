@@ -196,6 +196,10 @@ enum Art {
         case .midas:
             disc(top: Pal.rust, side: Pal.bark, rim: Pal.amber)
             for (x, y) in [(3, 7), (13, 7), (8, 4), (8, 11)] { c.set(x, y, Pal.yellow) }
+
+        case .bramble:
+            disc(top: Pal.bark, side: Pal.plum, rim: Pal.clay)
+            c.line(2, 8, 5, 7, Pal.plum); c.line(13, 6, 11, 7, Pal.plum); c.line(6, 11, 7, 9, Pal.plum)
         }
 
         // The web is drawn straight onto the grass; an outline would make it look solid.
@@ -212,7 +216,7 @@ enum Art {
         case .rail, .sniper: (Pal.slate, Pal.ink)
         case .inferno: (Pal.bark, Pal.ink)
         case .weaver, .alchemist: (Pal.purple, Pal.plum)
-        case .echo, .tamer: (Pal.forest, Pal.deepTeal)
+        case .echo, .tamer, .bramble: (Pal.forest, Pal.deepTeal)
         case .mind: (Pal.magenta, Pal.purple)
         case .midas: (Pal.copper, Pal.rust)
         case .tide: (Pal.ocean, Pal.navy)
@@ -512,6 +516,29 @@ enum Art {
             }
             c.set(10, 9 - level * 2, Pal.white)
             c.set(11, 8 - level * 2, Pal.white)
+
+        case .bramble:
+            // A thorny bush seen from above that fills out with each level.
+            let clumps = [(5.5, 9.5), (10.5, 9.5), (8.0, 6.0), (8.0, 12.0), (8.0, 9.0)].prefix(level + 2)
+            let thorns = 5 + level * 2
+            let reach = 5.2 + Double(level) * 0.6
+            for i in 0..<thorns {
+                let angle = Double(i) * 2 * .pi / Double(thorns) + 0.3
+                let x = Int(8 + cos(angle) * reach), y = Int(9 + sin(angle) * reach)
+                c.line(8, 9, x, y, Pal.bark)
+                c.set(x, y, Pal.sand)
+            }
+            for (x, y) in clumps { c.fillCircle(cx: x, cy: y, r: 2.7, Pal.forest) }
+            for (x, y) in clumps { c.fillCircle(cx: x - 0.4, cy: y - 0.4, r: 2, Pal.green) }
+            for (x, y) in clumps { c.set(Int(x) - 1, Int(y) - 1, Pal.lime); c.set(Int(x), Int(y) - 2, Pal.lime) }
+            if level >= 2 { for (x, y) in [(10, 5), (4, 11)] { c.fillRect(x, y, 2, 2, Pal.purple); c.set(x, y, Pal.magenta) } }
+            if level == 3 {
+                for (x, y) in [(8, 8), (11, 11)] {
+                    c.fillRect(x - 1, y, 3, 1, Pal.white)
+                    c.fillRect(x, y - 1, 1, 3, Pal.white)
+                    c.set(x, y, Pal.yellow)
+                }
+            }
         }
         var big = c.padded(2)
         drawTurretUpgrades(kind, a: tiers[0], b: tiers[1], on: &big)
@@ -736,6 +763,16 @@ enum Art {
             if b >= 2 { c.line(14, 4, 18, 4, Pal.amber); for x in [14, 16, 18] { c.line(x, 1, x, 3, Pal.yellow) } }
             if b >= 3 { c.ring(cx: 10, cy: 11, r: 8.5, Pal.cyan) { x, y in y > 14 && (x + y) % 3 != 0 } }
             if b >= 4 { c.ring(cx: 10, cy: 11, r: 8.5, Pal.white) { x, y in y > 14 && (x + y) % 3 == 0 }; c.set(16, 0, Pal.white) }
+        case .bramble:
+            // Roots: roots in the soil, a creeping vine, a broad leaf and a sapling. Thorns: spiked canes that arch over the top.
+            if a >= 1 { c.line(5, 13, 1, 15, Pal.clay); c.line(15, 13, 19, 15, Pal.clay) }
+            if a >= 2 { c.line(3, 11, 1, 7, Pal.green); c.set(0, 8, Pal.lime); c.set(2, 7, Pal.lime); c.set(0, 10, Pal.lime) }
+            if a >= 3 { c.fillEllipse(cx: 16.5, cy: 7.5, rx: 2.5, ry: 1.5, Pal.lime); c.line(15, 8, 18, 7, Pal.green) }
+            if a >= 4 { c.fillRect(9, 3, 2, 4, Pal.bark); c.fillCircle(cx: 10, cy: 2.5, r: 2.5, Pal.green); c.set(9, 1, Pal.lime); c.set(10, 2, Pal.lime) }
+            if b >= 1 { c.line(5, 6, 3, 4, Pal.bark); c.set(2, 3, Pal.sand); c.line(15, 6, 17, 4, Pal.bark); c.set(18, 3, Pal.sand) }
+            if b >= 2 { c.line(3, 12, 1, 12, Pal.bark); c.set(0, 12, Pal.sand); c.line(17, 12, 19, 12, Pal.bark); c.set(19, 11, Pal.sand) }
+            if b >= 3 { c.ring(cx: 10, cy: 10, r: 8.5, Pal.bark) { x, y in y < 5 && (x + y) % 3 != 0 } }
+            if b >= 4 { c.ring(cx: 10, cy: 10, r: 8.5, Pal.sand) { x, y in y < 5 && (x + y) % 3 == 0 }; c.set(10, 0, Pal.red) }
         }
     }
 
@@ -911,6 +948,12 @@ enum Art {
                 c.outline()
                 return c
             }
+        case .bramble:
+            texture("bolt.bramble") {
+                var c = PixelCanvas(map: [".E.", "EDE", ".E."]).padded(1)
+                c.outline()
+                return c
+            }
         default:
             bolt
         }
@@ -936,6 +979,15 @@ enum Art {
     static var powerReady: SKTexture {
         texture("powerReady") {
             var c = PixelCanvas(map: SpriteMaps.icon(.bolt)).padded(1)
+            c.outline()
+            return c
+        }
+    }
+
+    /// A sprout on a Bramble's base, one for each stage of growth.
+    static var leaf: SKTexture {
+        texture("leaf") {
+            var c = PixelCanvas(map: ["y.y", "GyG", ".G."]).padded(1)
             c.outline()
             return c
         }

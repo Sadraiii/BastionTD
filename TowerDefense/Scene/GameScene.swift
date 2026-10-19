@@ -553,7 +553,7 @@ final class GameScene: SKScene {
                 }
             }
             switch kind {
-            case .pulse, .aegis, .weaver, .tide, .tamer: SoundEngine.shared.play(.pulse)
+            case .pulse, .aegis, .weaver, .tide, .tamer, .bramble: SoundEngine.shared.play(.pulse)
             case .cyclone: SoundEngine.shared.play(.gust)
             case .mortar, .alchemist: SoundEngine.shared.play(.mortar)
             case .tesla: SoundEngine.shared.play(.tesla)

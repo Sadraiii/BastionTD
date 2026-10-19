@@ -129,6 +129,7 @@ enum Pal {
         case .tamer: rust
         case .alchemist: lime
         case .siren: PixelColor(0x23B5AF)
+        case .bramble: PixelColor(0x9CB93A)
         }
     }
 
@@ -154,6 +155,7 @@ enum Pal {
         case .tamer: amber
         case .alchemist: yellow
         case .siren: mist
+        case .bramble: yellow
         }
     }
 

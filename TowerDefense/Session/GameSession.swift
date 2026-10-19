@@ -45,6 +45,8 @@ struct TowerSnapshot: Equatable {
     let kills: Int
     let isDisabled: Bool
     let combos: [String]
+    /// Extra damage from growing, in percent.
+    let growth: Int
 }
 
 struct SkillSnapshot: Equatable {
@@ -523,7 +525,8 @@ final class GameSession {
         return TowerSnapshot(
             id: tower.id, kind: tower.kind, tiers: tower.tiers, stats: tower.stats, paths: paths,
             power: power, sellValue: tower.sellValue, targeting: tower.targeting,
-            kills: tower.kills, isDisabled: tower.isDisabled, combos: tower.combos.map { HeroCatalog.combos[$0].name }
+            kills: tower.kills, isDisabled: tower.isDisabled, combos: tower.combos.map { HeroCatalog.combos[$0].name },
+            growth: Int((tower.growthBonus * 100).rounded())
         )
     }
 

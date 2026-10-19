@@ -13,7 +13,7 @@ struct GreedyPlayer {
 
     init(research: ResearchState, maxTowers: Int) {
         let wishList: [TowerKind] = [.pulse, .rail, .frost, .mortar, .inferno, .tesla, .aegis, .cyclone, .rail, .echo,
-                                     .mind, .star, .weaver, .chrono, .mortar, .tesla, .pulse, .rail]
+                                     .mind, .star, .weaver, .bramble, .chrono, .mortar, .tesla, .pulse, .rail]
         buildOrder = wishList.filter(research.isHeroUnlocked)
         self.maxTowers = maxTowers
     }

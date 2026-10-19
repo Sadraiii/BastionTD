@@ -1333,6 +1333,7 @@ final class GameEngine {
             earn(tower.stats.income)
             events.append(.towerIncome(towerID: tower.id, at: tower.position, amount: tower.stats.income))
         }
+        for tower in towers where tower.stats.growth > 0 { tower.wavesHeld += 1 }
         if waveNumber == waves.count && !isEndless {
             phase = .victory
             events.append(.victory)

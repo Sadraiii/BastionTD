@@ -54,6 +54,9 @@ struct TowerInfoPanel: View {
         if let combo = tower.combos.first {
             return "COMBO: \(combo.uppercased())" + (tower.combos.count > 1 ? " +\(tower.combos.count - 1)" : "")
         }
+        if tower.stats.growth > 0 {
+            return "\(tower.stats.damageType.title.uppercased()) · GROWN +\(tower.growth)% · \(tower.kills) KO"
+        }
         return "\(tower.stats.damageType.title.uppercased()) · \(tower.kind.archetype.uppercased()) · \(tower.kills) KO"
     }
 
