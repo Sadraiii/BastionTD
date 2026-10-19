@@ -66,6 +66,10 @@ struct CommanderSnapshot: Equatable {
     /// Progress to the next level in steps of 5%; 1 at the top level.
     let xp: Double
     let skills: [SkillSnapshot]
+    /// The two evolutions to pick from; empty when none is waiting.
+    let choices: [CommanderForm]
+    /// The latest evolution picked.
+    let formName: String?
 }
 
 /// A hero power in the quick-cast bar.
@@ -120,6 +124,7 @@ struct SavedMatch: Codable {
         case continueEndless
         case moveCommander(GridPoint)
         case skill(Int)
+        case evolve(Int)
     }
 
     struct Entry: Codable {
@@ -247,6 +252,7 @@ final class GameSession {
             case .continueEndless: engine.continueEndless()
             case let .moveCommander(cell): engine.moveCommander(to: cell)
             case let .skill(index): engine.useSkill(index)
+            case let .evolve(option): engine.evolveCommander(option)
             }
             save.entries.append(entry)
         }
@@ -339,6 +345,8 @@ final class GameSession {
                 showToast(name.uppercased() + "!")
             case let .comboFormed(name, _, _):
                 if PlayerProgress.discoverCombo(name) { showToast("NEW COMBO: \(name.uppercased())") }
+            case .commanderLevelUp:
+                if engine.commander?.pendingStage != nil { showToast("CHOOSE AN EVOLUTION") }
             case .victory:
                 victoryStars = Self.stars(lives: engine.lives, starting: engine.startingLives)
                 if !setup.isEvent { PlayerProgress.recordVictory(on: map, stars: victoryStars) }
@@ -485,12 +493,15 @@ final class GameSession {
             return SkillSnapshot(
                 index: index, name: skill.name, detail: skill.detail, level: commander.skillLevels[index],
                 isReady: commander.skillLevels[index] > 0 && left <= 0,
-                charge: ((1 - left / skill.cooldown) * 20).rounded(.down) / 20, secondsLeft: Int(left.rounded(.up))
+                charge: ((1 - left / (skill.cooldown * commander.recharge)) * 20).rounded(.down) / 20, secondsLeft: Int(left.rounded(.up))
             )
         }
         let xp = commander.level >= CommanderKind.maxLevel
             ? 1 : (Double(commander.xp) / Double(CommanderKind.xpToNext(level: commander.level)) * 20).rounded(.down) / 20
-        return CommanderSnapshot(kind: commander.kind, skin: commander.skin, level: commander.level, xp: xp, skills: skills)
+        return CommanderSnapshot(
+            kind: commander.kind, skin: commander.skin, level: commander.level, xp: xp, skills: skills,
+            choices: commander.pendingStage.map { commander.kind.forms[$0] } ?? [], formName: commander.forms.last?.name
+        )
     }
 
     private func makeSnapshot(_ id: Int) -> TowerSnapshot? {
@@ -647,6 +658,12 @@ final class GameSession {
             }
             SoundEngine.shared.play(.error)
         }
+        sync()
+    }
+
+    func evolveCommander(_ option: Int) {
+        guard outcome == nil, engine.evolveCommander(option) else { return }
+        record(.evolve(option))
         sync()
     }
 

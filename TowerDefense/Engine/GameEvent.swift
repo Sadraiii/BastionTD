@@ -48,6 +48,7 @@ enum GameEvent {
     case commanderAttack(kind: CommanderKind, from: CGPoint, to: CGPoint)
     case commanderSkill(kind: CommanderKind, name: String, center: CGPoint, radius: CGFloat)
     case commanderLevelUp(level: Int, at: CGPoint)
+    case commanderEvolved(name: String, at: CGPoint)
 
     case victory
     case defeat

@@ -45,6 +45,7 @@ final class GameScene: SKScene {
     private let commanderRing = SKSpriteNode()
     private let commanderGlow = SKSpriteNode(texture: Art.shadow(width: 18))
     private var commanderLevel = 0
+    private var commanderRange: CGFloat = 0
     private var overlayState: OverlayState?
 
     private var lastUpdateTime: TimeInterval?
@@ -268,10 +269,13 @@ final class GameScene: SKScene {
             let badge = Art.text("\(commander.level)", color: Pal.yellow)
             commanderBadge.texture = badge
             commanderBadge.size = badge.size()
+            commanderGlow.isHidden = commander.level < CommanderKind.maxLevel
+        }
+        if commanderRange != commander.range {
+            commanderRange = commander.range
             let ring = Art.rangeRing(range: Double(commander.range), color: Pal.commander(commander.kind))
             commanderRing.texture = ring
             commanderRing.size = ring.size()
-            commanderGlow.isHidden = commander.level < CommanderKind.maxLevel
         }
         commanderRing.isHidden = !session.isCommanderSelected
     }
@@ -778,6 +782,15 @@ final class GameScene: SKScene {
             }
             floatText("LEVEL \(level)", color: Pal.yellow, at: toWorld(at) + CGPoint(x: 0, y: 14))
             SoundEngine.shared.play(.upgrade)
+
+        case let .commanderEvolved(name, at):
+            guard let kind = session?.engine.commander?.kind else { break }
+            playFrames(Art.ringFrames(radius: 16, color: Pal.commander(kind), accent: Pal.white),
+                       at: toWorld(at), timePerFrame: 0.05, z: -2)
+            sparks(at: toWorld(at), color: Pal.commander(kind), count: 16)
+            floatText(name.uppercased(), color: Pal.yellow, at: toWorld(at) + CGPoint(x: 0, y: 14))
+            SoundEngine.shared.play(.upgrade)
+            Haptics.impact(.medium)
 
         case .victory:
             SoundEngine.shared.play(.victory)

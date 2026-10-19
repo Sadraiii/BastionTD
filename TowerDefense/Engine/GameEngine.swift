@@ -298,7 +298,7 @@ final class GameEngine {
         guard !phase.isOver, let commander, commander.skillLevels[index] > 0, commander.skillCooldowns[index] <= 0 else { return false }
         let level = Double(commander.skillLevels[index])
         let power = commander.power
-        var hit = HitPayload(damage: 0, type: commander.kind.damageType, detectsCamo: commander.kind.detectsCamo)
+        var hit = HitPayload(damage: 0, type: commander.kind.damageType, detectsCamo: commander.detectsCamo)
         var center = commander.position
         var radius: CGFloat = 1.5
 
@@ -420,13 +420,13 @@ final class GameEngine {
             }
         case (.ranger, 3):
             radius = 3
-            let targets = enemies.filter { $0.isTargetable && (!$0.isHidden || commander.kind.detectsCamo) }
+            let targets = enemies.filter { $0.isTargetable && (!$0.isHidden || commander.detectsCamo) }
             guard !targets.isEmpty else { return false }
             hit.damage = 250 * power
             for enemy in targets { commanderStrike(hit, on: enemy, showNumber: true) }
             events.append(.powerStrikes(points: targets.prefix(16).map(\.position), splash: 0.4))
         default:
-            let visible = enemies.filter { $0.isTargetable && (!$0.isHidden || commander.kind.detectsCamo) }
+            let visible = enemies.filter { $0.isTargetable && (!$0.isHidden || commander.detectsCamo) }
             guard let target = visible.max(by: { $0.health + $0.shield < $1.health + $1.shield }) else { return false }
             center = target.position
             radius = 0.6
@@ -436,8 +436,21 @@ final class GameEngine {
             events.append(.commanderAttack(kind: .ranger, from: commander.position, to: target.position))
             commanderStrike(hit, on: target, showNumber: true)
         }
-        commander.skillCooldowns[index] = commander.kind.skills[index].cooldown
+        commander.skillCooldowns[index] = commander.kind.skills[index].cooldown * commander.recharge
         events.append(.commanderSkill(kind: commander.kind, name: commander.kind.skills[index].name, center: center, radius: radius))
+        return true
+    }
+
+    /// Picks one of the two evolutions offered at the commander's pending stage.
+    @discardableResult
+    func evolveCommander(_ option: Int) -> Bool {
+        guard !phase.isOver, let commander, let stage = commander.pendingStage,
+              commander.kind.forms[stage].indices.contains(option) else { return false }
+        let form = commander.kind.forms[stage][option]
+        commander.forms.append(form)
+        // Skills already recharging pick up a faster recharge right away.
+        for i in commander.skillCooldowns.indices { commander.skillCooldowns[i] *= form.recharge }
+        events.append(.commanderEvolved(name: form.name, at: commander.position))
         return true
     }
 
@@ -844,6 +857,10 @@ final class GameEngine {
                 rate = max(rate, supporter.stats.buffRate)
                 damage = max(damage, supporter.stats.buffDamage)
             }
+            if let commander, commander.position.distance(to: tower.position) <= 2.5 {
+                rate = max(rate, commander.heroRate)
+                if commander.heroCamo { tower.hasDetection = true }
+            }
             tower.auraRate = rate
             tower.auraDamage = damage
         }
@@ -900,13 +917,14 @@ final class GameEngine {
         guard commander.cooldown <= 0, let target = commanderTargets(within: commander.range).first else { return }
         commander.cooldown = commander.kind.attackInterval / (commander.overdriveTimer > 0 ? 3 : 1)
         commander.aim = (target.position - commander.position).normalized
-        let hit = HitPayload(damage: commander.kind.damage * commander.power, type: commander.kind.damageType,
-                             detectsCamo: commander.kind.detectsCamo)
+        let hit = HitPayload(damage: commander.kind.damage * commander.damageMultiplier * commander.power,
+                             type: commander.kind.damageType, detectsCamo: commander.detectsCamo,
+                             slow: commander.slow, slowDuration: 1.5, burnDPS: commander.burn, burnDuration: 2)
         events.append(.commanderAttack(kind: commander.kind, from: commander.position, to: target.position))
-        if commander.kind.splash > 0 {
+        if commander.splash > 0 {
             let center = target.position
-            for enemy in enemies where enemy.isTargetable && (!enemy.kind.isFlying || commander.kind.hitsAir)
-                && enemy.position.distance(to: center) <= CGFloat(commander.kind.splash) {
+            for enemy in enemies where enemy.isTargetable && (!enemy.kind.isFlying || commander.hitsAir)
+                && enemy.position.distance(to: center) <= CGFloat(commander.splash) {
                 commanderStrike(hit, on: enemy, showNumber: false)
             }
         } else {
@@ -918,8 +936,8 @@ final class GameEngine {
     private func commanderTargets(within reach: CGFloat) -> [Enemy] {
         guard let commander else { return [] }
         return enemies.filter { enemy in
-            enemy.isTargetable && (!enemy.kind.isFlying || commander.kind.hitsAir)
-                && (!enemy.isHidden || commander.kind.detectsCamo)
+            enemy.isTargetable && (!enemy.kind.isFlying || commander.hitsAir)
+                && (!enemy.isHidden || commander.detectsCamo)
                 && enemy.position.distance(to: commander.position) <= reach + CGFloat(enemy.kind.radius * 0.5)
         }
         .sorted { remaining($0) < remaining($1) }

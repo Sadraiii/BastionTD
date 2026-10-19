@@ -260,6 +260,8 @@ final class Commander {
     /// Sentry Mode: attacks faster while this counts down.
     var overdriveTimer: Double = 0
     var skillCooldowns: [Double]
+    /// Evolutions picked this match, one per stage.
+    var forms: [CommanderForm] = []
 
     init(loadout: CommanderLoadout, cell: GridPoint) {
         kind = loadout.kind
@@ -273,5 +275,21 @@ final class Commander {
 
     var isWalking: Bool { position != cell.center }
     var power: Double { CommanderKind.power(level: level, rank: rank) }
-    var range: CGFloat { CGFloat(kind.range * (1 + 0.04 * Double(level - 1))) }
+    var range: CGFloat { CGFloat(forms.reduce(kind.range * (1 + 0.04 * Double(level - 1))) { $0 + $1.range }) }
+    var splash: Double { forms.reduce(kind.splash) { $0 + $1.splash } }
+    var damageMultiplier: Double { forms.reduce(1) { $0 * $1.damage } }
+    /// Scales skill cooldowns.
+    var recharge: Double { forms.reduce(1) { $0 * $1.recharge } }
+    var slow: Double { forms.reduce(0) { max($0, $1.slow) } }
+    var burn: Double { forms.reduce(0) { max($0, $1.burn) } }
+    /// Attack-speed bonus for heroes near the commander.
+    var heroRate: Double { forms.reduce(0) { max($0, $1.heroRate) } }
+    var heroCamo: Bool { forms.contains { $0.heroCamo } }
+    var hitsAir: Bool { kind.hitsAir || forms.contains { $0.hitsAir } }
+    var detectsCamo: Bool { kind.detectsCamo || heroCamo }
+
+    /// The evolution stage waiting for a choice, once the commander has reached its level.
+    var pendingStage: Int? {
+        forms.count < CommanderKind.evolveLevels.count && level >= CommanderKind.evolveLevels[forms.count] ? forms.count : nil
+    }
 }
