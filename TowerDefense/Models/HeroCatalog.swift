@@ -1052,13 +1052,13 @@ enum HeroCatalog {
             UpgradeTier(name: "Long Sight", detail: "Sees cloaked villains.", cost: 120, research: 4) {
                 $0.detectsCamo = true
             },
-            UpgradeTier(name: "Field Marshal", detail: "POWER: rally nearby heroes. Lines get +15% speed, +10% damage.", cost: 280, research: 10,
+            UpgradeTier(name: "Field Marshal", detail: "POWER: rally nearby heroes. Its row and column get +15% speed, +10% damage.", cost: 280, research: 10,
                         power: power("Field Marshal", "Heroes nearby: +40% speed, +20% damage for 8s.", cooldown: 35,
                                      .rally(duration: 8, rate: 1.4, damage: 1.2, rangeScale: 3))) {
                 $0.buffRate = 0.15
                 $0.buffDamage = 0.1
             },
-            UpgradeTier(name: "Grand Marshal", detail: "Lines get +25% speed, +20% damage. A wider rally.", cost: 800, research: 20,
+            UpgradeTier(name: "Grand Marshal", detail: "Its row and column get +25% speed, +20% damage. A wider rally.", cost: 800, research: 20,
                         power: power("Grand Marshal", "Heroes in a wide area: +70% speed, +40% damage for 10s.", cooldown: 35,
                                      .rally(duration: 10, rate: 1.7, damage: 1.4, rangeScale: 4))) {
                 $0.buffRate = 0.25

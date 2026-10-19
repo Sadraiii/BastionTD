@@ -307,7 +307,7 @@ enum TowerKind: String, CaseIterable, Codable, Identifiable {
         case .omen:
             TowerStats(damage: 6, range: 2.6, fireInterval: 1.2, damageType: .psychic, mark: 0.2, markDuration: 3)
         case .rook:
-            // Range only sizes Field Marshal and the buff for touching heroes; the lances cross the whole board.
+            // Range only sizes the Field Marshal rally; the lances cross the whole board.
             TowerStats(damage: 30, range: 1.0, fireInterval: 2.0)
         }
     }
