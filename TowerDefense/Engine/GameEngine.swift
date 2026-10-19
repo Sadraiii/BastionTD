@@ -158,9 +158,9 @@ final class GameEngine {
         number <= waves.count ? waves[number - 1] : WaveLibrary.endlessWave(number: number)
     }
 
-    /// How many villains a group sends, after the Swarm modifier.
+    /// How many villains a group sends, after the Swarm modifier. Bosses still come alone.
     func spawnCount(of group: SpawnGroup) -> Int {
-        setup.modifiers.contains(.swarm) ? (group.count * 3 + 1) / 2 : group.count
+        setup.modifiers.contains(.swarm) && !group.kind.isBoss ? (group.count * 3 + 1) / 2 : group.count
     }
 
     /// Gold awarded for calling the next wave before the countdown ends.
@@ -620,7 +620,7 @@ final class GameEngine {
     @discardableResult
     private func spawn(_ kind: EnemyKind, at distance: CGFloat, route: Int) -> Enemy {
         let wave = max(1, waveNumber)
-        let swarm = setup.modifiers.contains(.swarm)
+        let swarm = setup.modifiers.contains(.swarm) && !kind.isBoss
         let health = kind.baseHealth * WaveLibrary.healthMultiplier(wave: wave) * map.difficulty.healthMultiplier
             * levelHealthScale(wave: wave)
             * (setup.bossRush ? 2 : 1)
