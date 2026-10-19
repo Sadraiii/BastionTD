@@ -342,6 +342,8 @@ final class GameSession {
                 damagePulse += 1
             case .goldStolen:
                 showToast("GOLD STOLEN")
+            case .groundCollapsed:
+                showToast("THE GROUND CAVES IN")
             case let .towerSold(towerID, _, _):
                 if towerID == selectedTowerID { selectedTowerID = nil }
             case let .towerUpgraded(_, _, tier):

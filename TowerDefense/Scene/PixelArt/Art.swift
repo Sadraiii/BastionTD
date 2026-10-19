@@ -1044,6 +1044,20 @@ enum Art {
         return c
     }
 
+    /// A build tile the Sinkmaw caved in: a dark hole ringed with broken earth.
+    static var pit: SKTexture {
+        texture("pit") {
+            var c = PixelCanvas(width: 16, height: 16)
+            c.fillEllipse(cx: 8, cy: 8, rx: 7, ry: 6, Pal.clay)
+            c.fillEllipse(cx: 8, cy: 8, rx: 5.8, ry: 4.8, Pal.bark)
+            c.fillEllipse(cx: 8, cy: 8.5, rx: 5.2, ry: 4.2, Pal.plum)
+            c.fillEllipse(cx: 8, cy: 9.3, rx: 4.2, ry: 3.2, Pal.ink)
+            for (x, y) in [(3, 4), (11, 3), (13, 9), (4, 12)] { c.set(x, y, Pal.tan) }
+            c.outline()
+            return c
+        }
+    }
+
     static var chevron: SKTexture { texture("chevron") { PixelCanvas(map: SpriteMaps.chevron) } }
 
     static var bracket: SKTexture { texture("bracket") { PixelCanvas(map: SpriteMaps.bracket) } }
@@ -1369,7 +1383,7 @@ enum Art {
         image("boardImage.\(map.id)") { boardCanvas(for: map) }
     }
 
-    /// Board plus obstacles, crystal, portal, lever and gate, for the map picker.
+    /// Board plus obstacles, crystals, portal, lever and gate, for the map picker.
     static func mapPreview(for map: MapDefinition) -> UIImage {
         image("mapPreview.\(map.id)") {
             var c = boardCanvas(for: map)
@@ -1400,7 +1414,7 @@ enum Art {
             if let gate = map.gate { c.stamp(gateCanvas(shut: false), x: gate.col * tilePixels, y: gate.row * tilePixels) }
             var crystal = PixelCanvas(map: SpriteMaps.coreCrystal).padded(1)
             crystal.outline()
-            stampCentered(crystal, at: map.coreCell, bottomOffset: -2)
+            for cell in map.coreCells { stampCentered(crystal, at: cell, bottomOffset: -2) }
             return c
         }
     }

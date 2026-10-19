@@ -43,8 +43,8 @@ enum Terrain: String {
 ///
 /// The route is a list of axis-aligned waypoints. The first waypoint may sit just
 /// outside the grid so enemies walk in from the edge; the last one holds the crystal
-/// the player defends. Optional branches are extra routes to the same crystal that split
-/// off and rejoin, or come in from another edge; villains take turns between the routes.
+/// the player defends. Optional branches are extra routes that split off and rejoin, come in
+/// from another edge, or end at a second crystal; villains take turns between the routes.
 struct MapDefinition: Identifiable, Hashable {
     let id: String
     let name: String
@@ -124,7 +124,12 @@ struct MapDefinition: Identifiable, Hashable {
         self.pathCells = routes.reduce(into: Set()) { $0.formUnion(Self.cells(along: $1, columns: columns, rows: rows)) }
     }
 
-    var coreCell: GridPoint { waypoints[waypoints.count - 1] }
+    /// Where the crystals stand: the end of each route, once each.
+    var coreCells: [GridPoint] {
+        routes.map { $0[$0.count - 1] }.reduce(into: [GridPoint]()) { cells, end in
+            if !cells.contains(end) { cells.append(end) }
+        }
+    }
 
     var waves: [WaveDefinition] {
         guard let wavePlan else { return WaveLibrary.standard }
@@ -604,6 +609,27 @@ extension MapDefinition {
         wavePlan: WavePlan(count: 15, villains: [.runner, .drone, .chameleon, .berserker, .gravecaller, .warper, .gargoyle], boss: .overlord, healthScale: 1.8, midBoss: .titan)
     )
 
+    static let twinCrowns = MapDefinition(
+        id: "twincrowns",
+        name: "Twin Crowns",
+        tagline: "The road splits to two crystals. They share your lives.",
+        difficulty: .hard,
+        terrain: .highlands,
+        world: .highlands,
+        columns: 20,
+        rows: 12,
+        waypoints: points([(10, -1), (10, 3), (3, 3), (3, 7), (7, 7), (7, 10), (1, 10)]),
+        branches: [points([(10, -1), (10, 3), (16, 3), (16, 7), (12, 7), (12, 10), (18, 10)])],
+        obstacles: Set(points([(9, 5), (11, 5), (5, 9), (14, 9), (0, 0), (19, 0), (19, 6), (0, 6)])),
+        mud: Set(points([(7, 8), (7, 9), (12, 8), (12, 9)])),
+        ice: Set((11...15).map { GridPoint($0, 3) }),
+        mist: Set(points([(3, 4), (3, 5), (3, 6)])),
+        highGround: Set(points([(10, 8), (5, 1), (15, 1)])),
+        startingGold: 400,
+        startingLives: 15,
+        wavePlan: WavePlan(count: 16, villains: [.drone, .gravecaller, .sapper, .chameleon, .caveBat, .pickpocket, .hexer, .mirage], boss: .sinkmaw, healthScale: 1.9, midBoss: .dreadnought)
+    )
+
     /// The Boss Rush event map. It isn't part of the campaign.
     static let arena = MapDefinition(
         id: "arena",
@@ -627,7 +653,7 @@ extension MapDefinition {
         glacier, tundra, icefall, avalanche,
         caldera, ashlands, magmaFalls, infernoPeak,
         grotto, echoHall, crystalMine, deepCore,
-        twinGates, mistmoor, leverPass,
+        twinGates, mistmoor, leverPass, twinCrowns,
     ]
 
     /// The map after this one in the campaign list, if any.

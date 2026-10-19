@@ -282,8 +282,8 @@ final class EnemyNode: SKNode {
             dot.position.x = dotX.rounded(.down)
             dotX += 3
         }
-        // Burrowed sandworms sink out of sight; cloaked villains fade.
-        if kind == .sandworm {
+        // Burrowed worms sink out of sight; cloaked villains fade.
+        if kind == .sandworm || kind == .sinkmaw {
             body.alpha = enemy.isStone ? 0.25 : enemy.isHidden ? 0.5 : 1
         } else if !kind.isCamo {
             body.alpha = enemy.isHidden ? 0.5 : 1
@@ -294,7 +294,7 @@ final class EnemyNode: SKNode {
         } else if enemy.hitFlash > 0 {
             body.color = .white
             body.colorBlendFactor = 0.85
-        } else if enemy.isStone && kind != .sandworm {
+        } else if enemy.isStone && kind != .sandworm && kind != .sinkmaw {
             body.color = Pal.steel.uiColor
             body.colorBlendFactor = 0.9
         } else if enemy.isStunned {

@@ -29,8 +29,9 @@ final class GameScene: SKScene {
     /// The Rook's row and column, shown instead of a range ring.
     private let lineNodes = [SKSpriteNode(color: .white, size: .zero), SKSpriteNode(color: .white, size: .zero)]
     private let selectionNode = SKSpriteNode(texture: Art.bracket)
-    private let coreCrystal = SKSpriteNode(texture: Art.coreCrystal)
-    private let corePedestal = SKSpriteNode(texture: Art.corePedestal)
+    /// One crystal on a pedestal per route end, in `map.coreCells` order.
+    private var coreCrystals: [SKSpriteNode] = []
+    private var corePedestals: [SKSpriteNode] = []
     /// One portal per route start.
     private var portals: [(sprite: SKSpriteNode, path: PathGeometry)] = []
     private let leverNode = SKSpriteNode(texture: Art.lever(up: true))
@@ -41,6 +42,8 @@ final class GameScene: SKScene {
     private var projectileNodes: [Int: ProjectileNode] = [:]
     private var highlightNodes: [GridPoint: SKSpriteNode] = [:]
     private var obstacleNodes: [GridPoint: SKSpriteNode] = [:]
+    /// One hole per caved-in tile, in `engine.pits` order.
+    private var pitNodes: [SKSpriteNode] = []
     /// Flow markers for each route.
     private var chevrons: [[SKSpriteNode]] = []
     private var ghost: TowerNode?
@@ -69,6 +72,7 @@ final class GameScene: SKScene {
         var selectedID: Int?
         var selectedRange: Double
         var towerCount: Int
+        var pitCount: Int
         var layout: BoardLayout
     }
 
@@ -114,16 +118,22 @@ final class GameScene: SKScene {
             .fadeAlpha(to: 0.85, duration: 0.5), .fadeAlpha(to: 0.35, duration: 0.5),
         ])))
 
-        corePedestal.usePixelAnchor()
-        coreCrystal.usePixelAnchor()
-        coreCrystal.zPosition = 1
-        corePedestal.addChild(coreCrystal)
-        coreCrystal.position = CGPoint(x: 0, y: 9)
-        coreCrystal.run(.repeatForever(.sequence([
-            .moveBy(x: 0, y: 1, duration: 0), .wait(forDuration: 0.45),
-            .moveBy(x: 0, y: -1, duration: 0), .wait(forDuration: 0.45),
-        ])))
-        decorLayer.addChild(corePedestal)
+        for _ in map.coreCells {
+            let pedestal = SKSpriteNode(texture: Art.corePedestal)
+            let crystal = SKSpriteNode(texture: Art.coreCrystal)
+            pedestal.usePixelAnchor()
+            crystal.usePixelAnchor()
+            crystal.zPosition = 1
+            pedestal.addChild(crystal)
+            crystal.position = CGPoint(x: 0, y: 9)
+            crystal.run(.repeatForever(.sequence([
+                .moveBy(x: 0, y: 1, duration: 0), .wait(forDuration: 0.45),
+                .moveBy(x: 0, y: -1, duration: 0), .wait(forDuration: 0.45),
+            ])))
+            decorLayer.addChild(pedestal)
+            corePedestals.append(pedestal)
+            coreCrystals.append(crystal)
+        }
 
         for path in paths where !portals.contains(where: { $0.path.points[0] == path.points[0] }) {
             let portal = SKSpriteNode(texture: Art.portalFrames[0])
@@ -203,7 +213,9 @@ final class GameScene: SKScene {
         boardSprite.position = CGPoint(x: worldSize.width / 2, y: worldSize.height / 2)
         boardSprite.zRotation = newLayout.rotated ? -.pi / 2 : 0
 
-        corePedestal.position = newLayout.snappedWorldPoint(map.coreCell.center) + CGPoint(x: 0, y: -3)
+        for (pedestal, cell) in zip(corePedestals, map.coreCells) {
+            pedestal.position = newLayout.snappedWorldPoint(cell.center) + CGPoint(x: 0, y: -3)
+        }
         for (portal, path) in portals {
             portal.position = newLayout.snappedWorldPoint(path.point(at: 1.0))
         }
@@ -218,6 +230,9 @@ final class GameScene: SKScene {
         if let engine = session?.engine {
             for tower in engine.towers {
                 towerNodes[tower.id]?.position = newLayout.snappedWorldPoint(tower.cell.center)
+            }
+            for (pit, cell) in zip(pitNodes, engine.pits) {
+                pit.position = newLayout.snappedWorldPoint(cell.center)
             }
         }
         effectLayer.removeAllChildren()
@@ -245,6 +260,7 @@ final class GameScene: SKScene {
         syncTowers(layout, dt: gameDelta)
         syncCommander(layout, now: currentTime)
         syncGate()
+        syncPits(layout)
         syncEnemies(layout, dt: gameDelta)
         syncProjectiles(layout)
         updateOverlays(layout)
@@ -313,6 +329,18 @@ final class GameScene: SKScene {
         leverNode.texture = Art.lever(up: !shut)
         gateNode.texture = Art.gate(shut: shut)
         for chevron in chevrons[1] { chevron.alpha = shut ? 0.08 : 0.3 }
+    }
+
+    /// Adds a hole for each tile the Sinkmaw caved in, including those of a resumed match.
+    private func syncPits(_ layout: BoardLayout) {
+        guard let engine = session?.engine else { return }
+        while pitNodes.count < engine.pits.count {
+            let pit = SKSpriteNode(texture: Art.pit)
+            pit.usePixelAnchor()
+            pit.position = layout.snappedWorldPoint(engine.pits[pitNodes.count].center)
+            decorLayer.addChild(pit)
+            pitNodes.append(pit)
+        }
     }
 
     private func syncEnemies(_ layout: BoardLayout, dt: Double) {
@@ -389,6 +417,7 @@ final class GameScene: SKScene {
             selectedID: selected?.id,
             selectedRange: selected?.stats.range ?? 0,
             towerCount: session.engine.towers.count,
+            pitCount: session.engine.pits.count,
             layout: layout
         )
         guard state != overlayState else { return }
@@ -399,7 +428,7 @@ final class GameScene: SKScene {
             for (cell, sprite) in highlightNodes {
                 sprite.isHidden = session.engine.tower(at: cell) != nil || cell == state.pendingCell
                     || map.water.contains(cell) != kind.isNaval || map.pathCells.contains(cell) != kind.holdsPath
-                    || session.engine.isRouteEnd(cell)
+                    || session.engine.isRouteEnd(cell) || session.engine.isPit(cell)
                 sprite.color = Pal.towerLight(kind).uiColor
             }
         }
@@ -735,6 +764,11 @@ final class GameScene: SKScene {
             SoundEngine.shared.play(.emp)
             Haptics.impact(.medium)
 
+        case let .groundCollapsed(cell):
+            playFrames(Art.dustFrames, at: toWorld(cell.center), timePerFrame: 0.07)
+            shake(intensity: 2)
+            SoundEngine.shared.play(.mortar)
+
         case let .heavyHit(at, amount):
             // Damage numbers are capped so busy waves stay readable.
             guard now - lastNumberTime > 0.12 else { break }
@@ -743,7 +777,7 @@ final class GameScene: SKScene {
 
         case let .enemyKilled(_, kind, at, bounty):
             let point = toWorld(at)
-            if kind == .titan {
+            if kind.isBoss {
                 playFrames(Art.explosionFrames(radius: 26), at: point, timePerFrame: 0.07)
                 sparks(at: point, color: Pal.hotRed, count: 30)
                 shake(intensity: 3)
@@ -758,23 +792,26 @@ final class GameScene: SKScene {
         case let .enemyLeaked(_, _, livesLost):
             // Pickpockets cost no lives; their stolen gold shows instead.
             guard livesLost > 0 else { break }
-            coreCrystal.removeAction(forKey: "hit")
-            coreCrystal.run(.sequence([
-                .run { [weak self] in self?.coreCrystal.color = Pal.red.uiColor; self?.coreCrystal.colorBlendFactor = 0.8 },
-                .wait(forDuration: 0.1),
-                .run { [weak self] in self?.coreCrystal.colorBlendFactor = 0 },
-                .wait(forDuration: 0.08),
-                .run { [weak self] in self?.coreCrystal.colorBlendFactor = 0.8 },
-                .wait(forDuration: 0.1),
-                .run { [weak self] in self?.coreCrystal.colorBlendFactor = 0 },
-            ]), withKey: "hit")
-            floatText("-\(livesLost)", color: Pal.red, at: corePedestal.position + CGPoint(x: 0, y: 22))
+            // The crystals share one pool of lives, so they all flash.
+            for crystal in coreCrystals {
+                crystal.removeAction(forKey: "hit")
+                crystal.run(.sequence([
+                    .run { [weak crystal] in crystal?.color = Pal.red.uiColor; crystal?.colorBlendFactor = 0.8 },
+                    .wait(forDuration: 0.1),
+                    .run { [weak crystal] in crystal?.colorBlendFactor = 0 },
+                    .wait(forDuration: 0.08),
+                    .run { [weak crystal] in crystal?.colorBlendFactor = 0.8 },
+                    .wait(forDuration: 0.1),
+                    .run { [weak crystal] in crystal?.colorBlendFactor = 0 },
+                ]), withKey: "hit")
+            }
+            floatText("-\(livesLost)", color: Pal.red, at: corePedestals[0].position + CGPoint(x: 0, y: 22))
             shake(intensity: 2)
             SoundEngine.shared.play(.leak)
             Haptics.impact(.heavy)
 
         case let .goldStolen(amount):
-            floatText("-\(amount)", color: Pal.red, at: corePedestal.position + CGPoint(x: 0, y: 22))
+            floatText("-\(amount)", color: Pal.red, at: corePedestals[0].position + CGPoint(x: 0, y: 22))
             SoundEngine.shared.play(.leak)
 
         case let .enemyHealed(center, _):
@@ -802,7 +839,7 @@ final class GameScene: SKScene {
             SoundEngine.shared.play(isBoss ? .bossWarning : .waveStart)
 
         case let .waveCleared(_, bonus):
-            floatText("+\(bonus)", color: Pal.yellow, at: corePedestal.position + CGPoint(x: 0, y: 22))
+            floatText("+\(bonus)", color: Pal.yellow, at: corePedestals[0].position + CGPoint(x: 0, y: 22))
             SoundEngine.shared.play(.waveClear)
 
         case let .earlyCallBonus(amount):

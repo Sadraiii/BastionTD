@@ -106,6 +106,8 @@ final class GameEngine {
     private(set) var waveEnemyTotal = 0
     private(set) var waveEnemiesResolved = 0
     private(set) var time: Double = 0
+    /// Build tiles the Sinkmaw has caved in, in the order they fell.
+    private(set) var pits: [GridPoint] = []
 
     private struct ScheduledSpawn {
         let time: Double
@@ -120,6 +122,7 @@ final class GameEngine {
     private var nextRoute = 0
     private var rng: SplitMix64
     private var towersByCell: [GridPoint: Tower] = [:]
+    private var pitCells: Set<GridPoint> = []
     private var enemiesByID: [Int: Enemy] = [:]
     private var lastImmuneEvent: Double = -1
 
@@ -186,6 +189,8 @@ final class GameEngine {
 
     func tower(id: Int) -> Tower? { towers.first { $0.id == id } }
 
+    func isPit(_ cell: GridPoint) -> Bool { pitCells.contains(cell) }
+
     func enemy(id: Int) -> Enemy? { enemiesByID[id] }
 
     func drainEvents() -> [GameEvent] {
@@ -198,7 +203,7 @@ final class GameEngine {
         guard allows(kind) else { return .banned }
         guard map.contains(cell) else { return .outOfBounds }
         if map.pathCells.contains(cell) != kind.holdsPath { return kind.holdsPath ? .needsPath : .onPath }
-        if map.obstacles.contains(cell) || cell == map.lever || kind.holdsPath && isRouteEnd(cell) { return .blocked }
+        if map.obstacles.contains(cell) || cell == map.lever || pitCells.contains(cell) || kind.holdsPath && isRouteEnd(cell) { return .blocked }
         if map.water.contains(cell) != kind.isNaval { return kind.isNaval ? .needsWater : .onWater }
         if towersByCell[cell] != nil || commander?.cell == cell { return .occupied }
         if gold < kind.cost { return .insufficientGold }
@@ -304,7 +309,8 @@ final class GameEngine {
     /// Sends the commander walking to an empty grass tile or the lever.
     @discardableResult
     func moveCommander(to cell: GridPoint) -> Bool {
-        guard !phase.isOver, let commander, map.isBuildable(cell) || cell == map.lever, towersByCell[cell] == nil else { return false }
+        guard !phase.isOver, let commander, map.isBuildable(cell) || cell == map.lever, towersByCell[cell] == nil,
+              !pitCells.contains(cell) else { return false }
         commander.cell = cell
         return true
     }
@@ -835,6 +841,18 @@ final class GameEngine {
                 enemy.distance = min(enemy.distance + CGFloat(distance), paths[enemy.route].totalLength - 0.6)
                 place(enemy)
                 events.append(.enemyTeleported(from: from, to: enemy.position))
+
+            case let .collapse(tiles):
+                let buildable = (0..<map.rows).flatMap { row in (0..<map.columns).map { GridPoint($0, row) } }.filter(map.isBuildable)
+                // At most a quarter of the build tiles ever cave in.
+                let room = max(0, buildable.count / 4 - pits.count)
+                let picks = Self.nearest(buildable.filter { !pitCells.contains($0) }, to: enemy.position).prefix(min(tiles, room))
+                for cell in picks { collapse(cell) }
+                if let commander, pitCells.contains(commander.cell) {
+                    let free = buildable.filter { !pitCells.contains($0) && towersByCell[$0] == nil }
+                    if let cell = Self.nearest(free, to: commander.position).first { commander.cell = cell }
+                }
+                if !picks.isEmpty { refreshCombos() }
             }
         }
     }
@@ -1309,6 +1327,26 @@ final class GameEngine {
     private func knockDown(_ holder: Tower) {
         holder.holdDamage = 0
         disruptTowers(near: holder.position, radius: 0.6, for: 6)
+    }
+
+    /// Turns a build tile into a pit for the rest of the match. A hero standing there falls out with all its gold back.
+    private func collapse(_ cell: GridPoint) {
+        pits.append(cell)
+        pitCells.insert(cell)
+        if let tower = towersByCell.removeValue(forKey: cell) {
+            towers.removeAll { $0 === tower }
+            gold += tower.totalInvested
+            events.append(.towerSold(towerID: tower.id, cell: cell, refund: tower.totalInvested))
+        }
+        events.append(.groundCollapsed(cell: cell))
+    }
+
+    /// Cells closest to a point first. Ties go by row, then column, so replays pick the same cells.
+    private static func nearest(_ cells: [GridPoint], to point: CGPoint) -> [GridPoint] {
+        cells.sorted { a, b in
+            let da = a.center.distance(to: point), db = b.center.distance(to: point)
+            return da != db ? da < db : (a.row, a.col) < (b.row, b.col)
+        }
     }
 
     private func roll(_ chance: Double) -> Bool {

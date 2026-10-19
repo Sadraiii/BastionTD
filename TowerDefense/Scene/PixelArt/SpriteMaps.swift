@@ -29,6 +29,7 @@ enum SpriteMaps {
         case .titan: [titan(step: false), titan(step: true)]
         case .dreadnought: [dreadnought(spin: false), dreadnought(spin: true)]
         case .overlord: [overlord(step: false), overlord(step: true)]
+        case .sinkmaw: [sinkmaw(open: true), sinkmaw(open: false)]
         case .sandworm: [sandworm(tail: false), sandworm(tail: true)]
         case .yeti: [yeti(legs: "..www.www.."), yeti(legs: "...ww.ww...")]
         case .magmaGolem: [magmaGolem(legs: "..NN...NN.."), magmaGolem(legs: "...NN.NN...")]
@@ -481,6 +482,41 @@ enum SpriteMaps {
             step ? "pp....NNN..NNN....pp" : "pp...NNN....NNN...pp",
             step ? "p.....NNN..NNN.....p" : "p....NNN....NNN....p",
             step ? "......nnn..nnn......" : ".....nnn....nnn.....",
+        ]
+    }
+
+    /// A worm head bursting out of the ground. Its jaws snap shut on the second frame.
+    private static func sinkmaw(open: Bool) -> [String] {
+        (open ? [
+            "E..................E",
+            "eE................Ee",
+            "De................eD",
+            "DeD...oooooooo...DeD",
+            ".DDooLLLLooooooDDDD.",
+            "..oLLooooooooooooD..",
+            "..oLDKWKWKWKWKWKDD..",
+            ".ooLDKrrrrrrrrrKDDD.",
+            ".ooLDKrrrKKKrrrKDDD.",
+            ".oooDKrrrrrrrrrKDDD.",
+            "..ooDKKWKWKWKWKKDD..",
+        ] : [
+            "....................",
+            "......EeD..DeE......",
+            "....EeDD....DDeE....",
+            "..eDD.oooooooo.DDe..",
+            ".DDooLLLLooooooDDDD.",
+            "..oLLooooooooooooD..",
+            "..oLooooooooooooDD..",
+            ".ooLDKKKKKKKKKKKDDD.",
+            ".ooLDKWKWKWKWKWKDDD.",
+            ".oooDKKKKKKKKKKKDDD.",
+            "..oooDDDDDDDDDDDDD..",
+        ]) + [
+            "..DoooooooooooooDD..",
+            "...DDDDDDDDDDDDDD...",
+            "..doLooooooooooDDd..",
+            ".deddDDDDDDDDDDDdde.",
+            "deddddeddddeddddedde",
         ]
     }
 

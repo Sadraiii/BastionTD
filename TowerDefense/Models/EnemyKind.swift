@@ -18,6 +18,8 @@ enum VillainAbility: Equatable {
     case burrow(duration: Double)
     /// Hides nearby allies from heroes without detection.
     case cloakAllies(radius: Double, duration: Double)
+    /// Caves in the build tiles nearest to it; a hero standing there falls out.
+    case collapse(tiles: Int)
 }
 
 /// Every villain in the game. To add one: add a case, fill in its stats and
@@ -26,7 +28,7 @@ enum VillainAbility: Equatable {
 enum EnemyKind: String, CaseIterable, Codable {
     case drone, runner, brute, medic, wisp, splitter, shardling, berserker, phantom, hexer
     case ironclad, pyrefiend, frostborn, voidling, blastguard, husk, mirage, gargoyle, warper
-    case titan, dreadnought, overlord
+    case titan, dreadnought, overlord, sinkmaw
     case sandworm, yeti, magmaGolem, lavaBlob, bogWitch, crab, caveBat
     case sapper, pickpocket, chameleon, gravecaller, shade
 
@@ -54,6 +56,7 @@ enum EnemyKind: String, CaseIterable, Codable {
         case .titan: "Titan"
         case .dreadnought: "Dreadnought"
         case .overlord: "Overlord"
+        case .sinkmaw: "Sinkmaw"
         case .sandworm: "Sandworm"
         case .yeti: "Yeti"
         case .magmaGolem: "Magma Golem"
@@ -94,6 +97,7 @@ enum EnemyKind: String, CaseIterable, Codable {
         case .titan: "Boss. Heavy armor, resists slows, launches Drones."
         case .dreadnought: "Flying boss airship. Can't be slowed. Drops Ironclads."
         case .overlord: "Final boss. EMP blasts shut down nearby heroes."
+        case .sinkmaw: "Every few seconds it dives and the ground near it caves in. Heroes there fall out with a full refund."
         case .sandworm: "Burrows underground now and then to dodge hits."
         case .yeti: "Freezes nearby heroes for a moment. Immune to cold."
         case .magmaGolem: "Splits into lava blobs. Immune to fire."
@@ -133,6 +137,7 @@ enum EnemyKind: String, CaseIterable, Codable {
         case .titan: 800
         case .dreadnought: 950
         case .overlord: 1300
+        case .sinkmaw: 1600
         case .sandworm: 90
         case .yeti: 160
         case .magmaGolem: 180
@@ -173,6 +178,7 @@ enum EnemyKind: String, CaseIterable, Codable {
         case .titan: 0.45
         case .dreadnought: 0.42
         case .overlord: 0.4
+        case .sinkmaw: 0.38
         case .sandworm: 1.0
         case .yeti: 0.75
         case .magmaGolem: 0.7
@@ -194,7 +200,7 @@ enum EnemyKind: String, CaseIterable, Codable {
         case .brute: 4
         case .medic, .splitter, .hexer, .bogWitch, .sapper, .chameleon: 1
         case .berserker, .ironclad, .frostborn, .yeti, .gravecaller: 2
-        case .crab: 5
+        case .crab, .sinkmaw: 5
         case .magmaGolem: 3
         case .blastguard: 3
         case .gargoyle: 4
@@ -253,6 +259,7 @@ enum EnemyKind: String, CaseIterable, Codable {
         case .titan: 120
         case .dreadnought: 200
         case .overlord: 300
+        case .sinkmaw: 250
         case .sandworm: 8
         case .yeti: 11
         case .magmaGolem: 12
@@ -276,6 +283,7 @@ enum EnemyKind: String, CaseIterable, Codable {
         case .titan: 5
         case .dreadnought: 8
         case .overlord: 15
+        case .sinkmaw: 12
         default: 1
         }
     }
@@ -290,14 +298,14 @@ enum EnemyKind: String, CaseIterable, Codable {
     /// Cloaked: only towers with detection can target it.
     var isCamo: Bool { self == .phantom || self == .mirage }
 
-    var isBoss: Bool { self == .titan || self == .dreadnought || self == .overlord }
+    var isBoss: Bool { self == .titan || self == .dreadnought || self == .overlord || self == .sinkmaw }
 
     /// Fraction of incoming slow that is ignored.
     var slowResistance: Double {
         switch self {
         case .frostborn, .dreadnought: 1
         case .titan: 0.6
-        case .overlord: 0.7
+        case .overlord, .sinkmaw: 0.7
         case .yeti: 0.5
         default: 0
         }
@@ -309,7 +317,7 @@ enum EnemyKind: String, CaseIterable, Codable {
         case .frostborn, .dreadnought: 1
         case .brute: 0.3
         case .titan: 0.6
-        case .overlord: 0.8
+        case .overlord, .sinkmaw: 0.8
         default: 0
         }
     }
@@ -336,6 +344,7 @@ enum EnemyKind: String, CaseIterable, Codable {
         case .titan: [.summon(.drone, count: 2)]
         case .overlord: [.disruptTowers(radius: 2.0, duration: 1.5), .summon(.phantom, count: 2)]
         case .sandworm: [.burrow(duration: 2)]
+        case .sinkmaw: [.burrow(duration: 1.5), .collapse(tiles: 2)]
         case .yeti: [.disruptTowers(radius: 1.4, duration: 1.2)]
         case .bogWitch: [.heal(radius: 1.6, fraction: 0.08), .cloakAllies(radius: 1.6, duration: 3)]
         default: []
@@ -352,6 +361,7 @@ enum EnemyKind: String, CaseIterable, Codable {
         case .titan: 7
         case .overlord: 8
         case .sandworm: 5
+        case .sinkmaw: 9
         case .yeti: 6
         case .bogWitch: 4
         default: 0
@@ -376,7 +386,7 @@ enum EnemyKind: String, CaseIterable, Codable {
         case .mirage: 0.24
         case .gargoyle: 0.27
         case .titan: 0.42
-        case .dreadnought: 0.5
+        case .dreadnought, .sinkmaw: 0.5
         case .overlord: 0.45
         case .sandworm, .bogWitch: 0.25
         case .yeti, .magmaGolem: 0.29

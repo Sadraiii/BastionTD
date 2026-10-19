@@ -213,6 +213,7 @@ enum Pal {
         case .titan: hotRed
         case .dreadnought: silver
         case .overlord: lime
+        case .sinkmaw: rust
         case .sandworm: tan
         case .yeti: mist
         case .magmaGolem: orange

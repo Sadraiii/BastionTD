@@ -45,6 +45,7 @@ enum GameEvent {
     case enemyPetrified(at: CGPoint)
     case bossSummon(at: CGPoint)
     case towersDisrupted(center: CGPoint, radius: CGFloat)
+    case groundCollapsed(cell: GridPoint)
 
     case commanderAttack(kind: CommanderKind, from: CGPoint, to: CGPoint)
     case commanderSkill(kind: CommanderKind, name: String, center: CGPoint, radius: CGFloat)
