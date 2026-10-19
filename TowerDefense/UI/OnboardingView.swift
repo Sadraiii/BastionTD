@@ -121,16 +121,20 @@ private struct OnboardingPage: View {
                 PixelImage(image: Art.coreImage, scale: 4)
             }
         case 1:
-            VStack(spacing: 10) {
-                LazyVGrid(columns: Array(repeating: GridItem(.fixed(58), spacing: 6), count: landscape ? 7 : 5), spacing: 8) {
-                    ForEach(TowerKind.allCases) { kind in
-                        VStack(spacing: 4) {
-                            PixelImage(image: Art.towerIcon(kind), scale: 2)
-                            Text(kind.shortName.uppercased())
-                                .font(Theme.body(10))
-                                .foregroundStyle(Theme.secondaryText)
-                        }
+            let heroes = LazyVGrid(columns: Array(repeating: GridItem(.fixed(58), spacing: 6), count: landscape ? 7 : 5), spacing: 8) {
+                ForEach(TowerKind.allCases) { kind in
+                    VStack(spacing: 4) {
+                        PixelImage(image: Art.towerIcon(kind), scale: 2)
+                        Text(kind.shortName.uppercased())
+                            .font(Theme.body(10))
+                            .foregroundStyle(Theme.secondaryText)
                     }
+                }
+            }
+            VStack(spacing: 10) {
+                ViewThatFits(in: .vertical) {
+                    heroes
+                    ScrollView { heroes }
                 }
                 HStack(spacing: 6) {
                     GoldLabel(amount: 50, pixel: 2)

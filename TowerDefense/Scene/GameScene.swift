@@ -559,7 +559,7 @@ final class GameScene: SKScene {
             case .tesla: SoundEngine.shared.play(.tesla)
             case .rail, .star, .sniper: SoundEngine.shared.play(.rail)
             case .inferno: SoundEngine.shared.play(.flame)
-            case .echo: SoundEngine.shared.play(.scream)
+            case .echo, .siren: SoundEngine.shared.play(.scream)
             case .mind: SoundEngine.shared.play(.psychic)
             case .frost: SoundEngine.shared.play(.frost)
             case .chrono, .midas: SoundEngine.shared.play(.tick)
@@ -574,8 +574,12 @@ final class GameScene: SKScene {
 
         case let .coneBlast(towerID, origin, direction, range, angle):
             let kind = session?.engine.tower(id: towerID)?.kind ?? .inferno
-            cone(at: toWorld(origin), angle: layout.worldAngle(of: direction), spread: angle, length: range * 16,
-                 colors: kind == .inferno ? [Pal.yellow, Pal.orange, Pal.red] : [Pal.white, Pal.lime, Pal.green])
+            let colors: [PixelColor] = switch kind {
+            case .inferno: [Pal.yellow, Pal.orange, Pal.red]
+            case .siren: [Pal.white, Pal.cyan, Pal.blue]
+            default: [Pal.white, Pal.lime, Pal.green]
+            }
+            cone(at: toWorld(origin), angle: layout.worldAngle(of: direction), spread: angle, length: range * 16, colors: colors)
 
         case let .mindBlast(from, to):
             let (texture, origin) = Art.beam(from: toWorld(from), to: toWorld(to), glow: Pal.pink, edge: Pal.magenta)

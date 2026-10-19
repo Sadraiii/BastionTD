@@ -84,7 +84,7 @@ struct TowerStats: Equatable {
 enum TowerKind: String, CaseIterable, Codable, Identifiable {
     case pulse, frost, mortar, tesla, rail
     case inferno, weaver, aegis, cyclone, echo, mind, chrono, star, midas, tide
-    case sniper, tamer, alchemist
+    case sniper, tamer, alchemist, siren
 
     var id: String { rawValue }
 
@@ -109,6 +109,7 @@ enum TowerKind: String, CaseIterable, Codable, Identifiable {
         case .sniper: "Hawkeye"
         case .tamer: "Fang"
         case .alchemist: "Vial"
+        case .siren: "Siren"
         }
     }
 
@@ -141,6 +142,7 @@ enum TowerKind: String, CaseIterable, Codable, Identifiable {
         case .sniper: "Sniper"
         case .tamer: "Beast Tamer"
         case .alchemist: "Alchemist"
+        case .siren: "Sea Singer"
         }
     }
 
@@ -165,6 +167,7 @@ enum TowerKind: String, CaseIterable, Codable, Identifiable {
         case .sniper: "Huge range, slow and heavy shots."
         case .tamer: "Beasts pounce and stun. Can block the path."
         case .alchemist: "Acid flasks that poison and melt armor."
+        case .siren: "Turns villains around and cracks shields. Goes on water."
         }
     }
 
@@ -175,7 +178,7 @@ enum TowerKind: String, CaseIterable, Codable, Identifiable {
         case .frost, .chrono, .midas: .aura
         case .tesla: .chain
         case .rail, .star: .beam
-        case .inferno, .echo: .cone
+        case .inferno, .echo, .siren: .cone
         case .mind: .mind
         }
     }
@@ -200,6 +203,7 @@ enum TowerKind: String, CaseIterable, Codable, Identifiable {
         case .sniper: 160
         case .tamer: 100
         case .alchemist: 120
+        case .siren: 100
         }
     }
 
@@ -209,7 +213,7 @@ enum TowerKind: String, CaseIterable, Codable, Identifiable {
         case .pulse, .frost, .mortar, .tesla, .rail: 0
         case .inferno, .weaver: 6
         case .aegis, .cyclone, .midas: 8
-        case .echo, .tide, .tamer: 10
+        case .echo, .tide, .tamer, .siren: 10
         case .alchemist: 12
         case .sniper: 14
         case .mind: 12
@@ -219,7 +223,7 @@ enum TowerKind: String, CaseIterable, Codable, Identifiable {
     }
 
     /// Naval heroes can only be placed on water.
-    var isNaval: Bool { self == .tide }
+    var isNaval: Bool { self == .tide || self == .siren }
 
     static var starters: [TowerKind] { allCases.filter { $0.unlockCost == 0 } }
 
@@ -229,7 +233,7 @@ enum TowerKind: String, CaseIterable, Codable, Identifiable {
     /// Turrets that turn to face their target.
     var rotates: Bool {
         switch self {
-        case .pulse, .mortar, .rail, .inferno, .weaver, .echo, .star, .tide, .sniper, .tamer, .alchemist: true
+        case .pulse, .mortar, .rail, .inferno, .weaver, .echo, .star, .tide, .sniper, .tamer, .alchemist, .siren: true
         default: false
         }
     }
@@ -275,6 +279,9 @@ enum TowerKind: String, CaseIterable, Codable, Identifiable {
         case .alchemist:
             TowerStats(damage: 10, range: 2.6, fireInterval: 1.5, damageType: .toxic, splashRadius: 0.7,
                        poisonDPS: 6, poisonDuration: 3, armorShred: 1)
+        case .siren:
+            TowerStats(damage: 6, range: 2.4, fireInterval: 1.0, damageType: .sonic, coneAngle: 1.0,
+                       confuseChance: 0.12, confuseDuration: 1.2, shieldBreak: 2)
         }
     }
 

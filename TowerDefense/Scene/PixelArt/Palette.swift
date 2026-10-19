@@ -128,6 +128,7 @@ enum Pal {
         case .sniper: steel
         case .tamer: rust
         case .alchemist: lime
+        case .siren: PixelColor(0x23B5AF)
         }
     }
 
@@ -152,6 +153,7 @@ enum Pal {
         case .sniper: white
         case .tamer: amber
         case .alchemist: yellow
+        case .siren: mist
         }
     }
 

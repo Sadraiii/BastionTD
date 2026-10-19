@@ -81,6 +81,7 @@ enum HeroCatalog {
         case .sniper: hawkeye
         case .tamer: fang
         case .alchemist: vial
+        case .siren: siren
         }
     }
 
@@ -889,6 +890,50 @@ enum HeroCatalog {
         ]),
     ]
 
+    // MARK: Siren - sea singer
+
+    private static let siren: [UpgradePath] = [
+        UpgradePath(name: "Lullaby", tiers: [
+            UpgradeTier(name: "Soft Song", detail: "Turns villains around more often.", cost: 60, research: 0) {
+                $0.confuseChance += 0.08
+            },
+            UpgradeTier(name: "Long Song", detail: "More range.", cost: 120, research: 4) {
+                $0.range += 0.4
+            },
+            UpgradeTier(name: "Siren Song", detail: "POWER: every villain in range turns around.", cost: 260, research: 10,
+                        power: power("Siren Song", "Villains in range walk backwards for 3 seconds.", cooldown: 30,
+                                     .confuse(duration: 3, damage: 30, rangeScale: 1.3))) {
+                $0.damage += 4
+            },
+            UpgradeTier(name: "Endless Song", detail: "Turns villains around much more often. 5s Siren Song.", cost: 700, research: 20,
+                        power: power("Endless Song", "Villains in a wide area walk backwards for 5 seconds.", cooldown: 30,
+                                     .confuse(duration: 5, damage: 120, rangeScale: 1.7))) {
+                $0.confuseChance += 0.15
+                $0.confuseDuration += 0.6
+            },
+        ]),
+        UpgradePath(name: "Undertow", tiers: [
+            UpgradeTier(name: "Pull", detail: "Pulls villains back along the path.", cost: 60, research: 0) {
+                $0.knockback += 0.2
+            },
+            UpgradeTier(name: "Cold Current", detail: "Slows villains.", cost: 110, research: 4) {
+                $0.slow = 0.3
+                $0.slowDuration = 1.2
+            },
+            UpgradeTier(name: "Tidal Wave", detail: "POWER: a wave washes villains back.", cost: 250, research: 10,
+                        power: power("Tidal Wave", "A wave hits ground villains in range and washes them back.", cooldown: 28,
+                                     .burst(damage: 150, stun: 0.5, knockback: 1.5, rangeScale: 1.3, groundOnly: true))) {
+                $0.damage += 6
+            },
+            UpgradeTier(name: "Great Wave", detail: "Stronger pull. A huge Tidal Wave.", cost: 700, research: 20,
+                        power: power("Great Wave", "A huge wave hits ground villains in a wide area and washes them far back.", cooldown: 28,
+                                     .burst(damage: 450, stun: 1, knockback: 2.5, rangeScale: 1.6, groundOnly: true))) {
+                $0.damage += 12
+                $0.knockback += 0.15
+            },
+        ]),
+    ]
+
     // MARK: Combos
 
     static let combos: [HeroCombo] = [
@@ -953,6 +998,10 @@ enum HeroCatalog {
         },
         HeroCombo(name: "Long Night", detail: "Starlight hits bosses 25% harder. Chrono slows more.", first: .chrono, second: .star) { kind, stats in
             if kind == .star { stats.bossMultiplier *= 1.25 } else { stats.slow += 0.1 }
+        },
+        HeroCombo(name: "Rip Current", detail: "Siren's song pushes villains back. Riptide's torpedoes hit one more villain.",
+                  first: .siren, second: .tide) { kind, stats in
+            if kind == .siren { stats.knockback += 0.15 } else { stats.pierce += 1 }
         },
     ]
 

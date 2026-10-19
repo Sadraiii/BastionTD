@@ -185,6 +185,14 @@ enum Art {
             c.fillEllipse(cx: 8, cy: 8.5, rx: 7.2, ry: 4.8, Pal.blue)
             c.ring(cx: 8, cy: 8, r: 6, Pal.cyan) { x, y in (x + y * 2) % 5 != 0 }
 
+        case .siren:
+            c.fillEllipse(cx: 8, cy: 8.5, rx: 7.2, ry: 4.8, Pal.blue)
+            for i in 0..<8 {
+                let angle = Double(i) * .pi / 4
+                let x = Int(8 + cos(angle) * 5.6), y = Int(8.5 + sin(angle) * 3.6)
+                c.set(x - 1, y, Pal.cyan); c.set(x, y - 1, Pal.white); c.set(x + 1, y, Pal.cyan)
+            }
+
         case .midas:
             disc(top: Pal.rust, side: Pal.bark, rim: Pal.amber)
             for (x, y) in [(3, 7), (13, 7), (8, 4), (8, 11)] { c.set(x, y, Pal.yellow) }
@@ -197,7 +205,7 @@ enum Art {
         let top = tiers.max() ?? 0
         // Heroes near the top of a path stand on a wider footing in their own colors, with pillars once maxed.
         let stone: (top: PixelColor, side: PixelColor) = switch kind {
-        case .pulse, .aegis: (Pal.steel, Pal.slate)
+        case .pulse, .aegis, .siren: (Pal.steel, Pal.slate)
         case .frost, .cyclone: (Pal.mist, Pal.silver)
         case .mortar, .chrono: (Pal.clay, Pal.bark)
         case .tesla, .star: (Pal.slate, Pal.navy)
@@ -477,6 +485,23 @@ enum Art {
             c.set(7, 13, Pal.cyan); c.set(8, 14, Pal.cyan)
             if level == 3 { c.set(5, 8, Pal.red); c.set(10, 8, Pal.red) }
 
+        case .siren:
+            // A siren with long flowing hair and a fish tail.
+            let hair = level == 3 ? Pal.cyan : Pal.blue
+            c.fillEllipse(cx: 8, cy: 4.5, rx: 3.4, ry: 3.4, hair)
+            c.fillRect(4, 4, 2, 4 + level, hair)
+            c.fillRect(10, 4, 2, 4 + level, hair)
+            c.fillEllipse(cx: 8, cy: 12, rx: 2.6, ry: 1.8, Pal.lime)
+            c.fillRect(10, 12, 2, 2, Pal.lime)
+            c.set(7, 12, Pal.green); c.set(9, 13, Pal.green)
+            c.fillPolygon([(11, 13), (14.5, 10), (13.5, 13), (14.5, 16)], Pal.green)
+            c.fillRect(6, 8, 4, 3, Pal.sand)
+            c.fillRect(6, 9, 4, 1, Pal.pink)
+            c.fillEllipse(cx: 8, cy: 5, rx: 2.3, ry: 2, Pal.sand)
+            c.set(6, 4, Pal.ink); c.set(9, 4, Pal.ink)
+            c.set(7, 6, Pal.crimson); c.set(8, 6, Pal.crimson)
+            if level == 3 { for (x, y) in [(6, 1), (7, 1), (8, 0), (9, 1), (10, 1)] { c.set(x, y, Pal.yellow) } }
+
         case .midas:
             // A stack of coins that grows with each level.
             for i in 0...level {
@@ -701,6 +726,16 @@ enum Art {
                 c.fillRect(15, 11, 2, 3, Pal.red); c.set(16, 10, Pal.mist)
             }
             if b >= 4 { c.fillRect(9, 1, 2, 2, Pal.red); c.set(9, 1, Pal.pink) }
+        case .siren:
+            // Lullaby: shells in her hair, a scallop and floating notes. Undertow: a trident and curling waves.
+            if a >= 1 { c.fillRect(6, 4, 2, 2, Pal.pink); c.set(6, 4, Pal.white) }
+            if a >= 2 { c.fillRect(12, 4, 2, 2, Pal.pink); c.set(13, 4, Pal.white) }
+            if a >= 3 { c.fillPolygon([(1.5, 9.5), (6.5, 9.5), (4, 14.5)], Pal.pink); c.set(3, 10, Pal.white); c.set(5, 10, Pal.white) }
+            if a >= 4 { c.fillRect(1, 4, 2, 1, Pal.white); c.line(2, 1, 2, 3, Pal.white); c.fillRect(4, 2, 2, 1, Pal.white); c.line(5, 0, 5, 1, Pal.white) }
+            if b >= 1 { c.line(16, 4, 16, 18, Pal.amber) }
+            if b >= 2 { c.line(14, 4, 18, 4, Pal.amber); for x in [14, 16, 18] { c.line(x, 1, x, 3, Pal.yellow) } }
+            if b >= 3 { c.ring(cx: 10, cy: 11, r: 8.5, Pal.cyan) { x, y in y > 14 && (x + y) % 3 != 0 } }
+            if b >= 4 { c.ring(cx: 10, cy: 11, r: 8.5, Pal.white) { x, y in y > 14 && (x + y) % 3 == 0 }; c.set(16, 0, Pal.white) }
         }
     }
 
