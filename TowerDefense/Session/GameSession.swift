@@ -437,10 +437,11 @@ final class GameSession {
             var entries: [ScoutEntry] = []
             if upcoming > 0 {
                 for group in engine.waveDefinition(number: upcoming).groups {
+                    let count = engine.spawnCount(of: group)
                     if let i = entries.firstIndex(where: { $0.kind == group.kind }) {
-                        entries[i].count += group.count
+                        entries[i].count += count
                     } else {
-                        entries.append(ScoutEntry(kind: group.kind, count: group.count))
+                        entries.append(ScoutEntry(kind: group.kind, count: count))
                     }
                 }
             }

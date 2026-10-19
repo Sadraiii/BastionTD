@@ -242,9 +242,9 @@ final class EnemyNode: SKNode {
             dot.position.x = dotX.rounded(.down)
             dotX += 3
         }
-        // Burrowed sandworms sink out of sight; cloaked allies of a Bog Witch fade.
+        // Burrowed sandworms sink out of sight; cloaked villains fade.
         if kind == .sandworm {
-            body.alpha = enemy.isStone ? 0.25 : 1
+            body.alpha = enemy.isStone ? 0.25 : enemy.isHidden ? 0.5 : 1
         } else if !kind.isCamo {
             body.alpha = enemy.isHidden ? 0.5 : 1
         }

@@ -158,6 +158,11 @@ final class GameEngine {
         number <= waves.count ? waves[number - 1] : WaveLibrary.endlessWave(number: number)
     }
 
+    /// How many villains a group sends, after the Swarm modifier.
+    func spawnCount(of group: SpawnGroup) -> Int {
+        setup.modifiers.contains(.swarm) ? (group.count * 3 + 1) / 2 : group.count
+    }
+
     /// Gold awarded for calling the next wave before the countdown ends.
     var earlyCallBonus: Int {
         guard phase == .intermission, !setup.modifiers.contains(.hardMode) else { return 0 }
@@ -439,7 +444,7 @@ final class GameEngine {
         guard phase == .victory else { return }
         isEndless = true
         phase = .intermission
-        intermissionRemaining = Self.intermissionDuration
+        intermissionRemaining = intermission
     }
 
     /// Triggers the tower's hero power. Returns false if it isn't ready or would hit nothing.
@@ -572,7 +577,7 @@ final class GameEngine {
         let definition = waveDefinition(number: waveNumber)
         spawnQueue = definition.groups
             .flatMap { group in
-                (0..<group.count).map { ScheduledSpawn(time: group.delay + Double($0) * group.interval, kind: group.kind) }
+                (0..<spawnCount(of: group)).map { ScheduledSpawn(time: group.delay + Double($0) * group.interval, kind: group.kind) }
             }
             .sorted { $0.time < $1.time }
         waveClock = 0
@@ -600,13 +605,16 @@ final class GameEngine {
     @discardableResult
     private func spawn(_ kind: EnemyKind, at distance: CGFloat, route: Int) -> Enemy {
         let wave = max(1, waveNumber)
+        let swarm = setup.modifiers.contains(.swarm)
         let health = kind.baseHealth * WaveLibrary.healthMultiplier(wave: wave) * map.difficulty.healthMultiplier
             * levelHealthScale(wave: wave)
             * (setup.bossRush ? 2 : 1)
-        let goldFactor = (setup.modifiers.contains(.halfGold) ? 0.5 : 1) * (research.has(.bounty) ? 1.1 : 1)
+            * (swarm ? 0.6 : 1)
+        let goldFactor: Double = (setup.modifiers.contains(.halfGold) ? 0.5 : 1) * (research.has(.bounty) ? 1.1 : 1) * (swarm ? 0.7 : 1)
         let bounty = max(1, Int((Double(kind.bounty) * WaveLibrary.bountyMultiplier(wave: wave) * goldFactor).rounded()))
         let lane = kind.isBoss ? 0 : CGFloat(Double.random(in: -0.14...0.14, using: &rng))
         let enemy = Enemy(id: makeID(), kind: kind, maxHealth: health, bounty: bounty, route: route, distance: distance, laneOffset: lane)
+        if setup.modifiers.contains(.night) && !kind.isBoss { enemy.cloakTimer = .infinity }
         place(enemy)
         incoming.append(enemy)
         return enemy
@@ -623,6 +631,11 @@ final class GameEngine {
         for enemy in incoming { enemiesByID[enemy.id] = enemy }
         enemies.append(contentsOf: incoming)
         incoming.removeAll(keepingCapacity: true)
+    }
+
+    /// Seconds between waves, including the No Breaks modifier.
+    private var intermission: Double {
+        setup.modifiers.contains(.noBreaks) ? 4 : Self.intermissionDuration
     }
 
     /// Tiles per second, including the Fast Villains modifier.
@@ -1284,7 +1297,7 @@ final class GameEngine {
             events.append(.victory)
         } else {
             phase = .intermission
-            intermissionRemaining = Self.intermissionDuration
+            intermissionRemaining = intermission
         }
     }
 
