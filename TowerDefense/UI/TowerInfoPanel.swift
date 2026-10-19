@@ -43,7 +43,8 @@ struct TowerInfoPanel: View {
             if s.buffRate > 0 { parts.append("+\(Int(s.buffRate * 100))% SPEED NEARBY") }
             return parts.joined(separator: " · ")
         }
-        var parts = [s.damageType.title.uppercased(), "DMG \(format(s.damage))", "RNG \(format(s.range))", "\(format(s.shotsPerSecond))/S"]
+        let reach = tower.kind.attackStyle == .cross ? "ROW + COLUMN" : "RNG \(format(s.range))"
+        var parts = [s.damageType.title.uppercased(), "DMG \(format(s.damage))", reach, "\(format(s.shotsPerSecond))/S"]
         if s.detectsCamo { parts.append("SEES CLOAKED") }
         if !s.hitsAir { parts.append("GROUND ONLY") }
         return parts.joined(separator: " · ")

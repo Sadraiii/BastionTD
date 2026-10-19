@@ -13,7 +13,7 @@ struct GreedyPlayer {
 
     init(research: ResearchState, maxTowers: Int) {
         let wishList: [TowerKind] = [.pulse, .rail, .frost, .mortar, .inferno, .tesla, .aegis, .cyclone, .rail, .echo,
-                                     .mind, .star, .weaver, .bramble, .omen, .chrono, .mortar, .tesla, .pulse, .rail]
+                                     .mind, .star, .weaver, .bramble, .omen, .rook, .chrono, .mortar, .tesla, .pulse, .rail]
         buildOrder = wishList.filter(research.isHeroUnlocked)
         self.maxTowers = maxTowers
     }
@@ -75,7 +75,12 @@ struct GreedyPlayer {
             for col in 0..<engine.map.columns {
                 let cell = GridPoint(col, row)
                 guard engine.placementCheck(kind, at: cell) == .ok else { continue }
-                let score = samples.filter { $0.distance(to: cell.center) <= range }.count
+                let center = cell.center
+                let score = samples.filter { point in
+                    kind.attackStyle == .cross
+                        ? abs(point.x - center.x) < 0.5 || abs(point.y - center.y) < 0.5
+                        : point.distance(to: center) <= range
+                }.count
                 if score > bestScore {
                     bestScore = score
                     best = cell

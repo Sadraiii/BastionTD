@@ -26,6 +26,8 @@ final class GameScene: SKScene {
     private let airLayer = SKNode()
     private let projectileLayer = SKNode()
     private let rangeNode = SKSpriteNode()
+    /// The Rook's row and column, shown instead of a range ring.
+    private let lineNodes = [SKSpriteNode(color: .white, size: .zero), SKSpriteNode(color: .white, size: .zero)]
     private let selectionNode = SKSpriteNode(texture: Art.bracket)
     private let coreCrystal = SKSpriteNode(texture: Art.coreCrystal)
     private let corePedestal = SKSpriteNode(texture: Art.corePedestal)
@@ -93,6 +95,12 @@ final class GameScene: SKScene {
             world.addChild(node)
         }
         rangeNode.isHidden = true
+        for line in lineNodes {
+            line.zPosition = 4
+            line.alpha = 0.5
+            line.isHidden = true
+            world.addChild(line)
+        }
         selectionNode.isHidden = true
         selectionNode.color = Pal.yellow.uiColor
         selectionNode.colorBlendFactor = 1
@@ -378,6 +386,7 @@ final class GameScene: SKScene {
         ghost?.removeFromParent()
         ghost = nil
         rangeNode.isHidden = true
+        for line in lineNodes { line.isHidden = true }
         selectionNode.isHidden = true
 
         if let kind = state.buildKind, let cell = state.pendingCell {
@@ -389,15 +398,28 @@ final class GameScene: SKScene {
             world.addChild(node)
             ghost = node
             let range = kind.baseStats.range + (map.highGround.contains(cell) ? 0.5 : 0)
-            showRange(range, color: state.pendingOK ? Pal.white : Pal.red, at: cell, layout: layout)
+            showRange(range, of: kind, color: state.pendingOK ? Pal.white : Pal.red, at: cell, layout: layout)
         } else if let selected, let tower = session.engine.tower(id: selected.id) {
-            showRange(selected.stats.range, color: Pal.towerLight(selected.kind), at: tower.cell, layout: layout)
+            showRange(selected.stats.range, of: selected.kind, color: Pal.towerLight(selected.kind), at: tower.cell, layout: layout)
             selectionNode.position = layout.snappedWorldPoint(tower.cell.center)
             selectionNode.isHidden = false
         }
     }
 
-    private func showRange(_ range: Double, color: PixelColor, at cell: GridPoint, layout: BoardLayout) {
+    private func showRange(_ range: Double, of kind: TowerKind, color: PixelColor, at cell: GridPoint, layout: BoardLayout) {
+        if kind.attackStyle == .cross {
+            let center = cell.center
+            let ends = [(CGPoint(x: 0, y: center.y), CGPoint(x: CGFloat(map.columns), y: center.y)),
+                        (CGPoint(x: center.x, y: 0), CGPoint(x: center.x, y: CGFloat(map.rows)))]
+            for (line, (start, end)) in zip(lineNodes, ends) {
+                let a = layout.snappedWorldPoint(start), b = layout.snappedWorldPoint(end)
+                line.color = color.uiColor
+                line.size = CGSize(width: max(2, abs(b.x - a.x)), height: max(2, abs(b.y - a.y)))
+                line.position = CGPoint(x: (a.x + b.x) / 2, y: (a.y + b.y) / 2)
+                line.isHidden = false
+            }
+            return
+        }
         let texture = Art.rangeRing(range: range, color: color)
         rangeNode.texture = texture
         rangeNode.size = texture.size()
@@ -565,7 +587,7 @@ final class GameScene: SKScene {
             case .cyclone: SoundEngine.shared.play(.gust)
             case .mortar, .alchemist: SoundEngine.shared.play(.mortar)
             case .tesla: SoundEngine.shared.play(.tesla)
-            case .rail, .star, .sniper: SoundEngine.shared.play(.rail)
+            case .rail, .star, .sniper, .rook: SoundEngine.shared.play(.rail)
             case .inferno: SoundEngine.shared.play(.flame)
             case .echo, .siren: SoundEngine.shared.play(.scream)
             case .mind, .omen: SoundEngine.shared.play(.psychic)
@@ -601,10 +623,13 @@ final class GameScene: SKScene {
             flicker(texture, origin: origin)
 
         case let .beam(towerID, from, to):
-            let isStar = session?.engine.tower(id: towerID)?.kind == .star
-            let (texture, origin) = isStar
-                ? Art.beam(from: toWorld(from), to: toWorld(to), glow: Pal.yellow, edge: Pal.amber)
-                : Art.beam(from: toWorld(from), to: toWorld(to))
+            let kind = session?.engine.tower(id: towerID)?.kind ?? .rail
+            let colors: [PixelColor] = switch kind {
+            case .star: [Pal.yellow, Pal.amber]
+            case .rook: [Pal.amber, Pal.yellow]
+            default: [Pal.pink, Pal.hotRed]
+            }
+            let (texture, origin) = Art.beam(from: toWorld(from), to: toWorld(to), glow: colors[0], edge: colors[1])
             let sprite = SKSpriteNode(texture: texture)
             sprite.anchorPoint = .zero
             sprite.position = origin

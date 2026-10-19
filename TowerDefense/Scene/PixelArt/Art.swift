@@ -207,6 +207,13 @@ enum Art {
                 let angle = Double(i) * .pi / 3
                 c.set(Int(8 + cos(angle) * 5.4), Int(7.5 + sin(angle) * 3.4), accent)
             }
+
+        case .rook:
+            // A small chessboard.
+            platform([(2, 3), (14, 3), (14, 11), (2, 11)], top: Pal.mist, side: Pal.steel)
+            for y in 3...10 {
+                for x in 2...13 where ((x - 2) / 3 + (y - 3) / 2) % 2 == 1 { c.set(x, y, Pal.slate) }
+            }
         }
 
         // The web is drawn straight onto the grass; an outline would make it look solid.
@@ -216,7 +223,7 @@ enum Art {
         let top = tiers.max() ?? 0
         // Heroes near the top of a path stand on a wider footing in their own colors, with pillars once maxed.
         let stone: (top: PixelColor, side: PixelColor) = switch kind {
-        case .pulse, .aegis, .siren: (Pal.steel, Pal.slate)
+        case .pulse, .aegis, .siren, .rook: (Pal.steel, Pal.slate)
         case .frost, .cyclone: (Pal.mist, Pal.silver)
         case .mortar, .chrono: (Pal.clay, Pal.bark)
         case .tesla, .star: (Pal.slate, Pal.navy)
@@ -560,6 +567,26 @@ enum Art {
             if level == 3 { c.set(7, 3, Pal.white); c.set(8, 3, Pal.white) }
             c.fillCircle(cx: 8, cy: 11.5, r: 1.9, Pal.mist)
             c.set(8, 11, Pal.pink); c.set(7, 10, Pal.white)
+
+        case .rook:
+            // A chess rook with a lance through it along its row and another up its column. The lances grow with each level.
+            let body = Pal.tower(kind)
+            let tip = 3 - level
+            for y in 0...4 { c.set(7, y, Pal.silver); c.set(8, y, Pal.steel) }
+            c.fillRect(4, 2, 2, 2, body); c.fillRect(10, 2, 2, 2, body)
+            c.fillRect(4, 4, 8, 2, body)
+            c.fillRect(5, 6, 6, 1, body)
+            c.fillRect(6, 7, 4, 5, body)
+            c.fillRect(5, 12, 6, 1, body)
+            c.fillRect(4, 13, 8, 2, body)
+            for y in 7...11 { c.set(6, y, Pal.silver); c.set(9, y, Pal.slate) }
+            c.fillRect(4, 5, 8, 1, Pal.slate)
+            c.fillRect(4, 14, 8, 1, Pal.slate)
+            c.set(4, 2, Pal.silver); c.set(10, 2, Pal.silver); c.set(4, 13, Pal.silver)
+            for x in tip...(15 - tip) { c.set(x, 8, Pal.silver); c.set(x, 9, Pal.steel) }
+            let point = level == 3 ? Pal.white : Pal.amber
+            for (x, y) in [(tip, 8), (tip, 9), (15 - tip, 8), (15 - tip, 9), (7, 0), (8, 0)] { c.set(x, y, point) }
+            c.fillRect(7, 8, 2, 2, level >= 2 ? Pal.yellow : Pal.amber)
         }
         var big = c.padded(2)
         drawTurretUpgrades(kind, a: tiers[0], b: tiers[1], on: &big)
@@ -806,6 +833,16 @@ enum Art {
             }
             if b >= 3 { c.ring(cx: 10, cy: 11, r: 8.5, Pal.tower(kind)) { x, y in y > 14 && (x + y) % 3 != 0 } }
             if b >= 4 { c.ring(cx: 10, cy: 11, r: 8.5, Pal.pink) { x, y in y > 14 && (x + y) % 3 == 0 } }
+        case .rook:
+            // Lance: gold collars, shells, spear heads, then red-hot tips. Command: a pennant, a spyglass, a gold band, then a gold crown.
+            if a >= 1 { for (x, y) in [(7, 10), (7, 11), (12, 10), (12, 11)] { c.set(x, y, Pal.amber) } }
+            if a >= 2 { for x in [7, 9, 11] { c.set(x, 15, Pal.amber); c.set(x + 1, 15, Pal.copper) } }
+            if a >= 3 { for (x, y) in [(3, 9), (3, 12), (16, 9), (16, 12), (8, 3), (11, 3)] { c.set(x, y, Pal.silver) } }
+            if a >= 4 { for (x, y) in [(1, 10), (1, 11), (18, 10), (18, 11), (9, 1), (10, 1)] { c.set(x, y, Pal.red) } }
+            if b >= 1 { c.line(2, 1, 2, 8, Pal.bark); c.fillRect(3, 1, 3, 1, Pal.red); c.fillRect(3, 2, 2, 1, Pal.red) }
+            if b >= 2 { c.line(14, 7, 17, 4, Pal.copper); c.set(18, 3, Pal.cyan) }
+            if b >= 3 { c.fillRect(6, 7, 8, 1, Pal.yellow) }
+            if b >= 4 { for x in [6, 7, 12, 13] { c.set(x, 4, Pal.yellow) }; c.set(6, 5, Pal.amber); c.set(13, 5, Pal.amber) }
         }
     }
 

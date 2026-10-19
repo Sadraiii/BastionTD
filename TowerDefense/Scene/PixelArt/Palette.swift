@@ -135,6 +135,7 @@ enum Pal {
         case .siren: PixelColor(0x23B5AF)
         case .bramble: PixelColor(0x9CB93A)
         case .omen: PixelColor(0x8E5BC4)
+        case .rook: PixelColor(0x4D6BD6)
         }
     }
 
@@ -162,6 +163,7 @@ enum Pal {
         case .siren: mist
         case .bramble: yellow
         case .omen: pink
+        case .rook: amber
         }
     }
 

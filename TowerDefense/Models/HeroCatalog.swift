@@ -84,6 +84,7 @@ enum HeroCatalog {
         case .siren: siren
         case .bramble: bramble
         case .omen: omen
+        case .rook: rook
         }
     }
 
@@ -1021,6 +1022,51 @@ enum HeroCatalog {
         ]),
     ]
 
+    // MARK: Rook - tactician
+
+    private static let rook: [UpgradePath] = [
+        UpgradePath(name: "Lance", tiers: [
+            UpgradeTier(name: "Heavy Lance", detail: "+15 damage per shot.", cost: 90, research: 0) {
+                $0.damage += 15
+            },
+            UpgradeTier(name: "Quick Reload", detail: "Fires 25% faster.", cost: 160, research: 4) {
+                $0.fireInterval *= 0.8
+            },
+            UpgradeTier(name: "Barrage", detail: "POWER: triple fire rate for 4s. +20 damage.", cost: 300, research: 10,
+                        power: power("Barrage", "Triple fire rate for 4 seconds.", cooldown: 32,
+                                     .frenzy(duration: 4, rate: 3, damage: 1))) {
+                $0.damage += 20
+            },
+            UpgradeTier(name: "Siege Lance", detail: "+60 damage, pierces armor. Barrage lasts 6s at 4x.", cost: 900, research: 20,
+                        power: power("Siege Lance", "4x fire rate and +30% damage for 6 seconds.", cooldown: 32,
+                                     .frenzy(duration: 6, rate: 4, damage: 1.3))) {
+                $0.damage += 60
+                $0.piercesArmor = true
+            },
+        ]),
+        UpgradePath(name: "Command", tiers: [
+            UpgradeTier(name: "Signal Flags", detail: "Heroes in its row and column attack 10% faster.", cost: 80, research: 0) {
+                $0.lineBuff = true
+                $0.buffRate = 0.1
+            },
+            UpgradeTier(name: "Long Sight", detail: "Sees cloaked villains.", cost: 120, research: 4) {
+                $0.detectsCamo = true
+            },
+            UpgradeTier(name: "Field Marshal", detail: "POWER: rally nearby heroes. Lines get +15% speed, +10% damage.", cost: 280, research: 10,
+                        power: power("Field Marshal", "Heroes nearby: +40% speed, +20% damage for 8s.", cooldown: 35,
+                                     .rally(duration: 8, rate: 1.4, damage: 1.2, rangeScale: 3))) {
+                $0.buffRate = 0.15
+                $0.buffDamage = 0.1
+            },
+            UpgradeTier(name: "Grand Marshal", detail: "Lines get +25% speed, +20% damage. A wider rally.", cost: 800, research: 20,
+                        power: power("Grand Marshal", "Heroes in a wide area: +70% speed, +40% damage for 10s.", cooldown: 35,
+                                     .rally(duration: 10, rate: 1.7, damage: 1.4, rangeScale: 4))) {
+                $0.buffRate = 0.25
+                $0.buffDamage = 0.2
+            },
+        ]),
+    ]
+
     // MARK: Combos
 
     static let combos: [HeroCombo] = [
@@ -1102,6 +1148,10 @@ enum HeroCatalog {
         HeroCombo(name: "Marked Target", detail: "Hawkeye hits 20% harder. Omen's marks last a second longer.",
                   first: .omen, second: .sniper) { kind, stats in
             if kind == .sniper { stats.damage *= 1.2 } else { stats.markDuration += 1 }
+        },
+        HeroCombo(name: "Crossbeam", detail: "Rook's lances get +15 damage. Vanguard reaches further.",
+                  first: .rook, second: .rail) { kind, stats in
+            if kind == .rook { stats.damage += 15 } else { stats.range += 0.5 }
         },
     ]
 

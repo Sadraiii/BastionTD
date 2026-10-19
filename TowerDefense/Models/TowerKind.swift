@@ -80,6 +80,8 @@ struct TowerStats: Equatable {
     /// Villains hit take this much more damage from everyone for `markDuration`.
     var mark: Double = 0
     var markDuration: Double = 0
+    /// The support buff also reaches heroes anywhere in this hero's row or column.
+    var lineBuff = false
 
     var shotsPerSecond: Double { 1 / fireInterval }
 }
@@ -89,7 +91,7 @@ struct TowerStats: Equatable {
 enum TowerKind: String, CaseIterable, Codable, Identifiable {
     case pulse, frost, mortar, tesla, rail
     case inferno, weaver, aegis, cyclone, echo, mind, chrono, star, midas, tide
-    case sniper, tamer, alchemist, siren, bramble, omen
+    case sniper, tamer, alchemist, siren, bramble, omen, rook
 
     var id: String { rawValue }
 
@@ -117,6 +119,7 @@ enum TowerKind: String, CaseIterable, Codable, Identifiable {
         case .siren: "Siren"
         case .bramble: "Bramble"
         case .omen: "Omen"
+        case .rook: "Rook"
         }
     }
 
@@ -152,6 +155,7 @@ enum TowerKind: String, CaseIterable, Codable, Identifiable {
         case .siren: "Sea Singer"
         case .bramble: "Thorn Bush"
         case .omen: "Seer"
+        case .rook: "Tactician"
         }
     }
 
@@ -179,6 +183,7 @@ enum TowerKind: String, CaseIterable, Codable, Identifiable {
         case .siren: "Turns villains around and cracks shields. Goes on water."
         case .bramble: "Grows stronger every wave it stays on the field."
         case .omen: "Marks villains so every hero hits them harder. Husks can't be marked."
+        case .rook: "Fires along its whole row and column."
         }
     }
 
@@ -191,6 +196,7 @@ enum TowerKind: String, CaseIterable, Codable, Identifiable {
         case .rail, .star: .beam
         case .inferno, .echo, .siren: .cone
         case .mind, .omen: .mind
+        case .rook: .cross
         }
     }
 
@@ -217,6 +223,7 @@ enum TowerKind: String, CaseIterable, Codable, Identifiable {
         case .siren: 100
         case .bramble: 90
         case .omen: 120
+        case .rook: 130
         }
     }
 
@@ -227,7 +234,7 @@ enum TowerKind: String, CaseIterable, Codable, Identifiable {
         case .inferno, .weaver: 6
         case .aegis, .cyclone, .midas, .bramble: 8
         case .echo, .tide, .tamer, .siren: 10
-        case .alchemist, .omen: 12
+        case .alchemist, .omen, .rook: 12
         case .sniper: 14
         case .mind: 12
         case .chrono: 15
@@ -240,8 +247,8 @@ enum TowerKind: String, CaseIterable, Codable, Identifiable {
 
     static var starters: [TowerKind] { allCases.filter { $0.unlockCost == 0 } }
 
-    /// Aura heroes hit everything around them, so a targeting choice is meaningless.
-    var usesTargeting: Bool { attackStyle != .aura }
+    /// Aura heroes and the Rook hit everything they reach, so a targeting choice is meaningless.
+    var usesTargeting: Bool { attackStyle != .aura && attackStyle != .cross }
 
     /// Turrets that turn to face their target.
     var rotates: Bool {
@@ -299,6 +306,9 @@ enum TowerKind: String, CaseIterable, Codable, Identifiable {
             TowerStats(damage: 7, range: 2.2, fireInterval: 0.8, projectileSpeed: 9, growth: 0.05)
         case .omen:
             TowerStats(damage: 6, range: 2.6, fireInterval: 1.2, damageType: .psychic, mark: 0.2, markDuration: 3)
+        case .rook:
+            // Range only sizes Field Marshal and the buff for touching heroes; the lances cross the whole board.
+            TowerStats(damage: 30, range: 1.0, fireInterval: 2.0)
         }
     }
 

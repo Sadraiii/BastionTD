@@ -866,7 +866,8 @@ final class GameEngine {
             }
             var rate = 0.0, damage = 0.0
             for supporter in supporters where supporter !== tower
-                && supporter.position.distance(to: tower.position) <= CGFloat(supporter.stats.range) {
+                && (supporter.position.distance(to: tower.position) <= CGFloat(supporter.stats.range)
+                    || supporter.stats.lineBuff && (supporter.cell.col == tower.cell.col || supporter.cell.row == tower.cell.row)) {
                 rate = max(rate, supporter.stats.buffRate)
                 damage = max(damage, supporter.stats.buffDamage)
             }
@@ -981,13 +982,22 @@ final class GameEngine {
         (!enemy.kind.isFlying || tower.stats.hitsAir) && (!enemy.isHidden || tower.hasDetection)
     }
 
+    /// Whether an enemy is on the tower's row or column, the Rook's reach.
+    private func isInLine(_ enemy: Enemy, with tower: Tower) -> Bool {
+        let reach = CGFloat(enemy.kind.radius + 0.15)
+        return abs(enemy.position.x - tower.position.x) <= reach || abs(enemy.position.y - tower.position.y) <= reach
+    }
+
     /// Best visible targets in range by the tower's targeting mode, best first.
     private func acquireTargets(for tower: Tower, count: Int) -> [Enemy] {
         let range = tower.stats.range
         var scored: [(score: Double, enemy: Enemy)] = []
         for enemy in enemies where enemy.isTargetable && canSee(enemy, from: tower) {
             let distance = tower.position.distance(to: enemy.position)
-            guard distance <= CGFloat(range + enemy.kind.radius * 0.5) else { continue }
+            let inReach = tower.kind.attackStyle == .cross
+                ? isInLine(enemy, with: tower)
+                : distance <= CGFloat(range + enemy.kind.radius * 0.5)
+            guard inReach else { continue }
             let score: Double = switch tower.targeting {
             case .first: -Double(remaining(enemy))
             case .last: Double(remaining(enemy))
@@ -1109,6 +1119,14 @@ final class GameEngine {
                 apply(hit, to: target, from: tower, showNumber: false)
                 events.append(.mindBlast(from: tower.position, to: target.position))
             }
+
+        case .cross:
+            for enemy in enemies where enemy.isTargetable && canSee(enemy, from: tower) && isInLine(enemy, with: tower) {
+                apply(hit, to: enemy, from: tower, showNumber: false)
+            }
+            let p = tower.position
+            events.append(.beam(towerID: tower.id, from: CGPoint(x: 0, y: p.y), to: CGPoint(x: CGFloat(map.columns), y: p.y)))
+            events.append(.beam(towerID: tower.id, from: CGPoint(x: p.x, y: 0), to: CGPoint(x: p.x, y: CGFloat(map.rows))))
         }
         events.append(.shotFired(towerID: tower.id, kind: tower.kind))
 
