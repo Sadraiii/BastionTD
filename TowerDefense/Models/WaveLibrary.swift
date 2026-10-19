@@ -11,12 +11,13 @@ struct SpawnGroup {
 }
 
 /// How a level's waves are made: how many, which villains (introduced in this order),
-/// the boss of the last wave and extra health for later worlds.
+/// the boss of the last wave, extra health for later worlds and an optional boss halfway through.
 struct WavePlan {
     let count: Int
     let villains: [EnemyKind]
     let boss: EnemyKind
     var healthScale: Double = 1
+    var midBoss: EnemyKind? = nil
 }
 
 struct WaveDefinition {
@@ -78,6 +79,7 @@ enum WaveLibrary {
                 let count = max(2, Int(budget / Double(groupCount) / weight))
                 groups.append(g(kind, count, every: max(0.35, 1.0 - Double(n) * 0.04), after: Double(i) * 3))
             }
+            if n == plan.count / 2, let boss = plan.midBoss { groups.append(g(boss, 1, every: 1, after: 6)) }
             if n == plan.count { groups.append(g(plan.boss, 1, every: 1, after: 4)) }
             return WaveDefinition(groups: groups)
         }

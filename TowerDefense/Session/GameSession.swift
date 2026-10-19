@@ -107,7 +107,7 @@ struct RunRewards: Equatable {
 /// The engine is deterministic, so replaying them rebuilds the exact same battlefield.
 struct SavedMatch: Codable {
     /// Raised whenever a change would make older saves replay differently, so those aren't offered for resume.
-    static let currentRules = 1
+    static let currentRules = 2
 
     enum Command: Codable {
         case build(TowerKind, GridPoint)

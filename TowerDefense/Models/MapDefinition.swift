@@ -193,7 +193,8 @@ extension MapDefinition {
         waypoints: points([(-1, 2), (3, 2), (3, 7), (7, 7), (7, 1), (11, 1), (11, 7), (15, 7), (15, 3), (17, 3)]),
         obstacles: Set(points([(0, 0), (5, 4), (13, 4), (16, 9), (1, 9), (9, 9), (9, 0)])),
         startingGold: 300,
-        startingLives: 25
+        startingLives: 25,
+        wavePlan: WavePlan(count: 16, villains: [.drone, .runner, .sandworm, .ironclad, .berserker, .blastguard], boss: .titan, healthScale: 1.05)
     )
 
     static let bayou = MapDefinition(
@@ -209,7 +210,8 @@ extension MapDefinition {
         branches: [points([(-1, 6), (3, 6), (3, 10), (11, 10), (11, 6), (16, 6), (16, 2), (19, 2)])],
         obstacles: Set(points([(0, 0), (7, 6), (14, 9), (18, 6), (0, 11), (19, 11), (13, 0)])),
         startingGold: 300,
-        startingLives: 20
+        startingLives: 20,
+        wavePlan: WavePlan(count: 16, villains: [.drone, .splitter, .husk, .medic, .bogWitch, .phantom], boss: .dreadnought, healthScale: 1.2)
     )
 
     static let glacier = MapDefinition(
@@ -224,7 +226,8 @@ extension MapDefinition {
         waypoints: points([(-1, 9), (2, 9), (2, 2), (6, 2), (6, 10), (10, 10), (10, 2), (14, 2), (14, 10), (18, 10), (18, 5), (19, 5)]),
         obstacles: Set(points([(0, 0), (4, 11), (12, 0), (16, 4), (8, 6), (19, 11), (0, 5)])),
         startingGold: 300,
-        startingLives: 20
+        startingLives: 20,
+        wavePlan: WavePlan(count: 18, villains: [.runner, .drone, .wisp, .frostborn, .yeti, .brute, .mirage], boss: .titan, healthScale: 1.3, midBoss: .titan)
     )
 
     static let caldera = MapDefinition(
@@ -239,7 +242,8 @@ extension MapDefinition {
         waypoints: points([(-1, 1), (18, 1), (18, 10), (1, 10), (1, 4), (15, 4), (15, 7), (5, 7)]),
         obstacles: Set(points([(0, 11), (19, 0), (10, 2), (8, 5), (12, 9), (3, 8), (19, 11)])),
         startingGold: 220,
-        startingLives: 15
+        startingLives: 15,
+        wavePlan: WavePlan(count: 18, villains: [.drone, .pyrefiend, .berserker, .magmaGolem, .voidling, .gargoyle], boss: .overlord, healthScale: 1.45, midBoss: .dreadnought)
     )
 
     static let harbor = MapDefinition(
@@ -254,7 +258,8 @@ extension MapDefinition {
         obstacles: Set(points([(0, 9), (17, 0), (17, 9), (9, 0)])),
         water: Set((5...12).flatMap { col in (3...6).map { GridPoint(col, $0) } }),
         startingGold: 320,
-        startingLives: 25
+        startingLives: 25,
+        wavePlan: WavePlan(count: 16, villains: [.drone, .runner, .crab, .splitter, .bogWitch, .wisp], boss: .dreadnought, healthScale: 1.2)
     )
 
     static let meadow = MapDefinition(
@@ -369,7 +374,7 @@ extension MapDefinition {
         obstacles: Set(points([(16, 0), (0, 7), (8, 0), (9, 7)])),
         startingGold: 280,
         startingLives: 20,
-        wavePlan: WavePlan(count: 13, villains: [.runner, .drone, .wisp, .frostborn, .yeti, .brute, .mirage], boss: .titan, healthScale: 1.35)
+        wavePlan: WavePlan(count: 13, villains: [.runner, .drone, .wisp, .frostborn, .yeti, .brute, .mirage], boss: .titan, healthScale: 1.35, midBoss: .titan)
     )
 
     static let icefall = MapDefinition(
@@ -385,7 +390,7 @@ extension MapDefinition {
         obstacles: Set(points([(0, 0), (19, 0), (19, 11), (9, 5)])),
         startingGold: 300,
         startingLives: 20,
-        wavePlan: WavePlan(count: 15, villains: [.runner, .drone, .wisp, .frostborn, .yeti, .brute, .mirage], boss: .dreadnought, healthScale: 1.4)
+        wavePlan: WavePlan(count: 15, villains: [.runner, .drone, .wisp, .frostborn, .yeti, .brute, .mirage], boss: .dreadnought, healthScale: 1.4, midBoss: .titan)
     )
 
     static let avalanche = MapDefinition(
@@ -401,7 +406,7 @@ extension MapDefinition {
         obstacles: Set(points([(0, 0), (5, 4), (9, 4), (13, 6), (0, 8)])),
         startingGold: 280,
         startingLives: 15,
-        wavePlan: WavePlan(count: 14, villains: [.runner, .drone, .wisp, .frostborn, .yeti, .brute, .mirage], boss: .overlord, healthScale: 1.45)
+        wavePlan: WavePlan(count: 14, villains: [.runner, .drone, .wisp, .frostborn, .yeti, .brute, .mirage], boss: .overlord, healthScale: 1.45, midBoss: .titan)
     )
 
     static let ashlands = MapDefinition(
@@ -417,7 +422,7 @@ extension MapDefinition {
         obstacles: Set(points([(0, 9), (6, 5), (10, 6), (15, 4), (16, 0)])),
         startingGold: 300,
         startingLives: 20,
-        wavePlan: WavePlan(count: 14, villains: [.drone, .pyrefiend, .berserker, .blastguard, .magmaGolem, .voidling, .gargoyle], boss: .titan, healthScale: 1.5)
+        wavePlan: WavePlan(count: 14, villains: [.drone, .pyrefiend, .berserker, .blastguard, .magmaGolem, .voidling, .gargoyle], boss: .titan, healthScale: 1.5, midBoss: .titan)
     )
 
     static let magmaFalls = MapDefinition(
@@ -434,7 +439,7 @@ extension MapDefinition {
         obstacles: Set(points([(9, 5), (0, 0), (0, 11), (19, 0), (19, 11), (17, 8)])),
         startingGold: 400,
         startingLives: 25,
-        wavePlan: WavePlan(count: 15, villains: [.drone, .pyrefiend, .berserker, .blastguard, .magmaGolem, .voidling, .gargoyle], boss: .dreadnought, healthScale: 1.35)
+        wavePlan: WavePlan(count: 15, villains: [.drone, .pyrefiend, .berserker, .blastguard, .magmaGolem, .voidling, .gargoyle], boss: .dreadnought, healthScale: 1.35, midBoss: .titan)
     )
 
     static let infernoPeak = MapDefinition(
@@ -450,7 +455,7 @@ extension MapDefinition {
         obstacles: Set(points([(0, 0), (19, 0), (19, 11), (9, 5), (3, 4)])),
         startingGold: 320,
         startingLives: 15,
-        wavePlan: WavePlan(count: 15, villains: [.drone, .pyrefiend, .berserker, .blastguard, .magmaGolem, .voidling, .gargoyle], boss: .overlord, healthScale: 1.6)
+        wavePlan: WavePlan(count: 15, villains: [.drone, .pyrefiend, .berserker, .blastguard, .magmaGolem, .voidling, .gargoyle], boss: .overlord, healthScale: 1.6, midBoss: .dreadnought)
     )
 
     static let grotto = MapDefinition(
@@ -466,7 +471,7 @@ extension MapDefinition {
         obstacles: Set(points([(0, 0), (5, 4), (10, 8), (14, 8), (10, 0)])),
         startingGold: 300,
         startingLives: 20,
-        wavePlan: WavePlan(count: 13, villains: [.drone, .caveBat, .voidling, .crab, .warper, .gargoyle, .phantom, .hexer], boss: .titan, healthScale: 1.65)
+        wavePlan: WavePlan(count: 13, villains: [.drone, .caveBat, .voidling, .crab, .warper, .gargoyle, .phantom, .hexer], boss: .titan, healthScale: 1.65, midBoss: .titan)
     )
 
     static let echoHall = MapDefinition(
@@ -483,7 +488,7 @@ extension MapDefinition {
         obstacles: Set(points([(0, 0), (6, 5), (11, 7), (16, 9), (17, 0)])),
         startingGold: 380,
         startingLives: 25,
-        wavePlan: WavePlan(count: 14, villains: [.drone, .caveBat, .voidling, .crab, .warper, .gargoyle, .phantom, .hexer], boss: .dreadnought, healthScale: 1.5)
+        wavePlan: WavePlan(count: 14, villains: [.drone, .caveBat, .voidling, .crab, .warper, .gargoyle, .phantom, .hexer], boss: .dreadnought, healthScale: 1.5, midBoss: .titan)
     )
 
     static let crystalMine = MapDefinition(
@@ -499,7 +504,7 @@ extension MapDefinition {
         obstacles: Set(points([(2, 5), (8, 5), (12, 6), (17, 4), (0, 11), (19, 0), (3, 9)])),
         startingGold: 340,
         startingLives: 20,
-        wavePlan: WavePlan(count: 15, villains: [.drone, .caveBat, .voidling, .crab, .warper, .gargoyle, .phantom, .hexer], boss: .overlord, healthScale: 1.75)
+        wavePlan: WavePlan(count: 15, villains: [.drone, .caveBat, .voidling, .crab, .warper, .gargoyle, .phantom, .hexer], boss: .overlord, healthScale: 1.75, midBoss: .dreadnought)
     )
 
     static let deepCore = MapDefinition(
@@ -515,7 +520,7 @@ extension MapDefinition {
         obstacles: Set(points([(0, 0), (0, 11), (19, 0), (19, 11), (9, 9)])),
         startingGold: 340,
         startingLives: 15,
-        wavePlan: WavePlan(count: 15, villains: [.drone, .caveBat, .voidling, .crab, .warper, .gargoyle, .phantom, .hexer], boss: .overlord, healthScale: 1.85)
+        wavePlan: WavePlan(count: 15, villains: [.drone, .caveBat, .voidling, .crab, .warper, .gargoyle, .phantom, .hexer], boss: .overlord, healthScale: 1.85, midBoss: .dreadnought)
     )
 
     /// The Boss Rush event map. It isn't part of the campaign.
