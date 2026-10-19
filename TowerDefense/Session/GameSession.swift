@@ -205,6 +205,7 @@ final class GameSession {
     @ObservationIgnored private var save: SavedMatch
     @ObservationIgnored private var bankedCommanderXP = 0
     @ObservationIgnored private var scoutedWave = -1
+    @ObservationIgnored private var gateShut = false
 
     private static let fixedStep = 1.0 / 60.0
 
@@ -478,6 +479,11 @@ final class GameSession {
 
         let commanderSnapshot = engine.commander.map(Self.snapshot)
         if commander != commanderSnapshot { commander = commanderSnapshot }
+
+        if gateShut != engine.isGateShut {
+            gateShut = engine.isGateShut
+            showToast(gateShut ? "GATE SHUT" : "GATE OPEN")
+        }
 
         if let kind = buildKind, let cell = pendingCell {
             let result = engine.placementCheck(kind, at: cell)

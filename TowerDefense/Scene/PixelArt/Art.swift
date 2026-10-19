@@ -971,6 +971,44 @@ enum Art {
         }
     }
 
+    static func lever(up: Bool) -> SKTexture { texture("lever.\(up)") { leverCanvas(up: up) } }
+
+    /// A stone block with a handle: up while the gate is open, pulled over while the commander holds it.
+    private static func leverCanvas(up: Bool) -> PixelCanvas {
+        var c = PixelCanvas(width: 16, height: 16)
+        let tx = up ? 4 : 13, ty = up ? 3 : 8
+        c.line(7, 11, tx, ty, Pal.bark)
+        c.line(8, 11, tx + 1, ty, Pal.clay)
+        c.fillCircle(cx: Double(tx) + 1, cy: Double(ty), r: 1.6, Pal.red)
+        c.fillRect(3, 11, 10, 4, Pal.steel)
+        c.fillRect(3, 11, 10, 1, Pal.silver)
+        c.fillRect(6, 11, 4, 1, Pal.slate)
+        c.outline()
+        return c
+    }
+
+    static func gate(shut: Bool) -> SKTexture { texture("gate.\(shut)") { gateCanvas(shut: shut) } }
+
+    /// A wooden gateway that gets barred with planks when shut.
+    private static func gateCanvas(shut: Bool) -> PixelCanvas {
+        var c = PixelCanvas(width: 16, height: 16)
+        if shut {
+            for y in [4, 8, 12] {
+                c.fillRect(3, y, 10, 2, Pal.clay)
+                c.fillRect(3, y, 10, 1, Pal.tan)
+            }
+            c.line(3, 13, 12, 5, Pal.bark)
+        }
+        for x in [1, 13] {
+            c.fillRect(x, 1, 2, 14, Pal.bark)
+            c.fillRect(x, 1, 1, 14, Pal.clay)
+        }
+        c.fillRect(1, 1, 14, 2, Pal.bark)
+        c.fillRect(1, 1, 14, 1, Pal.clay)
+        c.outline()
+        return c
+    }
+
     static var chevron: SKTexture { texture("chevron") { PixelCanvas(map: SpriteMaps.chevron) } }
 
     static var bracket: SKTexture { texture("bracket") { PixelCanvas(map: SpriteMaps.bracket) } }
@@ -1296,7 +1334,7 @@ enum Art {
         image("boardImage.\(map.id)") { boardCanvas(for: map) }
     }
 
-    /// Board plus obstacles, crystal and portal, for the map picker.
+    /// Board plus obstacles, crystal, portal, lever and gate, for the map picker.
     static func mapPreview(for map: MapDefinition) -> UIImage {
         image("mapPreview.\(map.id)") {
             var c = boardCanvas(for: map)
@@ -1323,6 +1361,8 @@ enum Art {
                 while !map.contains(entry) { entry = GridPoint(entry.col + step.col, entry.row + step.row) }
                 c.stamp(portal, x: entry.col * tilePixels, y: entry.row * tilePixels)
             }
+            if let lever = map.lever { c.stamp(leverCanvas(up: true), x: lever.col * tilePixels, y: lever.row * tilePixels) }
+            if let gate = map.gate { c.stamp(gateCanvas(shut: false), x: gate.col * tilePixels, y: gate.row * tilePixels) }
             var crystal = PixelCanvas(map: SpriteMaps.coreCrystal).padded(1)
             crystal.outline()
             stampCentered(crystal, at: map.coreCell, bottomOffset: -2)

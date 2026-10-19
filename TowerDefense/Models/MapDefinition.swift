@@ -67,6 +67,10 @@ struct MapDefinition: Identifiable, Hashable {
     let mist: Set<GridPoint>
     /// Raised tiles that give the hero built there more range.
     let highGround: Set<GridPoint>
+    /// A grass tile that shuts the gate on the branch while the commander stands on it.
+    let lever: GridPoint?
+    /// Where the gate is drawn on the branch.
+    let gate: GridPoint?
     let startingGold: Int
     let startingLives: Int
     /// Generated waves for the level; nil plays the classic 20-wave campaign.
@@ -90,6 +94,8 @@ struct MapDefinition: Identifiable, Hashable {
         ice: Set<GridPoint> = [],
         mist: Set<GridPoint> = [],
         highGround: Set<GridPoint> = [],
+        lever: GridPoint? = nil,
+        gate: GridPoint? = nil,
         startingGold: Int,
         startingLives: Int,
         wavePlan: WavePlan? = nil
@@ -110,6 +116,8 @@ struct MapDefinition: Identifiable, Hashable {
         self.ice = ice
         self.mist = mist
         self.highGround = highGround
+        self.lever = lever
+        self.gate = gate
         self.startingGold = startingGold
         self.startingLives = startingLives
         self.wavePlan = wavePlan
@@ -135,7 +143,7 @@ struct MapDefinition: Identifiable, Hashable {
     }
 
     func isBuildable(_ cell: GridPoint) -> Bool {
-        contains(cell) && !pathCells.contains(cell) && !obstacles.contains(cell) && !water.contains(cell)
+        contains(cell) && !pathCells.contains(cell) && !obstacles.contains(cell) && !water.contains(cell) && cell != lever
     }
 
     static func == (lhs: MapDefinition, rhs: MapDefinition) -> Bool { lhs.id == rhs.id }
@@ -576,6 +584,26 @@ extension MapDefinition {
         wavePlan: WavePlan(count: 15, villains: [.drone, .phantom, .sapper, .pickpocket, .medic, .chameleon, .mirage], boss: .dreadnought, healthScale: 1.75, midBoss: .titan)
     )
 
+    static let leverPass = MapDefinition(
+        id: "leverpass",
+        name: "Lever Pass",
+        tagline: "Stand your commander on the lever to shut the short road.",
+        difficulty: .hard,
+        terrain: .highlands,
+        world: .highlands,
+        columns: 18,
+        rows: 10,
+        waypoints: points([(-1, 4), (3, 4), (3, 1), (14, 1), (14, 4), (16, 4)]),
+        branches: [points([(-1, 4), (16, 4)])],
+        obstacles: Set(points([(8, 3), (11, 6), (6, 6), (1, 8), (16, 0)])),
+        ice: Set((5...12).map { GridPoint($0, 1) }),
+        lever: GridPoint(9, 8),
+        gate: GridPoint(4, 4),
+        startingGold: 360,
+        startingLives: 20,
+        wavePlan: WavePlan(count: 15, villains: [.runner, .drone, .chameleon, .berserker, .gravecaller, .warper, .gargoyle], boss: .overlord, healthScale: 1.8, midBoss: .titan)
+    )
+
     /// The Boss Rush event map. It isn't part of the campaign.
     static let arena = MapDefinition(
         id: "arena",
@@ -599,7 +627,7 @@ extension MapDefinition {
         glacier, tundra, icefall, avalanche,
         caldera, ashlands, magmaFalls, infernoPeak,
         grotto, echoHall, crystalMine, deepCore,
-        twinGates, mistmoor,
+        twinGates, mistmoor, leverPass,
     ]
 
     /// The map after this one in the campaign list, if any.

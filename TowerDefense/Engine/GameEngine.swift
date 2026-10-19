@@ -175,6 +175,12 @@ final class GameEngine {
 
     var enemiesRemaining: Int { max(0, waveEnemyTotal - waveEnemiesResolved) }
 
+    /// While the commander stands on the lever, every new villain takes the main route.
+    var isGateShut: Bool {
+        guard let lever = map.lever, let commander else { return false }
+        return commander.cell == lever && !commander.isWalking
+    }
+
     func tower(at cell: GridPoint) -> Tower? { towersByCell[cell] }
 
     func tower(id: Int) -> Tower? { towers.first { $0.id == id } }
@@ -191,7 +197,7 @@ final class GameEngine {
         guard allows(kind) else { return .banned }
         guard map.contains(cell) else { return .outOfBounds }
         if map.pathCells.contains(cell) { return .onPath }
-        if map.obstacles.contains(cell) { return .blocked }
+        if map.obstacles.contains(cell) || cell == map.lever { return .blocked }
         if map.water.contains(cell) != kind.isNaval { return kind.isNaval ? .needsWater : .onWater }
         if towersByCell[cell] != nil || commander?.cell == cell { return .occupied }
         if gold < kind.cost { return .insufficientGold }
@@ -284,10 +290,10 @@ final class GameEngine {
         return true
     }
 
-    /// Sends the commander walking to an empty grass tile.
+    /// Sends the commander walking to an empty grass tile or the lever.
     @discardableResult
     func moveCommander(to cell: GridPoint) -> Bool {
-        guard !phase.isOver, let commander, map.isBuildable(cell), towersByCell[cell] == nil else { return false }
+        guard !phase.isOver, let commander, map.isBuildable(cell) || cell == map.lever, towersByCell[cell] == nil else { return false }
         commander.cell = cell
         return true
     }
@@ -611,8 +617,9 @@ final class GameEngine {
         waveClock += dt
         while let next = spawnQueue.first, next.time <= waveClock {
             spawnQueue.removeFirst()
-            spawn(next.kind, at: Self.spawnDistance, route: nextRoute)
-            nextRoute = (nextRoute + 1) % paths.count
+            let shut = isGateShut
+            spawn(next.kind, at: Self.spawnDistance, route: shut ? 0 : nextRoute)
+            if !shut { nextRoute = (nextRoute + 1) % paths.count }
         }
         flushIncoming()
     }

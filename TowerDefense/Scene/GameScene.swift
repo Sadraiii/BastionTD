@@ -33,6 +33,8 @@ final class GameScene: SKScene {
     private let corePedestal = SKSpriteNode(texture: Art.corePedestal)
     /// One portal per route start.
     private var portals: [(sprite: SKSpriteNode, path: PathGeometry)] = []
+    private let leverNode = SKSpriteNode(texture: Art.lever(up: true))
+    private let gateNode = SKSpriteNode(texture: Art.gate(shut: false))
 
     private var towerNodes: [Int: TowerNode] = [:]
     private var enemyNodes: [Int: EnemyNode] = [:]
@@ -131,6 +133,11 @@ final class GameScene: SKScene {
             portals.append((portal, path))
         }
 
+        leverNode.usePixelAnchor()
+        gateNode.usePixelAnchor()
+        if map.lever != nil { decorLayer.addChild(leverNode) }
+        if map.gate != nil { decorLayer.addChild(gateNode) }
+
         for cell in map.obstacles {
             let variant = PixelNoise.value(cell.col, cell.row, seed: 3)
             let sprite = SKSpriteNode(texture: Art.obstacle(variant: variant, terrain: map.terrain))
@@ -199,6 +206,8 @@ final class GameScene: SKScene {
         for (portal, path) in portals {
             portal.position = newLayout.snappedWorldPoint(path.point(at: 1.0))
         }
+        if let lever = map.lever { leverNode.position = newLayout.snappedWorldPoint(lever.center) }
+        if let gate = map.gate { gateNode.position = newLayout.snappedWorldPoint(gate.center) }
         for (cell, sprite) in obstacleNodes {
             sprite.position = newLayout.snappedWorldPoint(cell.center) + CGPoint(x: 0, y: -7)
         }
@@ -234,6 +243,7 @@ final class GameScene: SKScene {
         for event in events { handle(event, layout: layout, now: currentTime) }
         syncTowers(layout, dt: gameDelta)
         syncCommander(layout, now: currentTime)
+        syncGate()
         syncEnemies(layout, dt: gameDelta)
         syncProjectiles(layout)
         updateOverlays(layout)
@@ -293,6 +303,15 @@ final class GameScene: SKScene {
             commanderRing.size = ring.size()
         }
         commanderRing.isHidden = !session.isCommanderSelected
+    }
+
+    /// Pulls the lever and bars the gate while the commander holds it, and darkens the shut road's arrows.
+    private func syncGate() {
+        guard let engine = session?.engine, map.lever != nil else { return }
+        let shut = engine.isGateShut
+        leverNode.texture = Art.lever(up: !shut)
+        gateNode.texture = Art.gate(shut: shut)
+        for chevron in chevrons[1] { chevron.alpha = shut ? 0.08 : 0.3 }
     }
 
     private func syncEnemies(_ layout: BoardLayout, dt: Double) {
