@@ -84,6 +84,8 @@ final class Tower {
     let id: Int
     let kind: TowerKind
     let cell: GridPoint
+    /// Built on a raised tile, which adds range.
+    let onHighGround: Bool
     /// Purchased tier on each upgrade path.
     private(set) var tiers: [Int] = Array(repeating: 0, count: UpgradeRules.pathCount)
     private(set) var stats: TowerStats
@@ -116,13 +118,15 @@ final class Tower {
     /// Knocked offline by an EMP.
     var disabledTimer: Double = 0
 
-    init(id: Int, kind: TowerKind, cell: GridPoint) {
+    init(id: Int, kind: TowerKind, cell: GridPoint, onHighGround: Bool) {
         self.id = id
         self.kind = kind
         self.cell = cell
+        self.onHighGround = onHighGround
         self.targeting = kind.defaultTargeting
         self.totalInvested = kind.cost
         self.stats = kind.baseStats
+        refreshStats()
     }
 
     var position: CGPoint { cell.center }
@@ -158,6 +162,7 @@ final class Tower {
 
     private func refreshStats() {
         stats = kind.stats(tiers: tiers)
+        if onHighGround { stats.range += 0.5 }
         for index in combos { HeroCatalog.combos[index].apply(kind, &stats) }
     }
 }

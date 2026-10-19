@@ -1279,8 +1279,13 @@ enum Art {
             portal.fillCircle(cx: 8, cy: 8, r: 5.2, Pal.plum)
             portal.fillCircle(cx: 8, cy: 8, r: 3.2, Pal.ink)
             portal.outline()
-            let entry = map.waypoints[0]
-            c.stamp(portal, x: max(0, entry.col + 1) * tilePixels, y: entry.row * tilePixels)
+            for route in map.routes {
+                // The first tile on the board, stepping in from the off-board start.
+                let step = GridPoint((route[1].col - route[0].col).signum(), (route[1].row - route[0].row).signum())
+                var entry = route[0]
+                while !map.contains(entry) { entry = GridPoint(entry.col + step.col, entry.row + step.row) }
+                c.stamp(portal, x: entry.col * tilePixels, y: entry.row * tilePixels)
+            }
             var crystal = PixelCanvas(map: SpriteMaps.coreCrystal).padded(1)
             crystal.outline()
             stampCentered(crystal, at: map.coreCell, bottomOffset: -2)
@@ -1303,6 +1308,7 @@ enum Art {
         for y in 0..<h {
             for x in 0..<w {
                 let n = PixelNoise.value(x, y, seed: 7)
+                let cell = GridPoint(x / tilePixels, y / tilePixels)
                 let onPath = isPath(x, y)
                 let edge = isPath(x - 1, y) != onPath || isPath(x + 1, y) != onPath
                     || isPath(x, y - 1) != onPath || isPath(x, y + 1) != onPath
@@ -1310,12 +1316,23 @@ enum Art {
                 if onPath {
                     color = colors.path
                     if n < 60 { color = colors.pathLight } else if n < 110 { color = colors.pathMid } else if n < 150 { color = colors.pathDark }
+                    if map.mud.contains(cell) {
+                        color = n < 150 ? Pal.clay : n < 450 ? Pal.plum : Pal.bark
+                    } else if map.ice.contains(cell) {
+                        color = n < 500 ? Pal.mist : n < 900 ? Pal.white : Pal.cyan
+                    }
                     if edge { color = colors.pathDark }
                 } else if isWater(x, y) {
                     color = n < 120 ? Pal.blue : n >= 985 ? Pal.cyan : Pal.ocean
                     if !isWater(x - 1, y) || !isWater(x + 1, y) || !isWater(x, y - 1) || !isWater(x, y + 1) { color = Pal.deepTeal }
+                } else if map.highGround.contains(cell) {
+                    // A raised tile: grass on top, a stone face below and a shadow on the right.
+                    let px = x % tilePixels, py = y % tilePixels
+                    color = n < 80 ? colors.groundA : colors.light
+                    if py == 0 { color = Pal.lime }
+                    if py >= tilePixels - 3 { color = n < 400 ? Pal.steel : Pal.silver }
+                    if py == tilePixels - 1 || px == tilePixels - 1 { color = Pal.slate }
                 } else {
-                    let cell = GridPoint(x / tilePixels, y / tilePixels)
                     color = (cell.col + cell.row) % 2 == 0 ? colors.groundA : colors.groundB
                     if n < 40 { color = colors.light } else if n < 85 { color = colors.dark }
                     if n >= 997 {
@@ -1327,6 +1344,7 @@ enum Art {
                     }
                     if edge { color = colors.dark }
                 }
+                if map.mist.contains(cell) && (x + y) % 2 == 0 { color = Pal.mist }
                 c.set(x, y, color)
             }
         }

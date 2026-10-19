@@ -262,13 +262,14 @@ struct MapSelectView: View {
                     let maps = MapDefinition.all.filter { $0.world == option }
                     let stars = maps.reduce(0) { $0 + PlayerProgress.bestStars(for: $1) }
                     let open = maps.contains(where: PlayerProgress.isUnlocked)
+                    let lock = option == .highlands ? "\(PlayerProgress.highlandsStars) STARS" : "LOCKED"
                     Button {
                         playTap()
                         world = option
                     } label: {
                         VStack(spacing: 3) {
                             PixelText("\(option.rawValue + 1). \(option.name)", pixel: 2, shadow: nil)
-                            PixelText(open ? "\(stars)/\(maps.count * 3) STARS" : "LOCKED", pixel: 1, shadow: nil)
+                            PixelText(open ? "\(stars)/\(maps.count * 3) STARS" : lock, pixel: 1, shadow: nil)
                         }
                     }
                     .buttonStyle(option == world ? PixelButtonStyle.gold
@@ -366,7 +367,11 @@ struct MapCard: View {
 
     private var lockMessage: String {
         guard let index = MapDefinition.all.firstIndex(of: map), index > 0 else { return "" }
-        return "BEAT \(MapDefinition.all[index - 1].name.uppercased()) TO UNLOCK"
+        let previous = MapDefinition.all[index - 1]
+        if map.world == .highlands && previous.world != .highlands {
+            return "\(PlayerProgress.campaignStars)/\(PlayerProgress.highlandsStars) STARS TO UNLOCK"
+        }
+        return "BEAT \(previous.name.uppercased()) TO UNLOCK"
     }
 }
 

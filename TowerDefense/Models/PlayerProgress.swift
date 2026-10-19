@@ -150,10 +150,20 @@ enum PlayerProgress {
 
     // MARK: Map unlocks and records
 
-    /// Maps unlock in order: beat the previous map to open the next.
+    /// The Highlands open once the other worlds hold this many stars.
+    static let highlandsStars = 30
+
+    /// Stars earned outside the Highlands.
+    static var campaignStars: Int {
+        MapDefinition.all.filter { $0.world != .highlands }.reduce(0) { $0 + bestStars(for: $1) }
+    }
+
+    /// Maps unlock in order: beat the previous map to open the next. The Highlands open with stars instead.
     static func isUnlocked(_ map: MapDefinition) -> Bool {
         guard let index = MapDefinition.all.firstIndex(of: map), index > 0 else { return true }
-        return bestStars(for: MapDefinition.all[index - 1]) > 0
+        let previous = MapDefinition.all[index - 1]
+        if map.world == .highlands && previous.world != .highlands { return campaignStars >= highlandsStars }
+        return bestStars(for: previous) > 0
     }
 
     static func bestEndlessWave(for map: MapDefinition) -> Int {

@@ -29,7 +29,8 @@ final class GameScene: SKScene {
     private let selectionNode = SKSpriteNode(texture: Art.bracket)
     private let coreCrystal = SKSpriteNode(texture: Art.coreCrystal)
     private let corePedestal = SKSpriteNode(texture: Art.corePedestal)
-    private let portal = SKSpriteNode(texture: Art.portalFrames[0])
+    /// One portal per route start.
+    private var portals: [(sprite: SKSpriteNode, path: PathGeometry)] = []
 
     private var towerNodes: [Int: TowerNode] = [:]
     private var enemyNodes: [Int: EnemyNode] = [:]
@@ -114,9 +115,13 @@ final class GameScene: SKScene {
         ])))
         decorLayer.addChild(corePedestal)
 
-        portal.usePixelAnchor()
-        portal.run(.repeatForever(.animate(with: Art.portalFrames, timePerFrame: 0.12)))
-        decorLayer.addChild(portal)
+        for path in paths where !portals.contains(where: { $0.path.points[0] == path.points[0] }) {
+            let portal = SKSpriteNode(texture: Art.portalFrames[0])
+            portal.usePixelAnchor()
+            portal.run(.repeatForever(.animate(with: Art.portalFrames, timePerFrame: 0.12)))
+            decorLayer.addChild(portal)
+            portals.append((portal, path))
+        }
 
         for cell in map.obstacles {
             let variant = PixelNoise.value(cell.col, cell.row, seed: 3)
@@ -183,7 +188,9 @@ final class GameScene: SKScene {
         boardSprite.zRotation = newLayout.rotated ? -.pi / 2 : 0
 
         corePedestal.position = newLayout.snappedWorldPoint(map.coreCell.center) + CGPoint(x: 0, y: -3)
-        portal.position = newLayout.snappedWorldPoint(paths[0].point(at: 1.0))
+        for (portal, path) in portals {
+            portal.position = newLayout.snappedWorldPoint(path.point(at: 1.0))
+        }
         for (cell, sprite) in obstacleNodes {
             sprite.position = newLayout.snappedWorldPoint(cell.center) + CGPoint(x: 0, y: -7)
         }
@@ -381,7 +388,8 @@ final class GameScene: SKScene {
             node.tint(state.pendingOK ? nil : Pal.red)
             world.addChild(node)
             ghost = node
-            showRange(kind.baseStats.range, color: state.pendingOK ? Pal.white : Pal.red, at: cell, layout: layout)
+            let range = kind.baseStats.range + (map.highGround.contains(cell) ? 0.5 : 0)
+            showRange(range, color: state.pendingOK ? Pal.white : Pal.red, at: cell, layout: layout)
         } else if let selected, let tower = session.engine.tower(id: selected.id) {
             showRange(selected.stats.range, color: Pal.towerLight(selected.kind), at: tower.cell, layout: layout)
             selectionNode.position = layout.snappedWorldPoint(tower.cell.center)
@@ -752,7 +760,7 @@ final class GameScene: SKScene {
             SoundEngine.shared.play(.waveClear)
 
         case let .earlyCallBonus(amount):
-            floatText("+\(amount)", color: Pal.yellow, at: portal.position + CGPoint(x: 0, y: 10))
+            floatText("+\(amount)", color: Pal.yellow, at: portals[0].sprite.position + CGPoint(x: 0, y: 10))
             SoundEngine.shared.play(.coin)
 
         case let .commanderAttack(kind, from, to):

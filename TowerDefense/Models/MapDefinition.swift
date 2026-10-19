@@ -17,7 +17,7 @@ enum Difficulty: String, CaseIterable, Codable {
 
 /// Campaign chapters. Each world groups its levels and brings its own villains.
 enum World: Int, CaseIterable, Identifiable {
-    case grassland, desert, swamp, snowfield, volcano, caves
+    case grassland, desert, swamp, snowfield, volcano, caves, highlands
 
     var id: Int { rawValue }
 
@@ -29,21 +29,22 @@ enum World: Int, CaseIterable, Identifiable {
         case .snowfield: "Snowfield"
         case .volcano: "Volcano"
         case .caves: "Crystal Caves"
+        case .highlands: "Highlands"
         }
     }
 }
 
 /// The look of a battlefield: ground and path colors and the decoration sprites.
 enum Terrain: String {
-    case grassland, desert, snowfield, volcanic, swamp, beach, caves
+    case grassland, desert, snowfield, volcanic, swamp, beach, caves, highlands
 }
 
 /// A battlefield layout: grid size, the enemy route and unbuildable decoration.
 ///
 /// The route is a list of axis-aligned waypoints. The first waypoint may sit just
 /// outside the grid so enemies walk in from the edge; the last one holds the crystal
-/// the player defends. Optional branches are extra routes with the same start and end
-/// that split off and rejoin; villains take turns between the routes.
+/// the player defends. Optional branches are extra routes to the same crystal that split
+/// off and rejoin, or come in from another edge; villains take turns between the routes.
 struct MapDefinition: Identifiable, Hashable {
     let id: String
     let name: String
@@ -59,6 +60,13 @@ struct MapDefinition: Identifiable, Hashable {
     let obstacles: Set<GridPoint>
     /// Water tiles: only naval heroes can be placed there.
     let water: Set<GridPoint>
+    /// Road tiles where villains walk slower (mud) or faster (ice).
+    let mud: Set<GridPoint>
+    let ice: Set<GridPoint>
+    /// Road tiles that hide villains from heroes that can't see cloaked ones.
+    let mist: Set<GridPoint>
+    /// Raised tiles that give the hero built there more range.
+    let highGround: Set<GridPoint>
     let startingGold: Int
     let startingLives: Int
     /// Generated waves for the level; nil plays the classic 20-wave campaign.
@@ -78,6 +86,10 @@ struct MapDefinition: Identifiable, Hashable {
         branches: [[GridPoint]] = [],
         obstacles: Set<GridPoint>,
         water: Set<GridPoint> = [],
+        mud: Set<GridPoint> = [],
+        ice: Set<GridPoint> = [],
+        mist: Set<GridPoint> = [],
+        highGround: Set<GridPoint> = [],
         startingGold: Int,
         startingLives: Int,
         wavePlan: WavePlan? = nil
@@ -94,6 +106,10 @@ struct MapDefinition: Identifiable, Hashable {
         self.routes = [waypoints] + branches
         self.obstacles = obstacles
         self.water = water
+        self.mud = mud
+        self.ice = ice
+        self.mist = mist
+        self.highGround = highGround
         self.startingGold = startingGold
         self.startingLives = startingLives
         self.wavePlan = wavePlan
@@ -523,6 +539,43 @@ extension MapDefinition {
         wavePlan: WavePlan(count: 15, villains: [.drone, .caveBat, .voidling, .crab, .warper, .gargoyle, .phantom, .hexer], boss: .overlord, healthScale: 1.85, midBoss: .titan)
     )
 
+    static let twinGates = MapDefinition(
+        id: "twingates",
+        name: "Twin Gates",
+        tagline: "Villains come through two gates. Heroes on raised tiles reach further.",
+        difficulty: .hard,
+        terrain: .highlands,
+        world: .highlands,
+        columns: 18,
+        rows: 10,
+        waypoints: points([(-1, 7), (4, 7), (4, 2), (8, 2), (8, 6), (13, 6), (13, 4), (16, 4)]),
+        branches: [points([(15, -1), (15, 2), (11, 2), (11, 6), (13, 6), (13, 4), (16, 4)])],
+        obstacles: Set(points([(3, 3), (9, 4), (12, 3), (14, 5), (6, 9), (0, 0), (17, 9)])),
+        highGround: Set(points([(2, 4), (10, 0), (16, 8)])),
+        startingGold: 340,
+        startingLives: 20,
+        wavePlan: WavePlan(count: 15, villains: [.drone, .runner, .sapper, .wisp, .brute, .pickpocket, .phantom], boss: .titan, healthScale: 1.7, midBoss: .titan)
+    )
+
+    static let mistmoor = MapDefinition(
+        id: "mistmoor",
+        name: "Mistmoor",
+        tagline: "Mist hides villains and mud slows them down.",
+        difficulty: .hard,
+        terrain: .highlands,
+        world: .highlands,
+        columns: 18,
+        rows: 10,
+        waypoints: points([(-1, 1), (14, 1), (14, 4), (3, 4), (3, 8), (16, 8), (16, 5)]),
+        obstacles: Set(points([(2, 2), (9, 2), (12, 6), (6, 6), (17, 0), (0, 9), (17, 9)])),
+        mud: Set(points([(13, 1), (14, 1), (14, 2), (14, 3), (14, 4), (13, 4), (3, 5), (3, 6), (3, 7), (3, 8), (4, 8)])),
+        mist: Set(points([(6, 4), (7, 4), (8, 4), (9, 4), (10, 4), (11, 4), (8, 8), (9, 8), (10, 8), (11, 8)])),
+        highGround: Set(points([(8, 6), (1, 6)])),
+        startingGold: 320,
+        startingLives: 20,
+        wavePlan: WavePlan(count: 15, villains: [.drone, .phantom, .sapper, .pickpocket, .medic, .chameleon, .mirage], boss: .dreadnought, healthScale: 1.75, midBoss: .titan)
+    )
+
     /// The Boss Rush event map. It isn't part of the campaign.
     static let arena = MapDefinition(
         id: "arena",
@@ -538,7 +591,7 @@ extension MapDefinition {
         startingLives: 10
     )
 
-    /// Every campaign level, world by world. Each one unlocks the next.
+    /// Every campaign level, world by world. Each one unlocks the next, except the Highlands, which open with stars.
     static let all: [MapDefinition] = [
         circuit, switchback, overload, meadow,
         dunes, oasis, canyon, lagoon,
@@ -546,6 +599,7 @@ extension MapDefinition {
         glacier, tundra, icefall, avalanche,
         caldera, ashlands, magmaFalls, infernoPeak,
         grotto, echoHall, crystalMine, deepCore,
+        twinGates, mistmoor,
     ]
 
     /// The map after this one in the campaign list, if any.

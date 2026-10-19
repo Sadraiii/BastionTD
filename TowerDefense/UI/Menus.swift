@@ -84,7 +84,8 @@ struct GameOverView: View {
     let outcome: GameOutcome
     let session: GameSession
     let onRestart: () -> Void
-    let onNextMap: (() -> Void)?
+    let nextMap: MapDefinition?
+    let onNextMap: (MapDefinition) -> Void
     let onQuit: () -> Void
     let onResearch: () -> Void
 
@@ -128,7 +129,10 @@ struct GameOverView: View {
 
                 if case .victory = outcome {
                     button("ENDLESS MODE", style: .gold, action: session.continueEndless)
-                    if let onNextMap { button("NEXT MAP", style: .primary, action: onNextMap) }
+                    // The Highlands open by stars, so beating Deep Core may not open the next map.
+                    if let next = nextMap, PlayerProgress.isUnlocked(next) {
+                        button("NEXT MAP", style: .primary) { onNextMap(next) }
+                    }
                 } else {
                     button("TRY AGAIN", style: .primary, action: onRestart)
                 }

@@ -235,7 +235,7 @@ final class GameEngine {
     func build(_ kind: TowerKind, at cell: GridPoint) -> Tower? {
         guard !phase.isOver, placementCheck(kind, at: cell) == .ok else { return nil }
         gold -= kind.cost
-        let tower = Tower(id: makeID(), kind: kind, cell: cell)
+        let tower = Tower(id: makeID(), kind: kind, cell: cell, onHighGround: map.highGround.contains(cell))
         towers.append(tower)
         towersByCell[cell] = tower
         stats.towersBuilt += 1
@@ -653,9 +653,15 @@ final class GameEngine {
         setup.modifiers.contains(.noBreaks) ? 4 : Self.intermissionDuration
     }
 
-    /// Tiles per second, including the Fast Villains modifier.
+    /// Tiles per second, including the Fast Villains modifier and mud or ice under ground villains.
     private func speed(of enemy: Enemy) -> Double {
-        enemy.currentSpeed * (setup.modifiers.contains(.fastVillains) ? 1.5 : 1)
+        let cell = tile(of: enemy)
+        let ground: Double = enemy.kind.isFlying ? 1 : map.mud.contains(cell) ? 0.65 : map.ice.contains(cell) ? 1.4 : 1
+        return enemy.currentSpeed * (setup.modifiers.contains(.fastVillains) ? 1.5 : 1) * ground
+    }
+
+    private func tile(of enemy: Enemy) -> GridPoint {
+        GridPoint(Int(enemy.position.x.rounded(.down)), Int(enemy.position.y.rounded(.down)))
     }
 
     /// Later worlds' extra villain health, building up over the level.
@@ -680,6 +686,7 @@ final class GameEngine {
         for enemy in enemies where !enemy.isResolved {
             if enemy.hitFlash > 0 { enemy.hitFlash -= dt }
             if enemy.cloakTimer > 0 { enemy.cloakTimer -= dt }
+            if !enemy.kind.isBoss && map.mist.contains(tile(of: enemy)) { enemy.cloakTimer = max(enemy.cloakTimer, 0.2) }
             if enemy.slowTimer > 0 {
                 enemy.slowTimer -= dt
                 if enemy.slowTimer <= 0 { enemy.slowAmount = 0 }

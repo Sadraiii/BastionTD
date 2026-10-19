@@ -6,7 +6,8 @@ import SwiftUI
 struct GameView: View {
     let session: GameSession
     let onRestart: () -> Void
-    let onNextMap: (() -> Void)?
+    let nextMap: MapDefinition?
+    let onNextMap: (MapDefinition) -> Void
     let onQuit: () -> Void
     let onResearch: () -> Void
     let onHowToPlay: () -> Void
@@ -86,6 +87,7 @@ struct GameView: View {
                 outcome: outcome,
                 session: session,
                 onRestart: onRestart,
+                nextMap: nextMap,
                 onNextMap: onNextMap,
                 onQuit: onQuit,
                 onResearch: onResearch

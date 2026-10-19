@@ -826,6 +826,7 @@ enum SpriteMaps {
         case .swamp: [deadTree(bark: "D", light: "d"), mossRock]
         case .beach: [palm, beachRock]
         case .caves: [crystals, stalagmite]
+        case .highlands: [standingStone, heather]
         }
     }
 
@@ -899,6 +900,34 @@ enum SpriteMaps {
         ".LeeLLLLdd..",
         ".LLLLLLddd..",
         "..dddddddd..",
+    ]
+
+    static let standingStone = [
+        ".....s......",
+        "....sws.....",
+        "....swSn....",
+        "...swwSn....",
+        "...swSSn....",
+        "...swSSSn...",
+        "...swSgSn...",
+        "...sSghSn...",
+        "..swSSSSn...",
+        "..swSSSSnn..",
+        "..sSSSSSSn..",
+        "..swSSSgSn..",
+        ".hnnnnnnnnh.",
+    ]
+
+    static let heather = [
+        "....f..f....",
+        "..fPpfPPf...",
+        ".PPpPPpPPPp.",
+        "fPpPPpPPpPPp",
+        "PPpPpPPpPpPp",
+        "pPgpPpgPpgpp",
+        "gpghgpghgphg",
+        ".hghhghhghh.",
+        "..hhhhhhhh..",
     ]
 
     static let pine = [

@@ -17,7 +17,8 @@ struct RootView: View {
                 GameView(
                     session: session,
                     onRestart: { start(session.map, session.setup) },
-                    onNextMap: session.setup.isEvent ? nil : session.map.next.map { next in { start(next, session.setup) } },
+                    nextMap: session.setup.isEvent ? nil : session.map.next,
+                    onNextMap: { start($0, session.setup) },
                     onQuit: { quit(to: .home) },
                     onResearch: { quit(to: .research) },
                     onHowToPlay: { showOnboarding = true }
