@@ -1,10 +1,17 @@
 import SwiftUI
 
-/// Reference screen: every villain's traits and every hero's damage type and powers.
-/// Helps players pick the right heroes for flyers, cloaked foes and immunities.
+/// Reference screen: every villain's traits, every hero's damage type and powers, and the
+/// hero combos found so far. Helps players pick the right heroes for flyers, cloaked foes and immunities.
 struct CodexView: View {
     let onBack: () -> Void
-    @State private var showHeroes = false
+    @State private var page = Page.villains
+
+    /// The top-right button names the page it opens next.
+    private enum Page: String {
+        case villains = "VILLAINS", heroes = "HEROES", combos = "COMBOS"
+
+        var next: Page { self == .villains ? .heroes : self == .heroes ? .combos : .villains }
+    }
 
     var body: some View {
         VStack(spacing: 10) {
@@ -21,9 +28,9 @@ struct CodexView: View {
                 Spacer()
                 Button {
                     playTap()
-                    showHeroes.toggle()
+                    page = page.next
                 } label: {
-                    PixelText(showHeroes ? "VILLAINS" : "HEROES", pixel: 2, shadow: nil)
+                    PixelText(page.next.rawValue, pixel: 2, shadow: nil)
                 }
                 .buttonStyle(PixelButtonStyle.blue)
             }
@@ -31,10 +38,14 @@ struct CodexView: View {
 
             ScrollView(.vertical, showsIndicators: false) {
                 LazyVGrid(columns: [GridItem(.adaptive(minimum: 300), spacing: 10)], spacing: 10) {
-                    if showHeroes {
-                        ForEach(TowerKind.allCases) { heroRow($0) }
-                    } else {
+                    switch page {
+                    case .villains:
                         ForEach(EnemyKind.codex, id: \.self) { villainRow($0) }
+                    case .heroes:
+                        ForEach(TowerKind.allCases) { heroRow($0) }
+                    case .combos:
+                        let found = PlayerProgress.discoveredCombos
+                        ForEach(HeroCatalog.combos, id: \.name) { comboRow($0, found: found.contains($0.name)) }
                     }
                 }
                 .padding(16)
@@ -95,6 +106,35 @@ struct CodexView: View {
                     .fixedSize(horizontal: false, vertical: true)
                 if !kind.baseStats.hitsAir {
                     Text("CAN'T HIT FLYERS").font(Theme.body(9)).foregroundStyle(Theme.danger)
+                }
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(12)
+        .pixelPanel()
+        .accessibilityElement(children: .combine)
+    }
+
+    /// A combo stays "???" until it has been formed in a match.
+    private func comboRow(_ combo: HeroCombo, found: Bool) -> some View {
+        HStack(alignment: .top, spacing: 12) {
+            HStack(spacing: 4) {
+                PixelImage(image: Art.towerIcon(combo.first), scale: 2)
+                if found { PixelImage(image: Art.towerIcon(combo.second), scale: 2) }
+            }
+            .frame(width: 68, alignment: .leading)
+            VStack(alignment: .leading, spacing: 4) {
+                Text(found ? combo.name.uppercased() : "???")
+                    .font(Theme.body(12))
+                    .foregroundStyle(found ? Theme.highlight : Theme.secondaryText)
+                Text("\(combo.first.name.uppercased()) + \(found ? combo.second.name.uppercased() : "???")")
+                    .font(Theme.body(9))
+                    .foregroundStyle(Theme.secondaryText)
+                if found {
+                    Text(combo.detail)
+                        .font(Theme.body(10, weight: .regular))
+                        .foregroundStyle(Theme.secondaryText)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
             }
             Spacer(minLength: 0)

@@ -81,6 +81,8 @@ final class Tower {
     private(set) var tiers: [Int] = Array(repeating: 0, count: UpgradeRules.pathCount)
     private(set) var stats: TowerStats
     private(set) var power: PowerDefinition?
+    /// Indices into `HeroCatalog.combos` formed with heroes on touching tiles.
+    private(set) var combos: [Int] = []
     var targeting: TargetingMode
     var cooldown: Double = 0
     /// Logical direction the turret faces.
@@ -134,8 +136,18 @@ final class Tower {
 
     func advance(path: Int) {
         tiers[path] += 1
-        stats = kind.stats(tiers: tiers)
+        refreshStats()
         power = kind.power(tiers: tiers)
+    }
+
+    func setCombos(_ list: [Int]) {
+        combos = list
+        refreshStats()
+    }
+
+    private func refreshStats() {
+        stats = kind.stats(tiers: tiers)
+        for index in combos { HeroCatalog.combos[index].apply(kind, &stats) }
     }
 }
 

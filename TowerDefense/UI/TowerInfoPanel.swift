@@ -49,6 +49,14 @@ struct TowerInfoPanel: View {
         return parts.joined(separator: " · ")
     }
 
+    private var subtitle: String {
+        if tower.isDisabled { return "EMP: OFFLINE!" }
+        if let combo = tower.combos.first {
+            return "COMBO: \(combo.uppercased())" + (tower.combos.count > 1 ? " +\(tower.combos.count - 1)" : "")
+        }
+        return "\(tower.stats.damageType.title.uppercased()) · \(tower.kind.archetype.uppercased()) · \(tower.kills) KO"
+    }
+
     private var header: some View {
         HStack(spacing: 8) {
             PixelImage(image: Art.towerIcon(tower.kind, tiers: tower.tiers), scale: 2)
@@ -58,10 +66,11 @@ struct TowerInfoPanel: View {
                     .foregroundStyle(Theme.tower(tower.kind))
                     .lineLimit(1)
                     .minimumScaleFactor(0.7)
-                Text(tower.isDisabled ? "EMP: OFFLINE!" : "\(tower.stats.damageType.title.uppercased()) · \(tower.kind.archetype.uppercased()) · \(tower.kills) KO")
+                Text(subtitle)
                     .font(Theme.body(9, weight: .regular))
-                    .foregroundStyle(tower.isDisabled ? Theme.danger : Theme.secondaryText)
+                    .foregroundStyle(tower.isDisabled ? Theme.danger : tower.combos.isEmpty ? Theme.secondaryText : Theme.highlight)
                     .lineLimit(1)
+                    .minimumScaleFactor(0.7)
             }
             Spacer(minLength: 0)
             if compact { sellButton }

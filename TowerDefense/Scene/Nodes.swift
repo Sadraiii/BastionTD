@@ -21,6 +21,8 @@ final class TowerNode: SKNode {
     private let base: SKSpriteNode
     private let turret: SKSpriteNode
     private let badge = SKSpriteNode(texture: Art.powerReady)
+    /// Yellow pip in the corner while the hero is part of a combo.
+    private let comboPip = SKSpriteNode(color: Pal.ink.uiColor, size: CGSize(width: 4, height: 4))
     private var displayedAngle: CGFloat = .pi / 2
     private var targetAngle: CGFloat = .pi / 2
     private var state = VisualState.normal
@@ -44,9 +46,18 @@ final class TowerNode: SKNode {
             .moveBy(x: 0, y: 1, duration: 0), .wait(forDuration: 0.3),
             .moveBy(x: 0, y: -1, duration: 0), .wait(forDuration: 0.3),
         ])))
+        comboPip.anchorPoint = .zero
+        comboPip.position = CGPoint(x: -8, y: 4)
+        comboPip.zPosition = 3
+        comboPip.isHidden = true
+        let fill = SKSpriteNode(color: Pal.yellow.uiColor, size: CGSize(width: 2, height: 2))
+        fill.anchorPoint = .zero
+        fill.position = CGPoint(x: 1, y: 1)
+        comboPip.addChild(fill)
         addChild(base)
         addChild(turret)
         addChild(badge)
+        addChild(comboPip)
     }
 
     @available(*, unavailable)
@@ -70,6 +81,7 @@ final class TowerNode: SKNode {
 
     func update(tower: Tower, aimAngle: CGFloat, dt: Double) {
         badge.isHidden = !tower.isPowerReady
+        comboPip.isHidden = tower.combos.isEmpty
         let newState: VisualState = tower.isDisabled ? .disabled : (tower.isFrenzied || tower.isRallied) ? .frenzied : .normal
         if newState != state {
             state = newState

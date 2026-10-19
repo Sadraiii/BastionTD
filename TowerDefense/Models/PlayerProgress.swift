@@ -17,6 +17,7 @@ enum StorageKey {
     static func bestEndless(_ mapID: String) -> String { "progress.endless.\(mapID)" }
     static func daily(_ day: Int) -> String { "progress.daily.\(day)" }
     static let bossRush = "progress.bossRush"
+    static let combos = "progress.combos"
 }
 
 /// Persistent settings and campaign progress.
@@ -203,5 +204,19 @@ enum PlayerProgress {
         defaults.set(Array(earned), forKey: StorageKey.medals)
         researchPoints += fresh.reduce(0) { $0 + $1.reward }
         return fresh
+    }
+
+    // MARK: Combos
+
+    static var discoveredCombos: Set<String> {
+        Set(defaults.stringArray(forKey: StorageKey.combos) ?? [])
+    }
+
+    /// Remembers a combo for the Codex. Returns true the first time it is found.
+    static func discoverCombo(_ name: String) -> Bool {
+        var found = discoveredCombos
+        guard found.insert(name).inserted else { return false }
+        defaults.set(Array(found), forKey: StorageKey.combos)
+        return true
     }
 }

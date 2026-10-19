@@ -240,6 +240,7 @@ final class GameEngine {
         towersByCell[cell] = tower
         stats.towersBuilt += 1
         events.append(.towerBuilt(towerID: tower.id, kind: kind, cell: cell))
+        refreshCombos()
         return tower
     }
 
@@ -263,6 +264,7 @@ final class GameEngine {
         let refund = tower.sellValue
         gold += refund
         events.append(.towerSold(towerID: tower.id, cell: tower.cell, refund: refund))
+        refreshCombos()
         return refund
     }
 
@@ -806,6 +808,27 @@ final class GameEngine {
     }
 
     // MARK: Towers
+
+    private static let neighbors = [(-1, -1), (0, -1), (1, -1), (-1, 0), (1, 0), (-1, 1), (0, 1), (1, 1)]
+
+    /// Gives every hero the combos it forms with heroes on the eight tiles around it.
+    private func refreshCombos() {
+        for tower in towers {
+            var list: [Int] = []
+            for (dc, dr) in Self.neighbors {
+                guard let other = towersByCell[GridPoint(tower.cell.col + dc, tower.cell.row + dr)],
+                      let index = HeroCatalog.comboIndex(tower.kind, other.kind) else { continue }
+                if !list.contains(index) { list.append(index) }
+                // Announced once per pair, from the first hero's side. A new pair always has the hero just built,
+                // which is last in `towers`, so its combos are still empty here.
+                if HeroCatalog.combos[index].first == tower.kind && !(tower.combos.contains(index) && other.combos.contains(index)) {
+                    events.append(.comboFormed(name: HeroCatalog.combos[index].name, first: tower.position, second: other.position))
+                }
+            }
+            list.sort()
+            if list != tower.combos { tower.setCombos(list) }
+        }
+    }
 
     /// Detection from sonar/spider-sense and attack buffs from Aegis auras.
     private func refreshSupport() {

@@ -44,6 +44,7 @@ struct TowerSnapshot: Equatable {
     let targeting: TargetingMode
     let kills: Int
     let isDisabled: Bool
+    let combos: [String]
 }
 
 struct SkillSnapshot: Equatable {
@@ -107,7 +108,7 @@ struct RunRewards: Equatable {
 /// The engine is deterministic, so replaying them rebuilds the exact same battlefield.
 struct SavedMatch: Codable {
     /// Raised whenever a change would make older saves replay differently, so those aren't offered for resume.
-    static let currentRules = 2
+    static let currentRules = 3
 
     enum Command: Codable {
         case build(TowerKind, GridPoint)
@@ -336,6 +337,8 @@ final class GameSession {
                 highestTier = max(highestTier, tier)
             case let .powerActivated(_, _, name), let .commanderSkill(_, name, _, _):
                 showToast(name.uppercased() + "!")
+            case let .comboFormed(name, _, _):
+                if PlayerProgress.discoverCombo(name) { showToast("NEW COMBO: \(name.uppercased())") }
             case .victory:
                 victoryStars = Self.stars(lives: engine.lives, starting: engine.startingLives)
                 if !setup.isEvent { PlayerProgress.recordVictory(on: map, stars: victoryStars) }
@@ -509,7 +512,7 @@ final class GameSession {
         return TowerSnapshot(
             id: tower.id, kind: tower.kind, tiers: tower.tiers, stats: tower.stats, paths: paths,
             power: power, sellValue: tower.sellValue, targeting: tower.targeting,
-            kills: tower.kills, isDisabled: tower.isDisabled
+            kills: tower.kills, isDisabled: tower.isDisabled, combos: tower.combos.map { HeroCatalog.combos[$0].name }
         )
     }
 

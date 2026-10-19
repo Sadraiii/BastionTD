@@ -11,6 +11,7 @@ enum GameEvent {
     case towerUpgraded(towerID: Int, path: Int, tier: Int)
     case towerSold(towerID: Int, cell: GridPoint, refund: Int)
     case towerIncome(towerID: Int, at: CGPoint, amount: Int)
+    case comboFormed(name: String, first: CGPoint, second: CGPoint)
 
     case shotFired(towerID: Int, kind: TowerKind)
     case auraPulse(towerID: Int, center: CGPoint, radius: CGFloat)

@@ -48,6 +48,16 @@ struct UpgradePath {
     let tiers: [UpgradeTier]
 }
 
+/// Two heroes on touching tiles (corners count) that boost each other.
+struct HeroCombo {
+    let name: String
+    let detail: String
+    let first: TowerKind
+    let second: TowerKind
+    /// Applied to each of the two heroes with its own kind.
+    let apply: (TowerKind, inout TowerStats) -> Void
+}
+
 /// Upgrade paths and powers for every hero. Each path has four tiers; tier 3
 /// grants an active power and tier 4 empowers it.
 enum HeroCatalog {
@@ -878,4 +888,75 @@ enum HeroCatalog {
             },
         ]),
     ]
+
+    // MARK: Combos
+
+    static let combos: [HeroCombo] = [
+        HeroCombo(name: "Thermal Shock", detail: "Both strip 2 armor per hit.", first: .frost, second: .inferno) { _, stats in
+            stats.armorShred = max(stats.armorShred, 2)
+        },
+        HeroCombo(name: "Superconductor", detail: "Stormbringer chains to 2 more villains. Glacia gets +3 damage.",
+                  first: .frost, second: .tesla) { kind, stats in
+            if kind == .tesla { stats.chainTargets += 2 } else { stats.damage += 3 }
+        },
+        HeroCombo(name: "Live Wire", detail: "Stormbringer chains to 1 more villain. Riptide's torpedoes can stun.",
+                  first: .tesla, second: .tide) { kind, stats in
+            if kind == .tesla {
+                stats.chainTargets += 1
+            } else {
+                stats.stunChance = max(stats.stunChance, 0.1)
+                stats.stunDuration = max(stats.stunDuration, 0.5)
+            }
+        },
+        HeroCombo(name: "Acid Shells", detail: "Quake's shells poison. Vial's flasks splash wider.", first: .mortar, second: .alchemist) { kind, stats in
+            if kind == .mortar {
+                stats.poisonDPS = max(stats.poisonDPS, 8)
+                stats.poisonDuration = max(stats.poisonDuration, 3)
+            } else {
+                stats.splashRadius += 0.2
+            }
+        },
+        HeroCombo(name: "Crossfire", detail: "Both get +2 damage and hit one more villain per shot.", first: .pulse, second: .aegis) { _, stats in
+            stats.pierce += 1
+            stats.damage += 2
+        },
+        HeroCombo(name: "Eagle Eye", detail: "Both reach further. Hawkeye sees cloaked villains.", first: .rail, second: .sniper) { kind, stats in
+            stats.range += 0.6
+            if kind == .sniper { stats.detectsCamo = true }
+        },
+        HeroCombo(name: "Venom Web", detail: "Weaver's webs poison. Vial's flasks slow.", first: .weaver, second: .alchemist) { kind, stats in
+            if kind == .weaver {
+                stats.poisonDPS = max(stats.poisonDPS, 6)
+                stats.poisonDuration = max(stats.poisonDuration, 3)
+            } else {
+                stats.slow = max(stats.slow, 0.2)
+                stats.slowDuration = max(stats.slowDuration, 1)
+            }
+        },
+        HeroCombo(name: "Brainquake", detail: "Echo's scream can confuse. Mindwave reaches further.", first: .echo, second: .mind) { kind, stats in
+            if kind == .echo {
+                stats.confuseChance += 0.1
+                stats.confuseDuration = max(stats.confuseDuration, 1)
+            } else {
+                stats.range += 0.4
+            }
+        },
+        HeroCombo(name: "Fire Tornado", detail: "Inferno's flames reach wider and further. Cyclone's blades burn.",
+                  first: .inferno, second: .cyclone) { kind, stats in
+            if kind == .inferno {
+                stats.coneAngle += 0.4
+                stats.range += 0.3
+            } else {
+                stats.burnDPS = max(stats.burnDPS, 4)
+                stats.burnDuration = max(stats.burnDuration, 2)
+            }
+        },
+        HeroCombo(name: "Long Night", detail: "Starlight hits bosses 25% harder. Chrono slows more.", first: .chrono, second: .star) { kind, stats in
+            if kind == .star { stats.bossMultiplier *= 1.25 } else { stats.slow += 0.1 }
+        },
+    ]
+
+    static func comboIndex(_ a: TowerKind, _ b: TowerKind) -> Int? {
+        combos.firstIndex { ($0.first == a && $0.second == b) || ($0.first == b && $0.second == a) }
+    }
 }

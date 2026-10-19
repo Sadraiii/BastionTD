@@ -524,6 +524,11 @@ final class GameScene: SKScene {
             playFrames(Art.sparkleFrames, at: toWorld(at), timePerFrame: 0.08)
             SoundEngine.shared.play(.sell)
 
+        case let .comboFormed(name, first, second):
+            playFrames(Art.sparkleFrames, at: toWorld(first), timePerFrame: 0.08)
+            playFrames(Art.sparkleFrames, at: toWorld(second), timePerFrame: 0.08)
+            floatText(name.uppercased(), color: Pal.yellow, at: toWorld(first.lerp(to: second, 0.5)) + CGPoint(x: 0, y: 14))
+
         case let .towerSold(id, cell, refund):
             towerNodes[id]?.removeFromParent()
             towerNodes[id] = nil
