@@ -243,7 +243,7 @@ extension MapDefinition {
         obstacles: Set(points([(0, 11), (19, 0), (10, 2), (8, 5), (12, 9), (3, 8), (19, 11)])),
         startingGold: 220,
         startingLives: 15,
-        wavePlan: WavePlan(count: 18, villains: [.drone, .pyrefiend, .berserker, .magmaGolem, .voidling, .gargoyle], boss: .overlord, healthScale: 1.45, midBoss: .dreadnought)
+        wavePlan: WavePlan(count: 18, villains: [.drone, .pyrefiend, .berserker, .magmaGolem, .voidling, .gargoyle], boss: .overlord, healthScale: 1.45, midBoss: .titan)
     )
 
     static let harbor = MapDefinition(
@@ -455,7 +455,7 @@ extension MapDefinition {
         obstacles: Set(points([(0, 0), (19, 0), (19, 11), (9, 5), (3, 4)])),
         startingGold: 320,
         startingLives: 15,
-        wavePlan: WavePlan(count: 15, villains: [.drone, .pyrefiend, .berserker, .blastguard, .magmaGolem, .voidling, .gargoyle], boss: .overlord, healthScale: 1.6, midBoss: .dreadnought)
+        wavePlan: WavePlan(count: 15, villains: [.drone, .pyrefiend, .berserker, .blastguard, .magmaGolem, .voidling, .gargoyle], boss: .overlord, healthScale: 1.6, midBoss: .titan)
     )
 
     static let grotto = MapDefinition(
@@ -504,7 +504,7 @@ extension MapDefinition {
         obstacles: Set(points([(2, 5), (8, 5), (12, 6), (17, 4), (0, 11), (19, 0), (3, 9)])),
         startingGold: 340,
         startingLives: 20,
-        wavePlan: WavePlan(count: 15, villains: [.drone, .caveBat, .voidling, .crab, .warper, .gargoyle, .phantom, .hexer, .chameleon], boss: .overlord, healthScale: 1.75, midBoss: .dreadnought)
+        wavePlan: WavePlan(count: 15, villains: [.drone, .caveBat, .voidling, .crab, .warper, .gargoyle, .phantom, .hexer, .chameleon], boss: .overlord, healthScale: 1.75, midBoss: .titan)
     )
 
     static let deepCore = MapDefinition(
@@ -520,7 +520,7 @@ extension MapDefinition {
         obstacles: Set(points([(0, 0), (0, 11), (19, 0), (19, 11), (9, 9)])),
         startingGold: 340,
         startingLives: 15,
-        wavePlan: WavePlan(count: 15, villains: [.drone, .caveBat, .voidling, .crab, .warper, .gargoyle, .phantom, .hexer], boss: .overlord, healthScale: 1.85, midBoss: .dreadnought)
+        wavePlan: WavePlan(count: 15, villains: [.drone, .caveBat, .voidling, .crab, .warper, .gargoyle, .phantom, .hexer], boss: .overlord, healthScale: 1.85, midBoss: .titan)
     )
 
     /// The Boss Rush event map. It isn't part of the campaign.
