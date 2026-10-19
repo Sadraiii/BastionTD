@@ -83,6 +83,7 @@ enum HeroCatalog {
         case .alchemist: vial
         case .siren: siren
         case .bramble: bramble
+        case .omen: omen
         }
     }
 
@@ -978,6 +979,48 @@ enum HeroCatalog {
         ]),
     ]
 
+    // MARK: Omen - seer
+
+    private static let omen: [UpgradePath] = [
+        UpgradePath(name: "Doom", tiers: [
+            UpgradeTier(name: "Dark Sign", detail: "Marked villains take 30% more damage.", cost: 80, research: 0) {
+                $0.mark = 0.3
+            },
+            UpgradeTier(name: "Long Shadow", detail: "Marks last 5 seconds.", cost: 140, research: 4) {
+                $0.markDuration = 5
+            },
+            UpgradeTier(name: "Expose", detail: "POWER: strip cloaks, shields and armor.", cost: 280, research: 10,
+                        power: power("Expose", "Reveal cloaked villains and strip shields and armor in range.", cooldown: 30,
+                                     .strip(damage: 60, rangeScale: 1.4))) {
+                $0.range += 0.3
+            },
+            UpgradeTier(name: "Doom", detail: "Marked villains take 45% more damage. A huge Expose.", cost: 750, research: 20,
+                        power: power("Doom", "Strip every villain's defenses in a huge area and hit them hard.", cooldown: 30,
+                                     .strip(damage: 300, rangeScale: 2))) {
+                $0.mark = 0.45
+            },
+        ]),
+        UpgradePath(name: "Hex", tiers: [
+            UpgradeTier(name: "Twin Hex", detail: "Marks two villains at once.", cost: 90, research: 0) {
+                $0.multishot = 2
+            },
+            UpgradeTier(name: "Far Sight", detail: "More range.", cost: 130, research: 4) {
+                $0.range += 0.6
+            },
+            UpgradeTier(name: "Hex Field", detail: "POWER: a hex that slows and hurts. Marks three villains.", cost: 260, research: 10,
+                        power: power("Hex Field", "5-second hex: psychic damage and a 50% slow.", cooldown: 30,
+                                     .field(duration: 5, dps: 30, slow: 0.5, rangeScale: 1.2, type: .psychic))) {
+                $0.multishot = 3
+            },
+            UpgradeTier(name: "Curse Ring", detail: "Four marks, +6 damage. Hex Field lasts 7s.", cost: 720, research: 20,
+                        power: power("Curse Ring", "7-second hex: heavy psychic damage and a 60% slow.", cooldown: 30,
+                                     .field(duration: 7, dps: 100, slow: 0.6, rangeScale: 1.5, type: .psychic))) {
+                $0.multishot = 4
+                $0.damage += 6
+            },
+        ]),
+    ]
+
     // MARK: Combos
 
     static let combos: [HeroCombo] = [
@@ -1055,6 +1098,10 @@ enum HeroCatalog {
             } else {
                 stats.range += 0.3
             }
+        },
+        HeroCombo(name: "Marked Target", detail: "Hawkeye hits 20% harder. Omen's marks last a second longer.",
+                  first: .omen, second: .sniper) { kind, stats in
+            if kind == .sniper { stats.damage *= 1.2 } else { stats.markDuration += 1 }
         },
     ]
 

@@ -560,7 +560,7 @@ final class GameScene: SKScene {
             case .rail, .star, .sniper: SoundEngine.shared.play(.rail)
             case .inferno: SoundEngine.shared.play(.flame)
             case .echo, .siren: SoundEngine.shared.play(.scream)
-            case .mind: SoundEngine.shared.play(.psychic)
+            case .mind, .omen: SoundEngine.shared.play(.psychic)
             case .frost: SoundEngine.shared.play(.frost)
             case .chrono, .midas: SoundEngine.shared.play(.tick)
             }

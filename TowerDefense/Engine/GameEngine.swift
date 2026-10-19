@@ -688,6 +688,10 @@ final class GameEngine {
                 enemy.armorShredTimer -= dt
                 if enemy.armorShredTimer <= 0 { enemy.armorShred = 0 }
             }
+            if enemy.markTimer > 0 {
+                enemy.markTimer -= dt
+                if enemy.markTimer <= 0 { enemy.markAmount = 0 }
+            }
             tickDamageOverTime(enemy, dt)
             if enemy.isResolved { continue }
             if enemy.stoneTimer > 0 {
@@ -998,7 +1002,7 @@ final class GameEngine {
             slow: s.slow, slowDuration: s.slowDuration, burnDPS: s.burnDPS, burnDuration: s.burnDuration,
             poisonDPS: s.poisonDPS, poisonDuration: s.poisonDuration, knockback: s.knockback,
             confuseChance: s.confuseChance, confuseDuration: s.confuseDuration,
-            armorShred: s.armorShred, shieldBreak: s.shieldBreak
+            armorShred: s.armorShred, shieldBreak: s.shieldBreak, mark: s.mark, markDuration: s.markDuration
         )
     }
 
@@ -1266,12 +1270,17 @@ final class GameEngine {
             enemy.armorShred = max(enemy.armorShred, hit.armorShred)
             enemy.armorShredTimer = max(enemy.armorShredTimer, 4)
         }
+        if hit.mark > 0 {
+            enemy.markAmount = max(enemy.markAmount, hit.mark)
+            enemy.markTimer = max(enemy.markTimer, hit.markDuration)
+        }
 
         let psychic = hit.type == .psychic
         var dealt = hit.piercesArmor || psychic ? hit.damage : max(hit.damage - enemy.effectiveArmor, hit.damage * 0.25)
         if enemy.kind.weaknesses.contains(hit.type) { dealt *= Self.weaknessMultiplier }
         if enemy.kind.isBoss { dealt *= hit.bossMultiplier }
         if enemy.kind.isFlying { dealt *= hit.airMultiplier }
+        if enemy.isMarked { dealt *= 1 + enemy.markAmount }
         if enemy.shield > 0 && !psychic {
             let shieldDamage = dealt * hit.shieldBreak
             let absorbed = min(enemy.shield, shieldDamage)

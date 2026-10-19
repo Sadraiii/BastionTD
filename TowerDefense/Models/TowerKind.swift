@@ -77,6 +77,9 @@ struct TowerStats: Equatable {
     var income: Int = 0
     /// Extra damage for every wave the hero survives, up to 20 waves.
     var growth: Double = 0
+    /// Villains hit take this much more damage from everyone for `markDuration`.
+    var mark: Double = 0
+    var markDuration: Double = 0
 
     var shotsPerSecond: Double { 1 / fireInterval }
 }
@@ -86,7 +89,7 @@ struct TowerStats: Equatable {
 enum TowerKind: String, CaseIterable, Codable, Identifiable {
     case pulse, frost, mortar, tesla, rail
     case inferno, weaver, aegis, cyclone, echo, mind, chrono, star, midas, tide
-    case sniper, tamer, alchemist, siren, bramble
+    case sniper, tamer, alchemist, siren, bramble, omen
 
     var id: String { rawValue }
 
@@ -113,6 +116,7 @@ enum TowerKind: String, CaseIterable, Codable, Identifiable {
         case .alchemist: "Vial"
         case .siren: "Siren"
         case .bramble: "Bramble"
+        case .omen: "Omen"
         }
     }
 
@@ -147,6 +151,7 @@ enum TowerKind: String, CaseIterable, Codable, Identifiable {
         case .alchemist: "Alchemist"
         case .siren: "Sea Singer"
         case .bramble: "Thorn Bush"
+        case .omen: "Seer"
         }
     }
 
@@ -173,6 +178,7 @@ enum TowerKind: String, CaseIterable, Codable, Identifiable {
         case .alchemist: "Acid flasks that poison and melt armor."
         case .siren: "Turns villains around and cracks shields. Goes on water."
         case .bramble: "Grows stronger every wave it stays on the field."
+        case .omen: "Marks villains so every hero hits them harder. Husks can't be marked."
         }
     }
 
@@ -184,7 +190,7 @@ enum TowerKind: String, CaseIterable, Codable, Identifiable {
         case .tesla: .chain
         case .rail, .star: .beam
         case .inferno, .echo, .siren: .cone
-        case .mind: .mind
+        case .mind, .omen: .mind
         }
     }
 
@@ -210,6 +216,7 @@ enum TowerKind: String, CaseIterable, Codable, Identifiable {
         case .alchemist: 120
         case .siren: 100
         case .bramble: 90
+        case .omen: 120
         }
     }
 
@@ -220,7 +227,7 @@ enum TowerKind: String, CaseIterable, Codable, Identifiable {
         case .inferno, .weaver: 6
         case .aegis, .cyclone, .midas, .bramble: 8
         case .echo, .tide, .tamer, .siren: 10
-        case .alchemist: 12
+        case .alchemist, .omen: 12
         case .sniper: 14
         case .mind: 12
         case .chrono: 15
@@ -290,6 +297,8 @@ enum TowerKind: String, CaseIterable, Codable, Identifiable {
                        confuseChance: 0.12, confuseDuration: 1.2, shieldBreak: 2)
         case .bramble:
             TowerStats(damage: 7, range: 2.2, fireInterval: 0.8, projectileSpeed: 9, growth: 0.05)
+        case .omen:
+            TowerStats(damage: 6, range: 2.6, fireInterval: 1.2, damageType: .psychic, mark: 0.2, markDuration: 3)
         }
     }
 

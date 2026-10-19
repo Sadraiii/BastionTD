@@ -200,6 +200,13 @@ enum Art {
         case .bramble:
             disc(top: Pal.bark, side: Pal.plum, rim: Pal.clay)
             c.line(2, 8, 5, 7, Pal.plum); c.line(13, 6, 11, 7, Pal.plum); c.line(6, 11, 7, 9, Pal.plum)
+
+        case .omen:
+            disc(top: Pal.navy, side: Pal.ink, rim: Pal.purple)
+            for i in 0..<6 {
+                let angle = Double(i) * .pi / 3
+                c.set(Int(8 + cos(angle) * 5.4), Int(7.5 + sin(angle) * 3.4), accent)
+            }
         }
 
         // The web is drawn straight onto the grass; an outline would make it look solid.
@@ -215,7 +222,7 @@ enum Art {
         case .tesla, .star: (Pal.slate, Pal.navy)
         case .rail, .sniper: (Pal.slate, Pal.ink)
         case .inferno: (Pal.bark, Pal.ink)
-        case .weaver, .alchemist: (Pal.purple, Pal.plum)
+        case .weaver, .alchemist, .omen: (Pal.purple, Pal.plum)
         case .echo, .tamer, .bramble: (Pal.forest, Pal.deepTeal)
         case .mind: (Pal.magenta, Pal.purple)
         case .midas: (Pal.copper, Pal.rust)
@@ -539,6 +546,20 @@ enum Art {
                     c.set(x, y, Pal.yellow)
                 }
             }
+
+        case .omen:
+            // A hooded seer holding a crystal ball. Its eyes burn brighter and a third eye opens.
+            let cloak = Pal.tower(kind)
+            let eyes = level == 3 ? Pal.white : Pal.pink
+            c.fillPolygon([(5, 7), (11, 7), (13.5, 15), (2.5, 15)], Pal.purple)
+            c.fillEllipse(cx: 8, cy: 5, rx: 4, ry: 4.2, cloak)
+            c.fillPolygon([(7, 8), (9, 8), (10, 15), (6, 15)], cloak)
+            c.fillEllipse(cx: 8, cy: 5.8, rx: 2.4, ry: 2.3, Pal.ink)
+            c.set(6, 6, eyes); c.set(9, 6, eyes)
+            if level >= 2 { c.set(7, 2, Pal.pink); c.set(8, 2, Pal.pink) }
+            if level == 3 { c.set(7, 3, Pal.white); c.set(8, 3, Pal.white) }
+            c.fillCircle(cx: 8, cy: 11.5, r: 1.9, Pal.mist)
+            c.set(8, 11, Pal.pink); c.set(7, 10, Pal.white)
         }
         var big = c.padded(2)
         drawTurretUpgrades(kind, a: tiers[0], b: tiers[1], on: &big)
@@ -773,6 +794,18 @@ enum Art {
             if b >= 2 { c.line(3, 12, 1, 12, Pal.bark); c.set(0, 12, Pal.sand); c.line(17, 12, 19, 12, Pal.bark); c.set(19, 11, Pal.sand) }
             if b >= 3 { c.ring(cx: 10, cy: 10, r: 8.5, Pal.bark) { x, y in y < 5 && (x + y) % 3 != 0 } }
             if b >= 4 { c.ring(cx: 10, cy: 10, r: 8.5, Pal.sand) { x, y in y < 5 && (x + y) % 3 == 0 }; c.set(10, 0, Pal.red) }
+        case .omen:
+            // Doom: a red gem on a staff that opens into an eye, then a curse ring. Hex: floating runes, then a ring of hexes.
+            if a >= 1 { c.fillRect(2, 3, 2, 2, Pal.crimson); c.set(2, 3, Pal.red) }
+            if a >= 2 { c.line(3, 6, 3, 18, Pal.bark) }
+            if a >= 3 { c.fillRect(1, 4, 5, 2, Pal.white); c.fillRect(2, 3, 3, 4, Pal.white); c.fillRect(3, 4, 1, 2, Pal.red) }
+            if a >= 4 { c.ring(cx: 10, cy: 11, r: 8.5, Pal.crimson) { x, y in y > 14 && (x + y) % 2 == 0 } }
+            for (i, (x, y)) in [(16, 5), (17, 11)].enumerated() where i < b {
+                c.set(x, y - 1, Pal.pink); c.set(x - 1, y, Pal.pink); c.set(x + 1, y, Pal.pink); c.set(x, y + 1, Pal.pink)
+                c.set(x, y, Pal.white)
+            }
+            if b >= 3 { c.ring(cx: 10, cy: 11, r: 8.5, Pal.tower(kind)) { x, y in y > 14 && (x + y) % 3 != 0 } }
+            if b >= 4 { c.ring(cx: 10, cy: 11, r: 8.5, Pal.pink) { x, y in y > 14 && (x + y) % 3 == 0 } }
         }
     }
 

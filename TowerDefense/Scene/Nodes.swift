@@ -162,8 +162,8 @@ final class EnemyNode: SKNode {
     private let healthFill: SKSpriteNode
     private let shieldBubble: SKSpriteNode
     private let confusedMark = SKSpriteNode(texture: Art.text("?", color: Pal.pink))
-    /// One dot each for slowed, burning, poisoned and stunned, since the body only shows one tint.
-    private let statusDots: [SKSpriteNode] = [Pal.cyan, Pal.orange, Pal.lime, Pal.mist].map { color in
+    /// One dot each for slowed, burning, poisoned, stunned and marked, since the body only shows one tint.
+    private let statusDots: [SKSpriteNode] = [Pal.cyan, Pal.orange, Pal.lime, Pal.mist, Pal.magenta].map { color in
         let dot = SKSpriteNode(color: Pal.ink.uiColor, size: CGSize(width: 4, height: 4))
         dot.anchorPoint = .zero
         let fill = SKSpriteNode(color: color.uiColor, size: CGSize(width: 2, height: 2))
@@ -257,7 +257,7 @@ final class EnemyNode: SKNode {
         }
 
         shieldBubble.isHidden = enemy.shield <= 0
-        let effects = [enemy.isSlowed, enemy.isBurning, enemy.isPoisoned, enemy.isStunned]
+        let effects = [enemy.isSlowed, enemy.isBurning, enemy.isPoisoned, enemy.isStunned, enemy.isMarked]
         var dotX = -CGFloat(effects.filter { $0 }.count * 3 + 1) / 2
         for (dot, active) in zip(statusDots, effects) {
             dot.isHidden = !active

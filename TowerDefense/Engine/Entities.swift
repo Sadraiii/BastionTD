@@ -30,6 +30,9 @@ final class Enemy {
     /// Armor temporarily removed by shredding attacks.
     var armorShred: Double = 0
     var armorShredTimer: Double = 0
+    /// Marked by Omen: takes `markAmount` more damage from every hit.
+    var markAmount: Double = 0
+    var markTimer: Double = 0
     /// Gargoyles in stone form ignore all damage.
     var stoneTimer: Double = 0
     /// A cloaked villain that has been exposed (Sonic Shatter) can be seen by anyone.
@@ -61,6 +64,7 @@ final class Enemy {
     var isPoisoned: Bool { poisonTimer > 0 }
     var isConfused: Bool { confuseTimer > 0 }
     var isStone: Bool { stoneTimer > 0 }
+    var isMarked: Bool { markTimer > 0 }
     var isHidden: Bool { (kind.isCamo || cloakTimer > 0) && !revealed }
     var effectiveArmor: Double { max(0, kind.armor - armorShred) }
 
@@ -176,6 +180,8 @@ struct HitPayload {
     var confuseDuration: Double = 0
     var armorShred: Double = 0
     var shieldBreak: Double = 1
+    var mark: Double = 0
+    var markDuration: Double = 0
 }
 
 final class Projectile {
