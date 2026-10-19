@@ -82,6 +82,8 @@ struct TowerStats: Equatable {
     var markDuration: Double = 0
     /// The support buff also reaches heroes anywhere in this hero's row or column.
     var lineBuff = false
+    /// How much pushing a hero standing on the path takes before he is knocked down.
+    var holdHealth: Double = 0
 
     var shotsPerSecond: Double { 1 / fireInterval }
 }
@@ -91,7 +93,7 @@ struct TowerStats: Equatable {
 enum TowerKind: String, CaseIterable, Codable, Identifiable {
     case pulse, frost, mortar, tesla, rail
     case inferno, weaver, aegis, cyclone, echo, mind, chrono, star, midas, tide
-    case sniper, tamer, alchemist, siren, bramble, omen, rook
+    case sniper, tamer, alchemist, siren, bramble, omen, rook, warden
 
     var id: String { rawValue }
 
@@ -120,6 +122,7 @@ enum TowerKind: String, CaseIterable, Codable, Identifiable {
         case .bramble: "Bramble"
         case .omen: "Omen"
         case .rook: "Rook"
+        case .warden: "Warden"
         }
     }
 
@@ -156,6 +159,7 @@ enum TowerKind: String, CaseIterable, Codable, Identifiable {
         case .bramble: "Thorn Bush"
         case .omen: "Seer"
         case .rook: "Tactician"
+        case .warden: "Shield Bearer"
         }
     }
 
@@ -184,6 +188,7 @@ enum TowerKind: String, CaseIterable, Codable, Identifiable {
         case .bramble: "Grows stronger every wave it stays on the field."
         case .omen: "Marks villains so every hero hits them harder. Husks can't be marked."
         case .rook: "Fires along its whole row and column."
+        case .warden: "Stands on the path and holds villains back."
         }
     }
 
@@ -191,7 +196,7 @@ enum TowerKind: String, CaseIterable, Codable, Identifiable {
         switch self {
         case .pulse, .weaver, .aegis, .cyclone, .tide, .sniper, .tamer, .bramble: .bolt
         case .mortar, .alchemist: .lob
-        case .frost, .chrono, .midas: .aura
+        case .frost, .chrono, .midas, .warden: .aura
         case .tesla: .chain
         case .rail, .star: .beam
         case .inferno, .echo, .siren: .cone
@@ -224,6 +229,7 @@ enum TowerKind: String, CaseIterable, Codable, Identifiable {
         case .bramble: 90
         case .omen: 120
         case .rook: 130
+        case .warden: 120
         }
     }
 
@@ -233,7 +239,7 @@ enum TowerKind: String, CaseIterable, Codable, Identifiable {
         case .pulse, .frost, .mortar, .tesla, .rail: 0
         case .inferno, .weaver: 6
         case .aegis, .cyclone, .midas, .bramble: 8
-        case .echo, .tide, .tamer, .siren: 10
+        case .echo, .tide, .tamer, .siren, .warden: 10
         case .alchemist, .omen, .rook: 12
         case .sniper: 14
         case .mind: 12
@@ -244,6 +250,9 @@ enum TowerKind: String, CaseIterable, Codable, Identifiable {
 
     /// Naval heroes can only be placed on water.
     var isNaval: Bool { self == .tide || self == .siren }
+
+    /// The Warden is placed on the path itself, where he stops ground villains.
+    var holdsPath: Bool { self == .warden }
 
     static var starters: [TowerKind] { allCases.filter { $0.unlockCost == 0 } }
 
@@ -309,6 +318,8 @@ enum TowerKind: String, CaseIterable, Codable, Identifiable {
         case .rook:
             // Range only sizes the Field Marshal rally; the lances cross the whole board.
             TowerStats(damage: 30, range: 1.0, fireInterval: 2.0)
+        case .warden:
+            TowerStats(damage: 10, range: 1.2, fireInterval: 0.8, holdHealth: 400)
         }
     }
 

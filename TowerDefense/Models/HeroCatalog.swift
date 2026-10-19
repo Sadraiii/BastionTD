@@ -85,6 +85,7 @@ enum HeroCatalog {
         case .bramble: bramble
         case .omen: omen
         case .rook: rook
+        case .warden: warden
         }
     }
 
@@ -1067,6 +1068,51 @@ enum HeroCatalog {
         ]),
     ]
 
+    // MARK: Warden - shield bearer
+
+    private static let warden: [UpgradePath] = [
+        UpgradePath(name: "Bulwark", tiers: [
+            UpgradeTier(name: "Thick Shield", detail: "50% more guard.", cost: 70, research: 0) {
+                $0.holdHealth *= 1.5
+            },
+            UpgradeTier(name: "Shield Wall", detail: "50% more guard. His spear may stun.", cost: 140, research: 4) {
+                $0.holdHealth *= 1.5
+                $0.stunChance = 0.1
+                $0.stunDuration = 0.5
+            },
+            UpgradeTier(name: "Hold Fast", detail: "POWER: stun ground villains around him. +6 damage.", cost: 260, research: 10,
+                        power: power("Hold Fast", "Stun ground villains nearby for 2 seconds.", cooldown: 28,
+                                     .burst(damage: 80, stun: 2, knockback: 0, rangeScale: 1.5, groundOnly: true))) {
+                $0.damage += 6
+            },
+            UpgradeTier(name: "Unbreakable", detail: "Twice the guard. Hold Fast stuns for 3s in a wider area.", cost: 750, research: 20,
+                        power: power("Unbreakable", "Stun ground villains in a wide area for 3 seconds.", cooldown: 28,
+                                     .burst(damage: 300, stun: 3, knockback: 0, rangeScale: 2, groundOnly: true))) {
+                $0.holdHealth *= 2
+            },
+        ]),
+        UpgradePath(name: "Banneret", tiers: [
+            UpgradeTier(name: "Banner", detail: "Heroes in range attack 10% faster.", cost: 80, research: 0) {
+                $0.buffRate = 0.1
+            },
+            UpgradeTier(name: "Spear Reach", detail: "More range and +6 damage.", cost: 130, research: 4) {
+                $0.range += 0.5
+                $0.damage += 6
+            },
+            UpgradeTier(name: "Rally", detail: "POWER: rally nearby heroes. Heroes in range deal 15% more damage.", cost: 260, research: 10,
+                        power: power("Rally", "Heroes nearby: +40% speed, +30% damage for 8s.", cooldown: 35,
+                                     .rally(duration: 8, rate: 1.4, damage: 1.3, rangeScale: 2.5))) {
+                $0.buffDamage = 0.15
+            },
+            UpgradeTier(name: "War Banner", detail: "Heroes in range get +25% speed, +25% damage. A wider rally.", cost: 750, research: 20,
+                        power: power("War Banner", "Heroes in a wide area: +70% speed, +50% damage for 10s.", cooldown: 35,
+                                     .rally(duration: 10, rate: 1.7, damage: 1.5, rangeScale: 3))) {
+                $0.buffRate = 0.25
+                $0.buffDamage = 0.25
+            },
+        ]),
+    ]
+
     // MARK: Combos
 
     static let combos: [HeroCombo] = [
@@ -1152,6 +1198,10 @@ enum HeroCatalog {
         HeroCombo(name: "Crossbeam", detail: "Rook's lances get +15 damage. Vanguard reaches further.",
                   first: .rook, second: .rail) { kind, stats in
             if kind == .rook { stats.damage += 15 } else { stats.range += 0.5 }
+        },
+        HeroCombo(name: "Hammer and Anvil", detail: "Quake's boulders splash wider. Warden's guard is 30% stronger.",
+                  first: .warden, second: .mortar) { kind, stats in
+            if kind == .mortar { stats.splashRadius += 0.3 } else { stats.holdHealth *= 1.3 }
         },
     ]
 

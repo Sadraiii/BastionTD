@@ -214,6 +214,12 @@ enum Art {
             for y in 3...10 {
                 for x in 2...13 where ((x - 2) / 3 + (y - 3) / 2) % 2 == 1 { c.set(x, y, Pal.slate) }
             }
+
+        case .warden:
+            // An iron plate set into the road, studded in his color.
+            platform(octagon, top: Pal.slate, side: Pal.navy)
+            c.fillPolygon([(5.5, 4.5), (10.5, 4.5), (13, 6), (13, 9), (10.5, 10.5), (5.5, 10.5), (3, 9), (3, 6)], Pal.steel)
+            for (x, y) in [(3, 5), (12, 5), (3, 9), (12, 9)] { c.set(x, y, accent) }
         }
 
         // The web is drawn straight onto the grass; an outline would make it look solid.
@@ -223,7 +229,7 @@ enum Art {
         let top = tiers.max() ?? 0
         // Heroes near the top of a path stand on a wider footing in their own colors, with pillars once maxed.
         let stone: (top: PixelColor, side: PixelColor) = switch kind {
-        case .pulse, .aegis, .siren, .rook: (Pal.steel, Pal.slate)
+        case .pulse, .aegis, .siren, .rook, .warden: (Pal.steel, Pal.slate)
         case .frost, .cyclone: (Pal.mist, Pal.silver)
         case .mortar, .chrono: (Pal.clay, Pal.bark)
         case .tesla, .star: (Pal.slate, Pal.navy)
@@ -587,6 +593,25 @@ enum Art {
             let point = level == 3 ? Pal.white : Pal.amber
             for (x, y) in [(tip, 8), (tip, 9), (15 - tip, 8), (15 - tip, 9), (7, 0), (8, 0)] { c.set(x, y, point) }
             c.fillRect(7, 8, 2, 2, level >= 2 ? Pal.yellow : Pal.amber)
+
+        case .warden:
+            // A helmeted guard behind a tall shield, his spear upright at his side. A gold rim and a plume come next, then a white cross.
+            let tip = level == 3 ? Pal.white : Pal.silver
+            for y in 3...15 { c.set(13, y, Pal.bark) }
+            c.set(13, 0, tip)
+            c.fillRect(12, 1, 3, 2, tip)
+            c.set(14, 2, Pal.steel)
+            c.fillCircle(cx: 6.5, cy: 3.8, r: 3, Pal.steel)
+            c.fillRect(5, 2, 2, 1, Pal.silver)
+            c.fillRect(4, 4, 6, 1, Pal.ink)
+            if level >= 2 { c.fillRect(6, 0, 2, 1, Pal.red) }
+            c.fillRect(11, 8, 3, 2, Pal.steel)
+            c.set(12, 8, Pal.silver)
+            c.fillPolygon([(1, 6), (12, 6), (12, 11), (6.5, 16), (1, 11)], level >= 2 ? Pal.amber : Pal.bark)
+            c.fillPolygon([(2, 7), (11, 7), (11, 11), (6.5, 15), (2, 11)], Pal.tower(kind))
+            let cross = level == 3 ? Pal.white : Pal.towerLight(kind)
+            c.fillRect(6, 8, 1, 6, cross)
+            c.fillRect(4, 10, 5, 1, cross)
         }
         var big = c.padded(2)
         drawTurretUpgrades(kind, a: tiers[0], b: tiers[1], on: &big)
@@ -843,6 +868,16 @@ enum Art {
             if b >= 2 { c.line(14, 7, 17, 4, Pal.copper); c.set(18, 3, Pal.cyan) }
             if b >= 3 { c.fillRect(6, 7, 8, 1, Pal.yellow) }
             if b >= 4 { for x in [6, 7, 12, 13] { c.set(x, 4, Pal.yellow) }; c.set(6, 5, Pal.amber); c.set(13, 5, Pal.amber) }
+        case .warden:
+            // Bulwark: rivets, a wider shield, pauldrons, then a gold boss. Banneret: a pennant, a longer spear head, a banner, then a gold fringe.
+            if a >= 1 { for (x, y) in [(4, 9), (13, 9), (4, 12), (13, 12)] { c.set(x, y, Pal.silver) } }
+            if a >= 2 { c.fillRect(1, 9, 2, 5, Pal.tower(kind)) }
+            if a >= 3 { c.fillRect(4, 6, 2, 2, Pal.silver); c.fillRect(11, 6, 2, 2, Pal.silver) }
+            if a >= 4 { c.fillCircle(cx: 8.5, cy: 12.5, r: 1.6, Pal.yellow); c.set(8, 12, Pal.white) }
+            if b >= 1 { c.fillRect(16, 4, 2, 3, Pal.red); c.set(18, 5, Pal.red) }
+            if b >= 2 { c.set(15, 1, Pal.silver); c.set(15, 0, Pal.white) }
+            if b >= 3 { c.fillRect(16, 7, 3, 6, Pal.tower(kind)); c.set(17, 9, Pal.yellow) }
+            if b >= 4 { for x in [16, 18] { c.set(x, 13, Pal.yellow) }; c.set(17, 14, Pal.yellow) }
         }
     }
 

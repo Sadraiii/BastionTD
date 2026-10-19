@@ -45,13 +45,14 @@ struct TowerInfoPanel: View {
         }
         let reach = tower.kind.attackStyle == .cross ? "ROW + COLUMN" : "RNG \(format(s.range))"
         var parts = [s.damageType.title.uppercased(), "DMG \(format(s.damage))", reach, "\(format(s.shotsPerSecond))/S"]
+        if s.holdHealth > 0 { parts.append("GUARD \(Int(s.holdHealth))") }
         if s.detectsCamo { parts.append("SEES CLOAKED") }
         if !s.hitsAir { parts.append("GROUND ONLY") }
         return parts.joined(separator: " · ")
     }
 
     private var subtitle: String {
-        if tower.isDisabled { return "EMP: OFFLINE!" }
+        if tower.isDisabled { return tower.kind.holdsPath ? "KNOCKED DOWN" : "EMP: OFFLINE!" }
         if let combo = tower.combos.first {
             return "COMBO: \(combo.uppercased())" + (tower.combos.count > 1 ? " +\(tower.combos.count - 1)" : "")
         }

@@ -12,7 +12,7 @@ struct GameStats: Equatable {
 }
 
 enum PlacementResult: Equatable {
-    case ok, outOfBounds, onPath, blocked, occupied, insufficientGold, locked, banned, needsWater, onWater
+    case ok, outOfBounds, onPath, blocked, occupied, insufficientGold, locked, banned, needsWater, onWater, needsPath
 
     var message: String {
         switch self {
@@ -26,6 +26,7 @@ enum PlacementResult: Equatable {
         case .banned: "Not allowed in this challenge"
         case .needsWater: "This hero goes on water"
         case .onWater: "Only sea heroes go on water"
+        case .needsPath: "This hero goes on the path"
         }
     }
 }
@@ -196,12 +197,20 @@ final class GameEngine {
         guard research.isHeroUnlocked(kind) else { return .locked }
         guard allows(kind) else { return .banned }
         guard map.contains(cell) else { return .outOfBounds }
-        if map.pathCells.contains(cell) { return .onPath }
-        if map.obstacles.contains(cell) || cell == map.lever { return .blocked }
+        if map.pathCells.contains(cell) != kind.holdsPath { return kind.holdsPath ? .needsPath : .onPath }
+        if map.obstacles.contains(cell) || cell == map.lever || kind.holdsPath && isRouteEnd(cell) { return .blocked }
         if map.water.contains(cell) != kind.isNaval { return kind.isNaval ? .needsWater : .onWater }
         if towersByCell[cell] != nil || commander?.cell == cell { return .occupied }
         if gold < kind.cost { return .insufficientGold }
         return .ok
+    }
+
+    /// The tile at a portal or under the crystal, where a Warden can't stand.
+    func isRouteEnd(_ cell: GridPoint) -> Bool {
+        paths.contains { path in
+            guard let distance = path.distance(to: cell) else { return false }
+            return distance < 1.5 || distance > path.totalLength - 0.5
+        }
     }
 
     /// Whether the match's challenge rules let this hero be recruited.
@@ -242,6 +251,7 @@ final class GameEngine {
         guard !phase.isOver, placementCheck(kind, at: cell) == .ok else { return nil }
         gold -= kind.cost
         let tower = Tower(id: makeID(), kind: kind, cell: cell, onHighGround: map.highGround.contains(cell))
+        if kind.holdsPath { tower.holdDistances = paths.map { $0.distance(to: cell) } }
         towers.append(tower)
         towersByCell[cell] = tower
         stats.towersBuilt += 1
@@ -257,6 +267,7 @@ final class GameEngine {
         gold -= cost
         tower.totalInvested += cost
         tower.advance(path: path)
+        tower.holdDamage = 0
         events.append(.towerUpgraded(towerID: tower.id, path: path, tier: tower.tiers[path]))
         return true
     }
@@ -690,6 +701,7 @@ final class GameEngine {
     }
 
     private func updateEnemies(_ dt: Double) {
+        let holders = towers.filter { $0.kind.holdsPath }
         for enemy in enemies where !enemy.isResolved {
             if enemy.hitFlash > 0 { enemy.hitFlash -= dt }
             if enemy.cloakTimer > 0 { enemy.cloakTimer -= dt }
@@ -723,7 +735,24 @@ final class GameEngine {
                 place(enemy)
                 continue
             }
-            enemy.distance += CGFloat(speed(of: enemy) * dt)
+            var next = enemy.distance + CGFloat(speed(of: enemy) * dt)
+            // Ground villains stop in front of a Warden and push until he falls. A boss knocks him down at once.
+            if !enemy.kind.isFlying {
+                for holder in holders where !holder.isDisabled {
+                    guard let spot = holder.holdDistances[enemy.route] else { continue }
+                    let stop = spot - 0.45
+                    guard enemy.distance <= stop + 0.001, next > stop else { continue }
+                    if enemy.kind.isBoss {
+                        knockDown(holder)
+                        continue
+                    }
+                    next = stop
+                    holder.holdDamage += enemy.maxHealth * 0.04 * dt
+                    if holder.holdDamage >= holder.stats.holdHealth { knockDown(holder) }
+                    break
+                }
+            }
+            enemy.distance = next
             if remaining(enemy) <= 0 {
                 leak(enemy)
                 if phase.isOver { return }
@@ -1276,6 +1305,12 @@ final class GameEngine {
         events.append(.towersDisrupted(center: center, radius: radius))
     }
 
+    /// A Warden whose guard breaks is down for 6 seconds and gets up with it whole.
+    private func knockDown(_ holder: Tower) {
+        holder.holdDamage = 0
+        disruptTowers(near: holder.position, radius: 0.6, for: 6)
+    }
+
     private func roll(_ chance: Double) -> Bool {
         chance >= 1 || (chance > 0 && Double.random(in: 0..<1, using: &rng) < chance)
     }
@@ -1400,6 +1435,7 @@ final class GameEngine {
             events.append(.towerIncome(towerID: tower.id, at: tower.position, amount: tower.stats.income))
         }
         for tower in towers where tower.stats.growth > 0 { tower.wavesHeld += 1 }
+        for tower in towers { tower.holdDamage = 0 }
         if waveNumber == waves.count && !isEndless {
             phase = .victory
             events.append(.victory)

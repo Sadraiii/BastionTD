@@ -25,6 +25,8 @@ final class TowerNode: SKNode {
     private let comboPip = SKSpriteNode(color: Pal.ink.uiColor, size: CGSize(width: 4, height: 4))
     /// Sprouts on a Bramble's base after 5, 10 and 20 waves.
     private let leaves: [SKSpriteNode]
+    /// A Warden's guard, which empties as villains push him.
+    private let guardFill: SKSpriteNode?
     private var displayedAngle: CGFloat = .pi / 2
     private var targetAngle: CGFloat = .pi / 2
     private var state = VisualState.normal
@@ -38,6 +40,7 @@ final class TowerNode: SKNode {
         base = SKSpriteNode(texture: Art.towerBase(kind, tiers: tiers))
         turret = SKSpriteNode(texture: Art.turret(kind, tiers: tiers))
         leaves = kind == .bramble ? (0..<3).map { _ in SKSpriteNode(texture: Art.leaf) } : []
+        guardFill = kind.holdsPath ? SKSpriteNode(color: Pal.mist.uiColor, size: CGSize(width: 12, height: 2)) : nil
         super.init()
         base.zPosition = 0
         turret.zPosition = 1
@@ -68,6 +71,16 @@ final class TowerNode: SKNode {
             leaf.isHidden = true
             addChild(leaf)
         }
+        if let guardFill {
+            let back = SKSpriteNode(color: Pal.ink.uiColor, size: CGSize(width: 14, height: 4))
+            back.anchorPoint = .zero
+            back.position = CGPoint(x: -7, y: -14)
+            back.zPosition = 3
+            guardFill.anchorPoint = .zero
+            guardFill.position = CGPoint(x: 1, y: 1)
+            back.addChild(guardFill)
+            addChild(back)
+        }
     }
 
     @available(*, unavailable)
@@ -93,6 +106,10 @@ final class TowerNode: SKNode {
         badge.isHidden = !tower.isPowerReady
         comboPip.isHidden = tower.combos.isEmpty
         for (leaf, waves) in zip(leaves, [5, 10, 20]) { leaf.isHidden = tower.wavesHeld < waves }
+        if let guardFill {
+            let left = tower.isDisabled ? 0 : max(0, 1 - tower.holdDamage / tower.stats.holdHealth)
+            guardFill.size.width = (CGFloat(left) * 12).rounded()
+        }
         let newState: VisualState = tower.isDisabled ? .disabled : (tower.isFrenzied || tower.isRallied) ? .frenzied : .normal
         if newState != state {
             state = newState

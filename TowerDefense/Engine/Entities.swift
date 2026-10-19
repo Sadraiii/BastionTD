@@ -117,6 +117,10 @@ final class Tower {
     var hasDetection = false
     /// Knocked offline by an EMP.
     var disabledTimer: Double = 0
+    /// For a Warden: where his tile lies along each route, nil where the route doesn't pass it.
+    var holdDistances: [CGFloat?] = []
+    /// Guard a Warden has lost to villains pushing him; at `stats.holdHealth` he is knocked down.
+    var holdDamage: Double = 0
 
     init(id: Int, kind: TowerKind, cell: GridPoint, onHighGround: Bool) {
         self.id = id
