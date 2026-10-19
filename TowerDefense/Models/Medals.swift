@@ -51,7 +51,7 @@ enum Medal: String, CaseIterable, Identifiable {
         case .hardHero: "Beat the Overload map."
         case .fewHeroes: "Win with 6 heroes or fewer on the field."
         case .researcher: "Research 10 upgrade tiers."
-        case .fullRoster: "Recruit all 13 heroes."
+        case .fullRoster: "Recruit all \(TowerKind.allCases.count) heroes."
         case .skyGuard: "Shoot down the Dreadnought."
         }
     }

@@ -45,6 +45,10 @@ struct GameView: View {
                 if let boss = session.bossBar {
                     BossHealthBar(boss: boss)
                 }
+                if !session.nextWave.isEmpty && session.banner == nil && session.coachMessage == nil {
+                    NextWaveStrip(entries: session.nextWave)
+                        .transition(.opacity)
+                }
                 if let message = session.coachMessage {
                     CoachBanner(message: message, onHide: session.finishCoach)
                         .transition(.opacity)
@@ -70,6 +74,7 @@ struct GameView: View {
             .animation(.easeOut(duration: 0.15), value: session.toast)
             .animation(.easeOut(duration: 0.2), value: session.banner)
             .animation(.easeOut(duration: 0.2), value: session.coachMessage)
+            .animation(.easeOut(duration: 0.2), value: session.nextWave)
         }
         .clipped()
     }

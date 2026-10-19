@@ -29,7 +29,7 @@ struct RootView: View {
                 case .home:
                     StartView(
                         onPlay: start,
-                        onResume: PlayerProgress.savedMatch.map { saved in { resume(saved) } },
+                        onResume: PlayerProgress.savedMatch.flatMap { $0.rules == SavedMatch.currentRules ? $0 : nil }.map { saved in { resume(saved) } },
                         onDaily: {
                             let daily = MatchSetup.daily(for: Date())
                             start(daily.map, daily.setup)

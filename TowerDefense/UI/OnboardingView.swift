@@ -98,7 +98,7 @@ private struct OnboardingPage: View {
     private var message: String {
         switch index {
         case 0:
-            "Villains walk the path to your crystal. Each one that gets there costs lives. Survive 20 waves to win."
+            "Villains walk the path to your crystal. Each one that gets there costs lives. Survive every wave to win."
         case 1:
             "Pick a hero, tap a highlighted tile, then tap it again to build. Heroes attack on their own. Villains drop gold."
         case 2:

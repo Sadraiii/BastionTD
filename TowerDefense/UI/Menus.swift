@@ -119,7 +119,7 @@ struct GameOverView: View {
 
                 VStack(spacing: 4) {
                     statRow("VILLAINS DEFEATED", "\(session.stats.enemiesDefeated)")
-                    statRow("POWERS UNLEASHED", "\(session.stats.powersUsed)")
+                    statRow("POWERS USED", "\(session.stats.powersUsed)")
                     statRow("GOLD EARNED", "\(session.stats.goldEarned)")
                     statRow("LIVES LEFT", "\(session.lives)/\(session.engine.startingLives)")
                 }

@@ -84,6 +84,12 @@ struct BossBar: Equatable {
     let health: Double
 }
 
+/// How many of one villain the next wave brings.
+struct ScoutEntry: Equatable {
+    let kind: EnemyKind
+    var count: Int
+}
+
 struct WaveBanner: Equatable, Identifiable {
     let id: Int
     let title: String
@@ -100,6 +106,9 @@ struct RunRewards: Equatable {
 /// A match in progress, stored as the player's commands and the step each happened on.
 /// The engine is deterministic, so replaying them rebuilds the exact same battlefield.
 struct SavedMatch: Codable {
+    /// Raised whenever a change would make older saves replay differently, so those aren't offered for resume.
+    static let currentRules = 1
+
     enum Command: Codable {
         case build(TowerKind, GridPoint)
         case upgrade(towerID: Int, path: Int)
@@ -122,6 +131,8 @@ struct SavedMatch: Codable {
     let research: ResearchState
     var entries: [Entry] = []
     var steps = 0
+    /// Nil in saves made before rules numbers existed.
+    var rules: Int? = SavedMatch.currentRules
 
     var map: MapDefinition? { (MapDefinition.all + [.arena]).first { $0.id == mapID } }
 }
@@ -165,6 +176,8 @@ final class GameSession {
     /// Increments whenever lives are lost so views can flash.
     private(set) var damagePulse = 0
     private(set) var bossBar: BossBar?
+    /// The villains of the next wave while it can be called; empty during a wave.
+    private(set) var nextWave: [ScoutEntry] = []
     private(set) var stats = GameStats()
     private(set) var rewards = RunRewards()
     private(set) var coachEnabled: Bool
@@ -183,6 +196,7 @@ final class GameSession {
     @ObservationIgnored private var demoClock: Double = 0
     @ObservationIgnored private var save: SavedMatch
     @ObservationIgnored private var bankedCommanderXP = 0
+    @ObservationIgnored private var scoutedWave = -1
 
     private static let fixedStep = 1.0 / 60.0
 
@@ -416,6 +430,22 @@ final class GameSession {
         let boss = engine.enemies.filter { $0.kind.isBoss && $0.isTargetable }.max { $0.health < $1.health }
         let bossSnapshot = boss.map { BossBar(name: $0.kind.name, health: ($0.healthFraction * 50).rounded() / 50) }
         if bossBar != bossSnapshot { bossBar = bossSnapshot }
+
+        let upcoming = engine.canStartWave ? engine.waveNumber + 1 : 0
+        if upcoming != scoutedWave {
+            scoutedWave = upcoming
+            var entries: [ScoutEntry] = []
+            if upcoming > 0 {
+                for group in engine.waveDefinition(number: upcoming).groups {
+                    if let i = entries.firstIndex(where: { $0.kind == group.kind }) {
+                        entries[i].count += group.count
+                    } else {
+                        entries.append(ScoutEntry(kind: group.kind, count: group.count))
+                    }
+                }
+            }
+            nextWave = entries
+        }
 
         let snapshot = selectedTowerID.flatMap(makeSnapshot)
         if snapshot == nil { selectedTowerID = nil }
