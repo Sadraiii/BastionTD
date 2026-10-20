@@ -108,6 +108,10 @@ final class GameEngine {
     private(set) var time: Double = 0
     /// Build tiles the Sinkmaw has caved in, in the order they fell.
     private(set) var pits: [GridPoint] = []
+    /// Boons taken in Endless, in the order picked.
+    private(set) var boons: [Boon] = []
+    /// The boons to pick from. The countdown to the next wave waits while it is set.
+    private(set) var boonOffer: [Boon]?
 
     private struct ScheduledSpawn {
         let time: Double
@@ -125,6 +129,12 @@ final class GameEngine {
     private var pitCells: Set<GridPoint> = []
     private var enemiesByID: [Int: Enemy] = [:]
     private var lastImmuneEvent: Double = -1
+    private var hasteBonus: Double = 0
+    private var discount: Double = 0
+    private var slowBonus: Double = 0
+    private var rechargeBonus: Double = 0
+    private var interestRate: Double = 0
+    private var damageBonus: [DamageType: Double] = [:]
 
     init(map: MapDefinition, waves: [WaveDefinition] = WaveLibrary.standard,
          research: ResearchState = ResearchState(), setup: MatchSetup = MatchSetup(), seed: UInt64 = 0x5EED) {
@@ -153,13 +163,13 @@ final class GameEngine {
 
     var totalWaves: Int { waves.count }
 
-    var canStartWave: Bool { (phase == .preparing || phase == .intermission) && (isEndless || waveNumber < waves.count) }
+    var canStartWave: Bool { (phase == .preparing || phase == .intermission) && (isEndless || waveNumber < waves.count) && boonOffer == nil }
 
     /// Waves survived so far (the current wave counts once it is cleared).
     var wavesCleared: Int { phase == .waveActive || phase == .defeat ? waveNumber - 1 : waveNumber }
 
     func waveDefinition(number: Int) -> WaveDefinition {
-        number <= waves.count ? waves[number - 1] : WaveLibrary.endlessWave(number: number)
+        number <= waves.count ? waves[number - 1] : WaveLibrary.endlessWave(number: number, base: waves.count)
     }
 
     /// How many villains a group sends, after the Swarm modifier. Bosses still come alone.
@@ -228,7 +238,8 @@ final class GameEngine {
         if UpgradeRules.isBlockedByOtherPath(tower.tiers, path: path) { return .blocked }
         let tier = tower.tiers[path] + 1
         if !research.isUnlocked(tower.kind, path: path, tier: tier) { return .needsResearch(points: next.research) }
-        let cost = research.has(.cheapUpgrades) ? Int((Double(next.cost) * 0.9).rounded()) : next.cost
+        let price = research.has(.cheapUpgrades) ? Int((Double(next.cost) * 0.9).rounded()) : next.cost
+        let cost = Int((Double(price) * (1 - discount)).rounded())
         return gold >= cost ? .available(cost: cost) : .unaffordable(cost: cost)
     }
 
@@ -477,6 +488,28 @@ final class GameEngine {
         return true
     }
 
+    /// Takes one of the boons on offer and lets the countdown run again.
+    @discardableResult
+    func pickBoon(_ index: Int) -> Bool {
+        guard let offer = boonOffer, offer.indices.contains(index) else { return false }
+        let boon = offer[index]
+        boons.append(boon)
+        boonOffer = nil
+        switch boon {
+        case .gold: gold += 200
+        case .lives: lives += 5
+        case .haste: hasteBonus += 0.1
+        case let .power(type): damageBonus[type, default: 0] += 0.2
+        case .discount: discount += 0.1
+        case .slowVillains: slowBonus += 0.1
+        case .interest: interestRate += 0.1
+        case .recharge: rechargeBonus += 0.15
+        case .veteran: if let commander { levelUp(commander) }
+        case .reach: refreshCombos()
+        }
+        return true
+    }
+
     /// Keeps playing after victory with ever-harder procedural waves.
     func continueEndless() {
         guard phase == .victory else { return }
@@ -485,12 +518,17 @@ final class GameEngine {
         intermissionRemaining = intermission
     }
 
+    /// Multiplies hero power cooldowns: Quick Powers research and Faster Powers boons shorten them.
+    var powerRecharge: Double {
+        (research.has(.quickPowers) ? 0.85 : 1) * (1 - rechargeBonus)
+    }
+
     /// Triggers the tower's hero power. Returns false if it isn't ready or would hit nothing.
     @discardableResult
     func activatePower(towerID: Int) -> Bool {
         guard !phase.isOver, !setup.modifiers.contains(.noPowers), let tower = tower(id: towerID),
               let power = tower.power, tower.isPowerReady, powerHasTargets(towerID: towerID) else { return false }
-        tower.powerCooldown = power.cooldown * (research.has(.quickPowers) ? 0.85 : 1)
+        tower.powerCooldown = power.cooldown * powerRecharge
         stats.powersUsed += 1
         let range = CGFloat(tower.stats.range)
         let type = tower.stats.damageType
@@ -590,7 +628,7 @@ final class GameEngine {
         time += dt
 
         switch phase {
-        case .intermission:
+        case .intermission where boonOffer == nil:
             intermissionRemaining -= dt
             if intermissionRemaining <= 0 { beginWave() }
         case .waveActive:
@@ -645,7 +683,7 @@ final class GameEngine {
     private func spawn(_ kind: EnemyKind, at distance: CGFloat, route: Int) -> Enemy {
         let wave = max(1, waveNumber)
         let swarm = setup.modifiers.contains(.swarm) && !kind.isBoss
-        let health = kind.baseHealth * WaveLibrary.healthMultiplier(wave: wave) * map.difficulty.healthMultiplier
+        let health = kind.baseHealth * WaveLibrary.healthMultiplier(wave: wave, base: waves.count) * map.difficulty.healthMultiplier
             * levelHealthScale(wave: wave)
             * (setup.bossRush ? 2 : 1)
             * (swarm ? 0.6 : 1)
@@ -677,11 +715,11 @@ final class GameEngine {
         setup.modifiers.contains(.noBreaks) ? 4 : Self.intermissionDuration
     }
 
-    /// Tiles per second, including the Fast Villains modifier and mud or ice under ground villains.
+    /// Tiles per second, including the Fast Villains modifier, mud or ice under ground villains and the Slower Villains boon.
     private func speed(of enemy: Enemy) -> Double {
         let cell = tile(of: enemy)
         let ground: Double = enemy.kind.isFlying ? 1 : map.mud.contains(cell) ? 0.65 : map.ice.contains(cell) ? 1.4 : 1
-        return enemy.currentSpeed * (setup.modifiers.contains(.fastVillains) ? 1.5 : 1) * ground
+        return enemy.currentSpeed * (setup.modifiers.contains(.fastVillains) ? 1.5 : 1) * ground * (1 - slowBonus)
     }
 
     private func tile(of enemy: Enemy) -> GridPoint {
@@ -890,12 +928,15 @@ final class GameEngine {
     // MARK: Towers
 
     private static let neighbors = [(-1, -1), (0, -1), (1, -1), (-1, 0), (1, 0), (-1, 1), (0, 1), (1, 1)]
+    /// The 24 tiles up to two away, for the Wide Combos boon.
+    private static let wideNeighbors = (-2...2).flatMap { dr in (-2...2).map { dc in (dc, dr) } }.filter { $0 != (0, 0) }
 
-    /// Gives every hero the combos it forms with heroes on the eight tiles around it.
+    /// Gives every hero the combos it forms with heroes on the eight tiles around it (24 with Wide Combos).
     private func refreshCombos() {
+        let offsets = boons.contains(.reach) ? Self.wideNeighbors : Self.neighbors
         for tower in towers {
             var list: [Int] = []
-            for (dc, dr) in Self.neighbors {
+            for (dc, dr) in offsets {
                 guard let other = towersByCell[GridPoint(tower.cell.col + dc, tower.cell.row + dr)],
                       let index = HeroCatalog.comboIndex(tower.kind, other.kind) else { continue }
                 if !list.contains(index) { list.append(index) }
@@ -960,7 +1001,7 @@ final class GameEngine {
             guard let primary = targets.first else { continue }
             tower.aim = (primary.position - tower.position).normalized
             guard tower.cooldown <= 0 else { continue }
-            tower.cooldown = stats.fireInterval / tower.rateMultiplier
+            tower.cooldown = stats.fireInterval / tower.rateMultiplier / (1 + hasteBonus)
             tower.recoil = 0.12
             fire(tower, targets: targets)
         }
@@ -1026,10 +1067,14 @@ final class GameEngine {
         let needed = CommanderKind.xpToNext(level: commander.level)
         if commander.xp >= needed {
             commander.xp -= needed
-            commander.level += 1
-            if commander.level == CommanderKind.maxLevel { commander.skillLevels[CommanderKind.researchableSkills] = 1 }
-            events.append(.commanderLevelUp(level: commander.level, at: commander.position))
+            levelUp(commander)
         }
+    }
+
+    private func levelUp(_ commander: Commander) {
+        commander.level += 1
+        if commander.level == CommanderKind.maxLevel { commander.skillLevels[CommanderKind.researchableSkills] = 1 }
+        events.append(.commanderLevelUp(level: commander.level, at: commander.position))
     }
 
     private func canSee(_ enemy: Enemy, from tower: Tower) -> Bool {
@@ -1069,7 +1114,7 @@ final class GameEngine {
     private func payload(for tower: Tower) -> HitPayload {
         let s = tower.stats
         return HitPayload(
-            damage: s.damage * tower.damageMultiplier, type: s.damageType, piercesArmor: s.piercesArmor,
+            damage: s.damage * tower.damageMultiplier * (1 + damageBonus[s.damageType, default: 0]), type: s.damageType, piercesArmor: s.piercesArmor,
             stunChance: s.stunChance, stunDuration: s.stunDuration,
             bossMultiplier: s.bossMultiplier, airMultiplier: s.airMultiplier, detectsCamo: tower.hasDetection,
             slow: s.slow, slowDuration: s.slowDuration, burnDPS: s.burnDPS, burnDuration: s.burnDuration,
@@ -1464,7 +1509,8 @@ final class GameEngine {
         guard phase == .waveActive, spawnQueue.isEmpty, incoming.isEmpty, enemies.isEmpty else { return }
         // Hard mode pays no wave bonus and no hero income.
         let hardMode = setup.modifiers.contains(.hardMode)
-        let bonus = hardMode ? 0 : WaveLibrary.clearBonus(wave: waveNumber)
+        let interest = Int(interestRate * Double(min(gold, 500)))
+        let bonus = (hardMode ? 0 : WaveLibrary.clearBonus(wave: waveNumber)) + interest
         earn(bonus)
         fields.removeAll()
         events.append(.waveCleared(number: waveNumber, bonus: bonus))
@@ -1480,6 +1526,12 @@ final class GameEngine {
         } else {
             phase = .intermission
             intermissionRemaining = intermission
+            if isEndless && waveNumber % 3 == 0 {
+                let types = DamageType.allCases.filter { type in towers.contains { $0.stats.damage > 0 && $0.stats.damageType == type } }
+                boonOffer = Boon.offer(seed: setup.seed, wave: waveNumber, taken: boons, types: types,
+                                       powers: !setup.modifiers.contains(.noPowers),
+                                       canLevel: commander.map { $0.level < CommanderKind.maxLevel } ?? false)
+            }
         }
     }
 

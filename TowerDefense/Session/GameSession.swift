@@ -114,7 +114,7 @@ struct RunRewards: Equatable {
 /// The engine is deterministic, so replaying them rebuilds the exact same battlefield.
 struct SavedMatch: Codable {
     /// Raised whenever a change would make older saves replay differently, so those aren't offered for resume.
-    static let currentRules = 4
+    static let currentRules = 5
 
     enum Command: Codable {
         case build(TowerKind, GridPoint)
@@ -127,6 +127,7 @@ struct SavedMatch: Codable {
         case moveCommander(GridPoint)
         case skill(Int)
         case evolve(Int)
+        case boon(Int)
     }
 
     struct Entry: Codable {
@@ -186,6 +187,8 @@ final class GameSession {
     private(set) var bossBar: BossBar?
     /// The villains of the next wave while it can be called; empty during a wave.
     private(set) var nextWave: [ScoutEntry] = []
+    /// The boons to pick from in Endless, while the countdown waits.
+    private(set) var boonOffer: [Boon]?
     private(set) var stats = GameStats()
     private(set) var rewards = RunRewards()
     private(set) var coachEnabled: Bool
@@ -256,6 +259,7 @@ final class GameSession {
             case let .moveCommander(cell): engine.moveCommander(to: cell)
             case let .skill(index): engine.useSkill(index)
             case let .evolve(option): engine.evolveCommander(option)
+            case let .boon(index): engine.pickBoon(index)
             }
             save.entries.append(entry)
         }
@@ -283,6 +287,7 @@ final class GameSession {
             case .victory:
                 victoryStars = Self.stars(lives: engine.lives, starting: engine.startingLives)
                 awardedPoints = researchPoints(wavesCleared: engine.wavesCleared, victory: true)
+                bankedCommanderXP = engine.commander?.earnedXP ?? 0
             default:
                 break
             }
@@ -474,13 +479,14 @@ final class GameSession {
             guard let power = tower.power else { return nil }
             return PowerBarItem(
                 id: tower.id, kind: tower.kind, level: tower.visualLevel, name: power.name,
-                isReady: tower.isPowerReady, charge: Self.charge(of: tower)
+                isReady: tower.isPowerReady, charge: charge(of: tower)
             )
         }
         if powers != bar { powers = bar }
 
         let commanderSnapshot = engine.commander.map(Self.snapshot)
         if commander != commanderSnapshot { commander = commanderSnapshot }
+        if boonOffer != engine.boonOffer { boonOffer = engine.boonOffer }
 
         if gateShut != engine.isGateShut {
             gateShut = engine.isGateShut
@@ -493,9 +499,9 @@ final class GameSession {
         }
     }
 
-    private static func charge(of tower: Tower) -> Double {
+    private func charge(of tower: Tower) -> Double {
         guard let power = tower.power else { return 0 }
-        let raw = 1 - tower.powerCooldown / power.cooldown
+        let raw = 1 - tower.powerCooldown / (power.cooldown * engine.powerRecharge)
         return (raw * 20).rounded(.down) / 20
     }
 
@@ -529,7 +535,7 @@ final class GameSession {
         let power = tower.power.map { definition in
             PowerSnapshot(
                 name: definition.name, detail: definition.detail, isReady: tower.isPowerReady,
-                charge: Self.charge(of: tower), secondsLeft: Int(tower.powerCooldown.rounded(.up))
+                charge: charge(of: tower), secondsLeft: Int(tower.powerCooldown.rounded(.up))
             )
         }
         return TowerSnapshot(
@@ -751,6 +757,20 @@ final class GameSession {
         outcome = nil
         showBanner(title: "ENDLESS MODE", subtitle: "HOW LONG CAN THE BASTION HOLD?", isBoss: false)
         sync()
+    }
+
+    func pickBoon(_ index: Int) {
+        guard outcome == nil, engine.pickBoon(index) else { return }
+        record(.boon(index))
+        sync()
+    }
+
+    /// Keeps the research and commander XP of an Endless run the player quits or restarts from the pause menu.
+    func endRunIfNeeded() {
+        guard outcome == nil, engine.isEndless else { return }
+        finishRun(victory: true)
+        // finishRun unpauses; keep the board still while the screen changes.
+        isPaused = true
     }
 
     func togglePause() {

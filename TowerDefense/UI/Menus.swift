@@ -24,6 +24,7 @@ private struct MenuBackdrop<Content: View>: View {
 }
 
 struct PauseMenuView: View {
+    let boons: [Boon]
     let onResume: () -> Void
     let onRestart: () -> Void
     let onHowToPlay: () -> Void
@@ -37,6 +38,9 @@ struct PauseMenuView: View {
             VStack(spacing: 12) {
                 PixelText("PAUSED", pixel: 4, color: Theme.highlight)
                     .padding(.bottom, 6)
+                if !boons.isEmpty {
+                    boonList
+                }
                 menuButton("RESUME", style: .primary, action: onResume)
                 menuButton("RESTART", style: .neutral, action: onRestart)
                 menuButton("HOW TO PLAY", style: .neutral, action: onHowToPlay)
@@ -67,6 +71,26 @@ struct PauseMenuView: View {
                 menuButton("QUIT TO MENU", style: .danger, action: onQuit)
             }
         }
+    }
+
+    /// Each boon taken once, in the order first picked, with how many times it was taken.
+    private var boonList: some View {
+        let distinct = boons.reduce(into: [Boon]()) { list, boon in
+            if !list.contains(boon) { list.append(boon) }
+        }
+        return VStack(spacing: 4) {
+            PixelText("BOONS", pixel: 2, color: Theme.secondaryText)
+            ForEach(distinct, id: \.title) { boon in
+                HStack {
+                    Text(boon.title.uppercased()).foregroundStyle(Theme.secondaryText)
+                    Spacer()
+                    Text("X\(boons.filter { $0 == boon }.count)").foregroundStyle(Theme.text)
+                }
+                .font(Theme.body(12))
+            }
+        }
+        .padding(10)
+        .background(Color(pixel: Pal.ink).opacity(0.5))
     }
 
     private func menuButton(_ title: String, style: PixelButtonStyle, action: @escaping () -> Void) -> some View {

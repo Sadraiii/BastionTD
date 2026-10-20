@@ -16,7 +16,10 @@ struct RootView: View {
             if let session {
                 GameView(
                     session: session,
-                    onRestart: { start(session.map, session.setup) },
+                    onRestart: {
+                        session.endRunIfNeeded()
+                        start(session.map, session.setup)
+                    },
                     nextMap: session.setup.isEvent ? nil : session.map.next,
                     onNextMap: { start($0, session.setup) },
                     onQuit: { quit(to: .home) },
@@ -93,6 +96,7 @@ struct RootView: View {
     }
 
     private func quit(to destination: Screen) {
+        session?.endRunIfNeeded()
         PlayerProgress.savedMatch = nil
         withAnimation(.easeInOut(duration: 0.25)) {
             screen = destination

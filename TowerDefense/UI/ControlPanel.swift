@@ -201,7 +201,7 @@ struct ActionBar: View {
         } else {
             HStack(spacing: 6) {
                 PixelIcon(icon: .skull, scale: 2)
-                Text("\(session.enemiesRemaining) LEFT")
+                Text(session.boonOffer == nil ? "\(session.enemiesRemaining) LEFT" : "PICK A BOON")
                     .font(Theme.body(11))
                     .foregroundStyle(Theme.secondaryText)
                     .lineLimit(1)

@@ -76,6 +76,9 @@ struct GameView: View {
             .animation(.easeOut(duration: 0.2), value: session.banner)
             .animation(.easeOut(duration: 0.2), value: session.coachMessage)
             .animation(.easeOut(duration: 0.2), value: session.nextWave)
+            if let offer = session.boonOffer {
+                BoonPicker(boons: offer, onPick: session.pickBoon)
+            }
         }
         .clipped()
     }
@@ -95,6 +98,7 @@ struct GameView: View {
             .transition(.opacity)
         } else if session.isPaused {
             PauseMenuView(
+                boons: session.engine.boons,
                 onResume: session.togglePause,
                 onRestart: onRestart,
                 onHowToPlay: onHowToPlay,
@@ -205,5 +209,38 @@ struct CoachBanner: View {
         .padding(.vertical, 6)
         .frame(maxWidth: 460)
         .pixelPanel(fill: Color(pixel: Pal.navy).opacity(0.94))
+    }
+}
+
+/// The boons offered between Endless waves. The countdown waits until one is picked.
+struct BoonPicker: View {
+    let boons: [Boon]
+    let onPick: (Int) -> Void
+
+    var body: some View {
+        VStack(spacing: 8) {
+            PixelText("PICK A BOON", pixel: 3, color: Theme.highlight)
+            ForEach(Array(boons.enumerated()), id: \.offset) { index, boon in
+                Button {
+                    playTap()
+                    onPick(index)
+                } label: {
+                    VStack(spacing: 2) {
+                        Text(boon.title.uppercased())
+                            .font(Theme.body(12))
+                        Text(boon.detail)
+                            .font(Theme.body(10, weight: .regular))
+                            .multilineTextAlignment(.center)
+                    }
+                    .padding(.vertical, 6)
+                    .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(PixelButtonStyle.gold)
+                .accessibilityLabel("\(boon.title). \(boon.detail)")
+            }
+        }
+        .padding(14)
+        .frame(maxWidth: 300)
+        .pixelPanel()
     }
 }

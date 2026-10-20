@@ -115,6 +115,7 @@ func simulate(_ map: MapDefinition, research: ResearchState, label: String, maxT
             if endless { engine.continueEndless() } else { break }
         }
         if engine.phase == .defeat { break }
+        if engine.boonOffer != nil { engine.pickBoon(0) }
         if engine.waveNumber != lastWave {
             lastWave = engine.waveNumber
             livesAtWaveStart = engine.lives

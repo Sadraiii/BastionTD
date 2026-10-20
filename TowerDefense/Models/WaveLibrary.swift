@@ -100,10 +100,10 @@ enum WaveLibrary {
     ]
 
     /// Enemy health grows smoothly from 1x on wave 1 to about 9.5x on wave 20,
-    /// then ramps up exponentially in Endless mode.
-    static func healthMultiplier(wave: Int) -> Double {
+    /// then ramps up exponentially in Endless mode, after the level's `base` waves.
+    static func healthMultiplier(wave: Int, base: Int) -> Double {
         let n = Double(max(0, wave - 1))
-        let endless = pow(1.07, Double(max(0, wave - standard.count)))
+        let endless = pow(1.07, Double(max(0, wave - base)))
         return (1 + 0.18 * n + 0.014 * n * n) * endless
     }
 
@@ -114,14 +114,14 @@ enum WaveLibrary {
     /// Gold awarded for clearing a wave.
     static func clearBonus(wave: Int) -> Int { 15 + wave * 4 }
 
-    /// Procedural waves for Endless mode (wave 21 onward). Every fifth wave brings
+    /// Procedural waves for Endless mode, after the level's `base` waves. Every fifth wave brings
     /// a Titan and every tenth the Overlord; the health curve keeps climbing.
-    static func endlessWave(number: Int) -> WaveDefinition {
+    static func endlessWave(number: Int, base: Int) -> WaveDefinition {
         var rng = SplitMix64(seed: UInt64(number) &* 0x9E37_79B9)
         let pool: [EnemyKind] = [.drone, .runner, .brute, .medic, .wisp, .splitter, .berserker, .phantom, .hexer,
                                  .ironclad, .pyrefiend, .frostborn, .voidling, .blastguard, .husk, .mirage, .gargoyle, .warper,
                                  .sapper, .chameleon, .gravecaller]
-        let extra = max(0, number - standard.count)
+        let extra = max(0, number - base)
         var groups: [SpawnGroup] = []
         for i in 0..<4 {
             let kind = pool[Int(rng.next() % UInt64(pool.count))]
