@@ -14,6 +14,7 @@ struct ControlPanel: View {
                     if let commander = session.commander, session.isCommanderSelected {
                         CommanderPanel(session: session, commander: commander, compact: false)
                         Spacer(minLength: 0)
+                        if session.isLone { ActionBar(session: session) }
                     } else if let tower = session.selectedTower {
                         TowerInfoPanel(session: session, tower: tower, compact: false)
                         Spacer(minLength: 0)
@@ -27,6 +28,7 @@ struct ControlPanel: View {
             } else {
                 VStack(spacing: 8) {
                     if let commander = session.commander, session.isCommanderSelected {
+                        if session.isLone { ActionBar(session: session) }
                         CommanderPanel(session: session, commander: commander, compact: true)
                     } else if let tower = session.selectedTower {
                         TowerInfoPanel(session: session, tower: tower, compact: true)

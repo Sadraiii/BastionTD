@@ -65,6 +65,7 @@ struct RootView: View {
                             )
                             start(expedition.map, expedition.setup)
                         },
+                        onLone: { start(.courtyard, MatchSetup(heroPool: [], lone: true)) },
                         onBack: { withAnimation(.easeOut(duration: 0.2)) { screen = .home } }
                     )
                     .transition(.move(edge: .trailing))

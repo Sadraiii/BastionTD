@@ -18,6 +18,7 @@ enum StorageKey {
     static func daily(_ day: Int) -> String { "progress.daily.\(day)" }
     static let bossRush = "progress.bossRush"
     static let expedition = "progress.expedition"
+    static func lone(_ kind: CommanderKind) -> String { "progress.lone.\(kind.rawValue)" }
     static let combos = "progress.combos"
 }
 
@@ -187,6 +188,13 @@ enum PlayerProgress {
 
     static func recordExpedition(wavesCleared: Int) {
         if wavesCleared > bestExpedition { defaults.set(wavesCleared, forKey: StorageKey.expedition) }
+    }
+
+    /// Most waves cleared in Lone Commander with this commander.
+    static func bestLone(_ kind: CommanderKind) -> Int { defaults.integer(forKey: StorageKey.lone(kind)) }
+
+    static func recordLone(_ kind: CommanderKind, wavesCleared: Int) {
+        if wavesCleared > bestLone(kind) { defaults.set(wavesCleared, forKey: StorageKey.lone(kind)) }
     }
 
     static func recordDaily(_ day: Int, wavesCleared: Int) {

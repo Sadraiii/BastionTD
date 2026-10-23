@@ -5,6 +5,7 @@ struct ModesView: View {
     let onDaily: () -> Void
     let onBossRush: () -> Void
     let onExpedition: () -> Void
+    let onLone: () -> Void
     let onBack: () -> Void
 
     private let daily = MatchSetup.daily(for: Date())
@@ -31,6 +32,8 @@ struct ModesView: View {
                     let bestDaily = PlayerProgress.bestDaily(daily.setup.day ?? 0)
                     let bestRush = PlayerProgress.bestBossRush
                     let bestExpedition = PlayerProgress.bestExpedition
+                    let commander = PlayerProgress.commander.selected
+                    let bestLone = PlayerProgress.bestLone(commander)
                     mode("DAILY: \(daily.map.name)", best: bestDaily > 0 ? "BEST TODAY: WAVE \(bestDaily)" : nil,
                          detail: "The same map, rules and heroes for everyone today.", style: .gold, action: onDaily)
                     mode("BOSS RUSH", best: bestRush > 0 ? "BEST: WAVE \(bestRush)/\(WaveLibrary.bossRush.count)" : nil,
@@ -38,6 +41,9 @@ struct ModesView: View {
                     mode("EXPEDITION", best: bestExpedition > 0 ? "BEST RUN: WAVE \(bestExpedition)" : nil,
                          detail: "A random map and squad that grows with boons. The waves never end.",
                          style: .primary, action: onExpedition)
+                    mode("LONE COMMANDER", best: bestLone > 0 ? "BEST AS \(commander.name.uppercased()): WAVE \(bestLone)" : nil,
+                         detail: "No heroes, only your commander. Ten waves on the Courtyard for triple commander XP.",
+                         style: .blue, action: onLone)
                 }
                 .padding(16)
                 .frame(maxWidth: .infinity)

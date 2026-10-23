@@ -45,11 +45,13 @@ struct CommanderPanel: View {
                     .foregroundStyle(Theme.secondaryText)
             }
             Spacer(minLength: 0)
-            Button(action: session.deselectCommander) {
-                PixelIcon(icon: .close, scale: 2, outlined: false)
+            if !session.isLone {
+                Button(action: session.deselectCommander) {
+                    PixelIcon(icon: .close, scale: 2, outlined: false)
+                }
+                .buttonStyle(PixelButtonStyle(color: Theme.panel, highlight: Theme.panelLight, shade: Theme.border, minHeight: 32))
+                .accessibilityLabel("Close commander panel")
             }
-            .buttonStyle(PixelButtonStyle(color: Theme.panel, highlight: Theme.panelLight, shade: Theme.border, minHeight: 32))
-            .accessibilityLabel("Close commander panel")
         }
     }
 

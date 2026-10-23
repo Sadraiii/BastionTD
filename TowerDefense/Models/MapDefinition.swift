@@ -645,6 +645,20 @@ extension MapDefinition {
         startingLives: 10
     )
 
+    /// The Lone Commander map. It isn't part of the campaign.
+    static let courtyard = MapDefinition(
+        id: "courtyard",
+        name: "Courtyard",
+        tagline: "A small yard where your commander fights alone.",
+        difficulty: .normal,
+        columns: 12,
+        rows: 7,
+        waypoints: points([(-1, 1), (10, 1), (10, 5), (1, 5)]),
+        obstacles: Set(points([(5, 3), (0, 6), (11, 0)])),
+        startingGold: 0,
+        startingLives: 10
+    )
+
     /// Every campaign level, world by world. Each one unlocks the next, except the Highlands, which open with stars.
     static let all: [MapDefinition] = [
         circuit, switchback, overload, meadow,

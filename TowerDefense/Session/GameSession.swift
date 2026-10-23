@@ -143,7 +143,7 @@ struct SavedMatch: Codable {
     /// Nil in saves made before rules numbers existed.
     var rules: Int? = SavedMatch.currentRules
 
-    var map: MapDefinition? { (MapDefinition.all + [.arena]).first { $0.id == mapID } }
+    var map: MapDefinition? { (MapDefinition.all + [.arena, .courtyard]).first { $0.id == mapID } }
 }
 
 /// Connects the engine, the SpriteKit scene and the SwiftUI interface.
@@ -219,16 +219,20 @@ final class GameSession {
         self.setup = setup
         // Daily challenges give everyone the full research tree.
         let research = saved?.research ?? (setup.day == nil ? PlayerProgress.research : .complete)
-        let engine = GameEngine(map: map, waves: setup.bossRush ? WaveLibrary.bossRush : map.waves,
+        let engine = GameEngine(map: map, waves: setup.bossRush ? WaveLibrary.bossRush : setup.lone == true ? WaveLibrary.lone : map.waves,
                                 research: research, setup: setup, seed: setup.seed)
         self.engine = engine
         self.totalWaves = engine.totalWaves
         self.scene = GameScene(map: map, paths: engine.paths)
-        self.coachEnabled = !PlayerProgress.coachCompleted
+        // The first-game tips are about building heroes.
+        self.coachEnabled = !PlayerProgress.coachCompleted && setup.lone != true
         self.save = SavedMatch(mapID: map.id, setup: setup, research: research)
         scene.session = self
+        isCommanderSelected = isLone
         if let saved { replay(saved) }
-        if let pool = setup.heroPool {
+        if isLone {
+            showBanner(title: "LONE COMMANDER", subtitle: "NO HEROES. TAP GRASS TO MOVE YOUR COMMANDER.", isBoss: false)
+        } else if let pool = setup.heroPool {
             let rules = (TowerKind.allCases.filter(pool.contains).map(\.name) + Modifier.allCases.filter(setup.modifiers.contains).map(\.title))
             showBanner(title: setup.expedition == true ? "EXPEDITION" : "DAILY CHALLENGE",
                        subtitle: rules.joined(separator: ", ").uppercased(), isBoss: false)
@@ -423,13 +427,17 @@ final class GameSession {
         } else if setup.expedition == true {
             PlayerProgress.recordExpedition(wavesCleared: cleared)
             medals = PlayerProgress.awardMedals(for: run)
+        } else if isLone, let commander = engine.commander {
+            PlayerProgress.recordLone(commander.kind, wavesCleared: cleared)
+            medals = PlayerProgress.awardMedals(for: run)
         } else {
             medals = PlayerProgress.awardMedals(for: run)
             PlayerProgress.recordEndless(on: map, wave: cleared)
         }
         PlayerProgress.researchPoints += earned
         if let commander = engine.commander {
-            PlayerProgress.addCommanderXP(commander.kind, commander.earnedXP - bankedCommanderXP)
+            let xp = commander.earnedXP - bankedCommanderXP
+            PlayerProgress.addCommanderXP(commander.kind, isLone ? xp * 3 : xp)
             bankedCommanderXP = commander.earnedXP
         }
         rewards = RunRewards(
@@ -637,7 +645,7 @@ final class GameSession {
             }
             return
         }
-        isCommanderSelected = false
+        if !isLone { isCommanderSelected = false }
         guard let cell, let tower = engine.tower(at: cell) else {
             if selectedTowerID != nil { deselectTower() }
             return
@@ -659,6 +667,9 @@ final class GameSession {
 
     // MARK: Commander
 
+    /// Lone Commander: with no heroes to build, the commander stays selected and every grass tap moves it.
+    var isLone: Bool { setup.lone == true }
+
     func selectCommander() {
         guard outcome == nil, engine.commander != nil else { return }
         cancelBuild()
@@ -669,6 +680,7 @@ final class GameSession {
     }
 
     func deselectCommander() {
+        guard !isLone else { return }
         isCommanderSelected = false
         sync()
     }

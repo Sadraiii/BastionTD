@@ -63,9 +63,11 @@ struct MatchSetup: Codable, Equatable {
     var bossRush = false
     /// An expedition: a random map and squad, boons from wave 3 and no victory, only Endless.
     var expedition: Bool?
+    /// Lone Commander: ten waves on the Courtyard with no heroes, only the commander.
+    var lone: Bool?
 
     /// Daily challenges and events don't count toward map progress.
-    var isEvent: Bool { day != nil || bossRush || expedition == true }
+    var isEvent: Bool { day != nil || bossRush || expedition == true || lone == true }
 
     var bonusPercent: Int { modifiers.reduce(0) { $0 + $1.bonus } }
 
