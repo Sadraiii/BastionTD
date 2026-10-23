@@ -141,6 +141,7 @@ struct GameOverView: View {
                 }
 
                 rewardsBlock
+                nextUpBlock
 
                 VStack(spacing: 4) {
                     statRow("VILLAINS DEFEATED", "\(session.stats.enemiesDefeated)")
@@ -208,6 +209,26 @@ struct GameOverView: View {
             .padding(10)
             .frame(maxWidth: .infinity)
             .background(Color(pixel: Pal.ocean).opacity(0.35))
+            .accessibilityElement(children: .combine)
+        }
+    }
+
+    @ViewBuilder
+    private var nextUpBlock: some View {
+        if !session.nextUp.isEmpty {
+            VStack(spacing: 4) {
+                PixelText("NEXT UP", pixel: 2, color: Theme.secondaryText)
+                ForEach(session.nextUp, id: \.self) { line in
+                    Text(line)
+                        .font(Theme.body(11))
+                        .foregroundStyle(Theme.text)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.7)
+                }
+            }
+            .padding(10)
+            .frame(maxWidth: .infinity)
+            .background(Color(pixel: Pal.ink).opacity(0.5))
             .accessibilityElement(children: .combine)
         }
     }

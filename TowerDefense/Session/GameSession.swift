@@ -196,6 +196,8 @@ final class GameSession {
     private(set) var heroes: [TowerKind] = []
     private(set) var stats = GameStats()
     private(set) var rewards = RunRewards()
+    /// The closest goals when the run ends, one line each.
+    private(set) var nextUp: [String] = []
     private(set) var coachEnabled: Bool
     var isPaused = false
     var speed: GameSpeed = .normal
@@ -465,6 +467,42 @@ final class GameSession {
             stars: rewards.stars + stars,
             badges: rewards.badges + badges.lines
         )
+        nextUp = nextGoals()
+    }
+
+    /// Up to three goals for the result screen. Mastery and badges only look at heroes used and villains beaten
+    /// this match, so they follow what was just played and never name a villain the Codex still hides.
+    private func nextGoals() -> [String] {
+        var goals: [String] = []
+        let research = PlayerProgress.research
+        let points = PlayerProgress.researchPoints
+        let recruits = TowerKind.allCases.filter { !research.isHeroUnlocked($0) }
+        if let hero = recruits.min(by: { $0.unlockCost < $1.unlockCost }) {
+            let name = hero.name.uppercased()
+            goals.append(points >= hero.unlockCost ? "RECRUIT \(name) IN THE LAB" : "\(hero.unlockCost - points) RP TO RECRUIT \(name)")
+        }
+        if let commander = engine.commander {
+            let xp = PlayerProgress.commanderXP(commander.kind)
+            let rank = CommanderKind.rank(forXP: xp)
+            if rank < CommanderKind.maxRank {
+                let gained = isLone ? commander.earnedXP * 3 : commander.earnedXP
+                goals.append("\(commander.kind.name.uppercased()) RANK \(rank + 1): \(CommanderKind.xpForRank(rank + 1) - xp) XP TO GO (+\(gained) THIS MATCH)")
+            }
+        }
+        let star = TowerKind.allCases.compactMap { kind -> (line: String, left: Int)? in
+            let stars = research.masteryStars(kind)
+            guard engine.stats.heroWaves[kind] != nil, stars < ResearchState.masteryThresholds.count else { return nil }
+            let left = ResearchState.masteryThresholds[stars] - research.wavesOnField(kind)
+            return ("\(kind.name.uppercased()): STAR \(stars + 1) IN \(left) WAVE\(left == 1 ? "" : "S")", left)
+        }.min { $0.left < $1.left }
+        let badge = EnemyKind.codex.compactMap { kind -> (line: String, left: Int)? in
+            let badges = PlayerProgress.badges(kind)
+            guard engine.stats.kills[kind] != nil, badges < PlayerProgress.badgeNames.count else { return nil }
+            let left = PlayerProgress.badgeKills(kind)[badges] - PlayerProgress.kills(kind)
+            return ("\(kind.name.uppercased()): \(PlayerProgress.badgeNames[badges]) BADGE IN \(left) KILL\(left == 1 ? "" : "S")", left)
+        }.min { $0.left < $1.left }
+        if let goal = star ?? badge { goals.append(goal.line) }
+        return goals
     }
 
     /// Research Points for the run so far, with the challenge bonus.
