@@ -104,7 +104,7 @@ private struct OnboardingPage: View {
         case 2:
             "Tap a hero to upgrade it. Tier 3 gives a power you trigger yourself. Only one path can go past tier 2. Matches earn Research Points to spend in the Lab."
         default:
-            "Some villains fly, some are cloaked, and some are immune to a damage type. Mix your heroes. The Codex lists them all."
+            "Some villains fly, some are cloaked, and some are immune to a damage type. Mix your heroes. The Codex fills in as you beat them."
         }
     }
 
