@@ -44,6 +44,9 @@ struct TowerSnapshot: Equatable {
     let targeting: TargetingMode
     let kills: Int
     let isDisabled: Bool
+    let combos: [String]
+    /// Extra damage from growing, in percent.
+    let growth: Int
 }
 
 struct SkillSnapshot: Equatable {
@@ -65,6 +68,10 @@ struct CommanderSnapshot: Equatable {
     /// Progress to the next level in steps of 5%; 1 at the top level.
     let xp: Double
     let skills: [SkillSnapshot]
+    /// The two evolutions to pick from; empty when none is waiting.
+    let choices: [CommanderForm]
+    /// The latest evolution picked.
+    let formName: String?
 }
 
 /// A hero power in the quick-cast bar.
@@ -84,6 +91,12 @@ struct BossBar: Equatable {
     let health: Double
 }
 
+/// How many of one villain the next wave brings.
+struct ScoutEntry: Equatable {
+    let kind: EnemyKind
+    var count: Int
+}
+
 struct WaveBanner: Equatable, Identifiable {
     let id: Int
     let title: String
@@ -95,11 +108,17 @@ struct WaveBanner: Equatable, Identifiable {
 struct RunRewards: Equatable {
     var researchPoints = 0
     var medals: [Medal] = []
+    /// New hero mastery stars and Codex badges, one line each.
+    var stars: [String] = []
+    var badges: [String] = []
 }
 
 /// A match in progress, stored as the player's commands and the step each happened on.
 /// The engine is deterministic, so replaying them rebuilds the exact same battlefield.
 struct SavedMatch: Codable {
+    /// Raised whenever a change would make older saves replay differently, so those aren't offered for resume.
+    static let currentRules = 5
+
     enum Command: Codable {
         case build(TowerKind, GridPoint)
         case upgrade(towerID: Int, path: Int)
@@ -110,6 +129,8 @@ struct SavedMatch: Codable {
         case continueEndless
         case moveCommander(GridPoint)
         case skill(Int)
+        case evolve(Int)
+        case boon(Int)
     }
 
     struct Entry: Codable {
@@ -122,8 +143,10 @@ struct SavedMatch: Codable {
     let research: ResearchState
     var entries: [Entry] = []
     var steps = 0
+    /// Nil in saves made before rules numbers existed.
+    var rules: Int? = SavedMatch.currentRules
 
-    var map: MapDefinition? { (MapDefinition.all + [.arena]).first { $0.id == mapID } }
+    var map: MapDefinition? { (MapDefinition.all + [.arena, .courtyard]).first { $0.id == mapID } }
 }
 
 /// Connects the engine, the SpriteKit scene and the SwiftUI interface.
@@ -165,8 +188,16 @@ final class GameSession {
     /// Increments whenever lives are lost so views can flash.
     private(set) var damagePulse = 0
     private(set) var bossBar: BossBar?
+    /// The villains of the next wave while it can be called; empty during a wave.
+    private(set) var nextWave: [ScoutEntry] = []
+    /// The boons to pick from, while the countdown waits.
+    private(set) var boonOffer: [Boon]?
+    /// The heroes in the build panel: all of them, or only a daily's or an expedition's squad.
+    private(set) var heroes: [TowerKind] = []
     private(set) var stats = GameStats()
     private(set) var rewards = RunRewards()
+    /// The closest goals when the run ends, one line each.
+    private(set) var nextUp: [String] = []
     private(set) var coachEnabled: Bool
     var isPaused = false
     var speed: GameSpeed = .normal
@@ -183,6 +214,12 @@ final class GameSession {
     @ObservationIgnored private var demoClock: Double = 0
     @ObservationIgnored private var save: SavedMatch
     @ObservationIgnored private var bankedCommanderXP = 0
+    @ObservationIgnored private var bankedKills: [EnemyKind: Int] = [:]
+    @ObservationIgnored private var bankedHeroWaves: [TowerKind: Int] = [:]
+    /// Villains killed this match, so each new Codex entry is announced once.
+    @ObservationIgnored private var killedKinds: Set<EnemyKind> = []
+    @ObservationIgnored private var scoutedWave = -1
+    @ObservationIgnored private var gateShut = false
 
     private static let fixedStep = 1.0 / 60.0
 
@@ -191,18 +228,23 @@ final class GameSession {
         self.setup = setup
         // Daily challenges give everyone the full research tree.
         let research = saved?.research ?? (setup.day == nil ? PlayerProgress.research : .complete)
-        let engine = GameEngine(map: map, waves: setup.bossRush ? WaveLibrary.bossRush : map.waves,
+        let engine = GameEngine(map: map, waves: setup.bossRush ? WaveLibrary.bossRush : setup.lone == true ? WaveLibrary.lone : map.waves,
                                 research: research, setup: setup, seed: setup.seed)
         self.engine = engine
         self.totalWaves = engine.totalWaves
         self.scene = GameScene(map: map, paths: engine.paths)
-        self.coachEnabled = !PlayerProgress.coachCompleted
+        // The first-game tips are about building heroes.
+        self.coachEnabled = !PlayerProgress.coachCompleted && setup.lone != true
         self.save = SavedMatch(mapID: map.id, setup: setup, research: research)
         scene.session = self
+        isCommanderSelected = isLone
         if let saved { replay(saved) }
-        if let pool = setup.heroPool {
+        if isLone {
+            showBanner(title: "LONE COMMANDER", subtitle: "NO HEROES. TAP GRASS TO MOVE YOUR COMMANDER.", isBoss: false)
+        } else if let pool = setup.heroPool {
             let rules = (TowerKind.allCases.filter(pool.contains).map(\.name) + Modifier.allCases.filter(setup.modifiers.contains).map(\.title))
-            showBanner(title: "DAILY CHALLENGE", subtitle: rules.joined(separator: ", ").uppercased(), isBoss: false)
+            showBanner(title: setup.expedition == true ? "EXPEDITION" : "DAILY CHALLENGE",
+                       subtitle: rules.joined(separator: ", ").uppercased(), isBoss: false)
         }
         #if DEBUG
         if ProcessInfo.processInfo.arguments.contains("-richStart") { engine.debugGrantGold(5000) }
@@ -232,6 +274,8 @@ final class GameSession {
             case .continueEndless: engine.continueEndless()
             case let .moveCommander(cell): engine.moveCommander(to: cell)
             case let .skill(index): engine.useSkill(index)
+            case let .evolve(option): engine.evolveCommander(option)
+            case let .boon(index): engine.pickBoon(index)
             }
             save.entries.append(entry)
         }
@@ -256,9 +300,14 @@ final class GameSession {
             switch event {
             case let .towerUpgraded(_, _, tier):
                 highestTier = max(highestTier, tier)
+            case let .enemyKilled(_, kind, _, _):
+                killedKinds.insert(kind)
             case .victory:
                 victoryStars = Self.stars(lives: engine.lives, starting: engine.startingLives)
                 awardedPoints = researchPoints(wavesCleared: engine.wavesCleared, victory: true)
+                bankedCommanderXP = engine.commander?.earnedXP ?? 0
+                bankedKills = engine.stats.kills
+                bankedHeroWaves = engine.stats.heroWaves
             default:
                 break
             }
@@ -311,17 +360,31 @@ final class GameSession {
                 } else {
                     subtitle = nil
                 }
-                let title = number == totalWaves && !isEndless ? "FINAL WAVE" : "WAVE \(number)"
+                let title = number == totalWaves && !isEndless && setup.expedition != true ? "FINAL WAVE" : "WAVE \(number)"
                 showBanner(title: title, subtitle: subtitle, isBoss: isBoss)
                 if number >= 2 { finishCoach() }
-            case .enemyLeaked:
+            case let .waveCleared(number, _) where setup.expedition == true && number == totalWaves:
+                showBanner(title: "ENDLESS MODE", subtitle: "HOW LONG CAN THE BASTION HOLD?", isBoss: false)
+            case let .enemyLeaked(_, _, livesLost) where livesLost > 0:
                 damagePulse += 1
+            case .goldStolen:
+                showToast("GOLD STOLEN")
+            case .groundCollapsed:
+                showToast("THE GROUND CAVES IN")
+            case let .enemyKilled(_, kind, _, _):
+                if killedKinds.insert(kind).inserted && EnemyKind.codex.contains(kind) && !PlayerProgress.hasSeen(kind) {
+                    showToast("NEW CODEX ENTRY: \(kind.name.uppercased())")
+                }
             case let .towerSold(towerID, _, _):
                 if towerID == selectedTowerID { selectedTowerID = nil }
             case let .towerUpgraded(_, _, tier):
                 highestTier = max(highestTier, tier)
             case let .powerActivated(_, _, name), let .commanderSkill(_, name, _, _):
                 showToast(name.uppercased() + "!")
+            case let .comboFormed(name, _, _):
+                if PlayerProgress.discoverCombo(name) { showToast("NEW COMBO: \(name.uppercased())") }
+            case .commanderLevelUp:
+                if engine.commander?.pendingStage != nil { showToast("CHOOSE AN EVOLUTION") }
             case .victory:
                 victoryStars = Self.stars(lives: engine.lives, starting: engine.startingLives)
                 if !setup.isEvent { PlayerProgress.recordVictory(on: map, stars: victoryStars) }
@@ -331,7 +394,8 @@ final class GameSession {
             case .defeat:
                 PlayerProgress.savedMatch = nil
                 outcome = .defeat
-                finishRun(victory: victoryStars > 0)
+                // Endless only comes after the map's waves are beaten.
+                finishRun(victory: engine.isEndless)
             default:
                 break
             }
@@ -377,19 +441,68 @@ final class GameSession {
         } else if setup.bossRush {
             PlayerProgress.recordBossRush(wavesCleared: cleared)
             medals = PlayerProgress.awardMedals(for: run)
+        } else if setup.expedition == true {
+            PlayerProgress.recordExpedition(wavesCleared: cleared)
+            medals = PlayerProgress.awardMedals(for: run)
+        } else if isLone, let commander = engine.commander {
+            PlayerProgress.recordLone(commander.kind, wavesCleared: cleared)
+            medals = PlayerProgress.awardMedals(for: run)
         } else {
             medals = PlayerProgress.awardMedals(for: run)
             PlayerProgress.recordEndless(on: map, wave: cleared)
         }
         PlayerProgress.researchPoints += earned
         if let commander = engine.commander {
-            PlayerProgress.addCommanderXP(commander.kind, commander.earnedXP - bankedCommanderXP)
+            let xp = commander.earnedXP - bankedCommanderXP
+            PlayerProgress.addCommanderXP(commander.kind, isLone ? xp * 3 : xp)
             bankedCommanderXP = commander.earnedXP
         }
+        let badges = PlayerProgress.addKills(engine.stats.kills.merging(bankedKills.mapValues { -$0 }, uniquingKeysWith: +))
+        let stars = PlayerProgress.addHeroWaves(engine.stats.heroWaves.merging(bankedHeroWaves.mapValues { -$0 }, uniquingKeysWith: +))
+        bankedKills = engine.stats.kills
+        bankedHeroWaves = engine.stats.heroWaves
         rewards = RunRewards(
-            researchPoints: rewards.researchPoints + earned + medals.reduce(0) { $0 + $1.reward },
-            medals: rewards.medals + medals
+            researchPoints: rewards.researchPoints + earned + badges.points + medals.reduce(0) { $0 + $1.reward },
+            medals: rewards.medals + medals,
+            stars: rewards.stars + stars,
+            badges: rewards.badges + badges.lines
         )
+        nextUp = nextGoals()
+    }
+
+    /// Up to three goals for the result screen. Mastery and badges only look at heroes used and villains beaten
+    /// this match, so they follow what was just played and never name a villain the Codex still hides.
+    private func nextGoals() -> [String] {
+        var goals: [String] = []
+        let research = PlayerProgress.research
+        let points = PlayerProgress.researchPoints
+        let recruits = TowerKind.allCases.filter { !research.isHeroUnlocked($0) }
+        if let hero = recruits.min(by: { $0.unlockCost < $1.unlockCost }) {
+            let name = hero.name.uppercased()
+            goals.append(points >= hero.unlockCost ? "RECRUIT \(name) IN THE LAB" : "\(hero.unlockCost - points) RP TO RECRUIT \(name)")
+        }
+        if let commander = engine.commander {
+            let xp = PlayerProgress.commanderXP(commander.kind)
+            let rank = CommanderKind.rank(forXP: xp)
+            if rank < CommanderKind.maxRank {
+                let gained = isLone ? commander.earnedXP * 3 : commander.earnedXP
+                goals.append("\(commander.kind.name.uppercased()) RANK \(rank + 1): \(CommanderKind.xpForRank(rank + 1) - xp) XP TO GO (+\(gained) THIS MATCH)")
+            }
+        }
+        let star = TowerKind.allCases.compactMap { kind -> (line: String, left: Int)? in
+            let stars = research.masteryStars(kind)
+            guard engine.stats.heroWaves[kind] != nil, stars < ResearchState.masteryThresholds.count else { return nil }
+            let left = ResearchState.masteryThresholds[stars] - research.wavesOnField(kind)
+            return ("\(kind.name.uppercased()): STAR \(stars + 1) IN \(left) WAVE\(left == 1 ? "" : "S")", left)
+        }.min { $0.left < $1.left }
+        let badge = EnemyKind.codex.compactMap { kind -> (line: String, left: Int)? in
+            let badges = PlayerProgress.badges(kind)
+            guard engine.stats.kills[kind] != nil, badges < PlayerProgress.badgeNames.count else { return nil }
+            let left = PlayerProgress.badgeKills(kind)[badges] - PlayerProgress.kills(kind)
+            return ("\(kind.name.uppercased()): \(PlayerProgress.badgeNames[badges]) BADGE IN \(left) KILL\(left == 1 ? "" : "S")", left)
+        }.min { $0.left < $1.left }
+        if let goal = star ?? badge { goals.append(goal.line) }
+        return goals
     }
 
     /// Research Points for the run so far, with the challenge bonus.
@@ -417,6 +530,23 @@ final class GameSession {
         let bossSnapshot = boss.map { BossBar(name: $0.kind.name, health: ($0.healthFraction * 50).rounded() / 50) }
         if bossBar != bossSnapshot { bossBar = bossSnapshot }
 
+        let upcoming = engine.canStartWave ? engine.waveNumber + 1 : 0
+        if upcoming != scoutedWave {
+            scoutedWave = upcoming
+            var entries: [ScoutEntry] = []
+            if upcoming > 0 {
+                for group in engine.waveDefinition(number: upcoming).groups {
+                    let count = engine.spawnCount(of: group)
+                    if let i = entries.firstIndex(where: { $0.kind == group.kind }) {
+                        entries[i].count += count
+                    } else {
+                        entries.append(ScoutEntry(kind: group.kind, count: count))
+                    }
+                }
+            }
+            nextWave = entries
+        }
+
         let snapshot = selectedTowerID.flatMap(makeSnapshot)
         if snapshot == nil { selectedTowerID = nil }
         if selectedTower != snapshot { selectedTower = snapshot }
@@ -425,13 +555,21 @@ final class GameSession {
             guard let power = tower.power else { return nil }
             return PowerBarItem(
                 id: tower.id, kind: tower.kind, level: tower.visualLevel, name: power.name,
-                isReady: tower.isPowerReady, charge: Self.charge(of: tower)
+                isReady: tower.isPowerReady, charge: charge(of: tower)
             )
         }
         if powers != bar { powers = bar }
 
         let commanderSnapshot = engine.commander.map(Self.snapshot)
         if commander != commanderSnapshot { commander = commanderSnapshot }
+        if boonOffer != engine.boonOffer { boonOffer = engine.boonOffer }
+        let allowed = TowerKind.allCases.filter { setup.heroPool == nil || engine.allows($0) }
+        if heroes != allowed { heroes = allowed }
+
+        if gateShut != engine.isGateShut {
+            gateShut = engine.isGateShut
+            showToast(gateShut ? "GATE SHUT" : "GATE OPEN")
+        }
 
         if let kind = buildKind, let cell = pendingCell {
             let result = engine.placementCheck(kind, at: cell)
@@ -439,9 +577,9 @@ final class GameSession {
         }
     }
 
-    private static func charge(of tower: Tower) -> Double {
+    private func charge(of tower: Tower) -> Double {
         guard let power = tower.power else { return 0 }
-        let raw = 1 - tower.powerCooldown / power.cooldown
+        let raw = 1 - tower.powerCooldown / (power.cooldown * engine.powerRecharge)
         return (raw * 20).rounded(.down) / 20
     }
 
@@ -451,12 +589,15 @@ final class GameSession {
             return SkillSnapshot(
                 index: index, name: skill.name, detail: skill.detail, level: commander.skillLevels[index],
                 isReady: commander.skillLevels[index] > 0 && left <= 0,
-                charge: ((1 - left / skill.cooldown) * 20).rounded(.down) / 20, secondsLeft: Int(left.rounded(.up))
+                charge: ((1 - left / (skill.cooldown * commander.recharge)) * 20).rounded(.down) / 20, secondsLeft: Int(left.rounded(.up))
             )
         }
         let xp = commander.level >= CommanderKind.maxLevel
             ? 1 : (Double(commander.xp) / Double(CommanderKind.xpToNext(level: commander.level)) * 20).rounded(.down) / 20
-        return CommanderSnapshot(kind: commander.kind, skin: commander.skin, level: commander.level, xp: xp, skills: skills)
+        return CommanderSnapshot(
+            kind: commander.kind, skin: commander.skin, level: commander.level, xp: xp, skills: skills,
+            choices: commander.pendingStage.map { commander.kind.forms[$0] } ?? [], formName: commander.forms.last?.name
+        )
     }
 
     private func makeSnapshot(_ id: Int) -> TowerSnapshot? {
@@ -472,13 +613,14 @@ final class GameSession {
         let power = tower.power.map { definition in
             PowerSnapshot(
                 name: definition.name, detail: definition.detail, isReady: tower.isPowerReady,
-                charge: Self.charge(of: tower), secondsLeft: Int(tower.powerCooldown.rounded(.up))
+                charge: charge(of: tower), secondsLeft: Int(tower.powerCooldown.rounded(.up))
             )
         }
         return TowerSnapshot(
             id: tower.id, kind: tower.kind, tiers: tower.tiers, stats: tower.stats, paths: paths,
             power: power, sellValue: tower.sellValue, targeting: tower.targeting,
-            kills: tower.kills, isDisabled: tower.isDisabled
+            kills: tower.kills, isDisabled: tower.isDisabled, combos: tower.combos.map { HeroCatalog.combos[$0].name },
+            growth: Int((tower.growthBonus * 100).rounded())
         )
     }
 
@@ -562,7 +704,7 @@ final class GameSession {
             }
             return
         }
-        isCommanderSelected = false
+        if !isLone { isCommanderSelected = false }
         guard let cell, let tower = engine.tower(at: cell) else {
             if selectedTowerID != nil { deselectTower() }
             return
@@ -584,6 +726,9 @@ final class GameSession {
 
     // MARK: Commander
 
+    /// Lone Commander: with no heroes to build, the commander stays selected and every grass tap moves it.
+    var isLone: Bool { setup.lone == true }
+
     func selectCommander() {
         guard outcome == nil, engine.commander != nil else { return }
         cancelBuild()
@@ -594,6 +739,7 @@ final class GameSession {
     }
 
     func deselectCommander() {
+        guard !isLone else { return }
         isCommanderSelected = false
         sync()
     }
@@ -613,6 +759,12 @@ final class GameSession {
             }
             SoundEngine.shared.play(.error)
         }
+        sync()
+    }
+
+    func evolveCommander(_ option: Int) {
+        guard outcome == nil, engine.evolveCommander(option) else { return }
+        record(.evolve(option))
         sync()
     }
 
@@ -687,6 +839,21 @@ final class GameSession {
         outcome = nil
         showBanner(title: "ENDLESS MODE", subtitle: "HOW LONG CAN THE BASTION HOLD?", isBoss: false)
         sync()
+    }
+
+    func pickBoon(_ index: Int) {
+        guard outcome == nil, engine.pickBoon(index) else { return }
+        record(.boon(index))
+        sync()
+    }
+
+    /// Keeps the research and commander XP of an Endless run or an expedition the player quits or restarts
+    /// from the pause menu.
+    func endRunIfNeeded() {
+        guard outcome == nil, engine.isEndless || setup.expedition == true else { return }
+        finishRun(victory: engine.isEndless)
+        // finishRun unpauses; keep the board still while the screen changes.
+        isPaused = true
     }
 
     func togglePause() {

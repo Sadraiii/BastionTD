@@ -17,6 +17,10 @@ enum StorageKey {
     static func bestEndless(_ mapID: String) -> String { "progress.endless.\(mapID)" }
     static func daily(_ day: Int) -> String { "progress.daily.\(day)" }
     static let bossRush = "progress.bossRush"
+    static let expedition = "progress.expedition"
+    static func lone(_ kind: CommanderKind) -> String { "progress.lone.\(kind.rawValue)" }
+    static let combos = "progress.combos"
+    static func kills(_ kind: EnemyKind) -> String { "progress.kills.\(kind.rawValue)" }
 }
 
 /// Persistent settings and campaign progress.
@@ -147,12 +151,38 @@ enum PlayerProgress {
         return true
     }
 
+    /// Adds a match's waves on the field toward hero mastery. Returns a line for each star earned.
+    static func addHeroWaves(_ waves: [TowerKind: Int]) -> [String] {
+        var state = research
+        var lines: [String] = []
+        for kind in TowerKind.allCases {
+            guard let count = waves[kind], count > 0 else { continue }
+            let before = state.masteryStars(kind)
+            state.addHeroWaves(kind, count)
+            for star in before..<state.masteryStars(kind) {
+                lines.append("\(kind.name.uppercased()): MASTERY STAR \(star + 1) OF 5")
+            }
+        }
+        research = state
+        return lines
+    }
+
     // MARK: Map unlocks and records
 
-    /// Maps unlock in order: beat the previous map to open the next.
+    /// The Highlands open once the other worlds hold this many stars.
+    static let highlandsStars = 30
+
+    /// Stars earned outside the Highlands.
+    static var campaignStars: Int {
+        MapDefinition.all.filter { $0.world != .highlands }.reduce(0) { $0 + bestStars(for: $1) }
+    }
+
+    /// Maps unlock in order: beat the previous map to open the next. The Highlands open with stars instead.
     static func isUnlocked(_ map: MapDefinition) -> Bool {
         guard let index = MapDefinition.all.firstIndex(of: map), index > 0 else { return true }
-        return bestStars(for: MapDefinition.all[index - 1]) > 0
+        let previous = MapDefinition.all[index - 1]
+        if map.world == .highlands && previous.world != .highlands { return campaignStars >= highlandsStars }
+        return bestStars(for: previous) > 0
     }
 
     static func bestEndlessWave(for map: MapDefinition) -> Int {
@@ -168,6 +198,20 @@ enum PlayerProgress {
 
     static func recordBossRush(wavesCleared: Int) {
         if wavesCleared > bestBossRush { defaults.set(wavesCleared, forKey: StorageKey.bossRush) }
+    }
+
+    /// Most waves cleared on one expedition.
+    static var bestExpedition: Int { defaults.integer(forKey: StorageKey.expedition) }
+
+    static func recordExpedition(wavesCleared: Int) {
+        if wavesCleared > bestExpedition { defaults.set(wavesCleared, forKey: StorageKey.expedition) }
+    }
+
+    /// Most waves cleared in Lone Commander with this commander.
+    static func bestLone(_ kind: CommanderKind) -> Int { defaults.integer(forKey: StorageKey.lone(kind)) }
+
+    static func recordLone(_ kind: CommanderKind, wavesCleared: Int) {
+        if wavesCleared > bestLone(kind) { defaults.set(wavesCleared, forKey: StorageKey.lone(kind)) }
     }
 
     static func recordDaily(_ day: Int, wavesCleared: Int) {
@@ -203,5 +247,53 @@ enum PlayerProgress {
         defaults.set(Array(earned), forKey: StorageKey.medals)
         researchPoints += fresh.reduce(0) { $0 + $1.reward }
         return fresh
+    }
+
+    // MARK: Combos
+
+    static var discoveredCombos: Set<String> {
+        Set(defaults.stringArray(forKey: StorageKey.combos) ?? [])
+    }
+
+    /// Remembers a combo for the Codex. Returns true the first time it is found.
+    static func discoverCombo(_ name: String) -> Bool {
+        var found = discoveredCombos
+        guard found.insert(name).inserted else { return false }
+        defaults.set(Array(found), forKey: StorageKey.combos)
+        return true
+    }
+
+    // MARK: Bestiary
+
+    static let badgeNames = ["BRONZE", "SILVER", "GOLD"]
+    static let badgeRewards = [1, 3, 6]
+
+    /// Lifetime kills a villain needs for each badge.
+    static func badgeKills(_ kind: EnemyKind) -> [Int] { kind.isBoss ? [1, 10, 50] : [25, 250, 1000] }
+
+    static func kills(_ kind: EnemyKind) -> Int { defaults.integer(forKey: StorageKey.kills(kind)) }
+
+    static func badges(_ kind: EnemyKind) -> Int { badgeKills(kind).filter { kills(kind) >= $0 }.count }
+
+    /// Villains on maps already won, so the Codex isn't dark for players who beat them before kills were kept.
+    private static let seenOnMaps = Set(MapDefinition.all.filter { bestStars(for: $0) > 0 }.flatMap { $0.waves.flatMap(\.kinds) })
+
+    static func hasSeen(_ kind: EnemyKind) -> Bool { kills(kind) > 0 || seenOnMaps.contains(kind) }
+
+    /// Adds a match's kills toward the Codex badges and pays for each new badge.
+    static func addKills(_ counts: [EnemyKind: Int]) -> (lines: [String], points: Int) {
+        var lines: [String] = []
+        var points = 0
+        for kind in EnemyKind.codex {
+            guard let count = counts[kind], count > 0 else { continue }
+            let before = badges(kind)
+            defaults.set(kills(kind) + count, forKey: StorageKey.kills(kind))
+            for badge in before..<badges(kind) {
+                lines.append("\(badgeNames[badge]) BADGE: \(kind.name.uppercased())")
+                points += badgeRewards[badge]
+            }
+        }
+        researchPoints += points
+        return (lines, points)
     }
 }

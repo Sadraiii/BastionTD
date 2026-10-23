@@ -26,16 +26,24 @@ final class GameScene: SKScene {
     private let airLayer = SKNode()
     private let projectileLayer = SKNode()
     private let rangeNode = SKSpriteNode()
+    /// The Rook's row and column, shown instead of a range ring.
+    private let lineNodes = [SKSpriteNode(color: .white, size: .zero), SKSpriteNode(color: .white, size: .zero)]
     private let selectionNode = SKSpriteNode(texture: Art.bracket)
-    private let coreCrystal = SKSpriteNode(texture: Art.coreCrystal)
-    private let corePedestal = SKSpriteNode(texture: Art.corePedestal)
-    private let portal = SKSpriteNode(texture: Art.portalFrames[0])
+    /// One crystal on a pedestal per route end, in `map.coreCells` order.
+    private var coreCrystals: [SKSpriteNode] = []
+    private var corePedestals: [SKSpriteNode] = []
+    /// One portal per route start.
+    private var portals: [(sprite: SKSpriteNode, path: PathGeometry)] = []
+    private let leverNode = SKSpriteNode(texture: Art.lever(up: true))
+    private let gateNode = SKSpriteNode(texture: Art.gate(shut: false))
 
     private var towerNodes: [Int: TowerNode] = [:]
     private var enemyNodes: [Int: EnemyNode] = [:]
     private var projectileNodes: [Int: ProjectileNode] = [:]
     private var highlightNodes: [GridPoint: SKSpriteNode] = [:]
     private var obstacleNodes: [GridPoint: SKSpriteNode] = [:]
+    /// One hole per caved-in tile, in `engine.pits` order.
+    private var pitNodes: [SKSpriteNode] = []
     /// Flow markers for each route.
     private var chevrons: [[SKSpriteNode]] = []
     private var ghost: TowerNode?
@@ -43,7 +51,9 @@ final class GameScene: SKScene {
     private let commanderBody = SKSpriteNode()
     private let commanderBadge = SKSpriteNode()
     private let commanderRing = SKSpriteNode()
+    private let commanderGlow = SKSpriteNode(texture: Art.shadow(width: 18))
     private var commanderLevel = 0
+    private var commanderRange: CGFloat = 0
     private var overlayState: OverlayState?
 
     private var lastUpdateTime: TimeInterval?
@@ -62,6 +72,7 @@ final class GameScene: SKScene {
         var selectedID: Int?
         var selectedRange: Double
         var towerCount: Int
+        var pitCount: Int
         var layout: BoardLayout
     }
 
@@ -90,6 +101,12 @@ final class GameScene: SKScene {
             world.addChild(node)
         }
         rangeNode.isHidden = true
+        for line in lineNodes {
+            line.zPosition = 4
+            line.alpha = 0.5
+            line.isHidden = true
+            world.addChild(line)
+        }
         selectionNode.isHidden = true
         selectionNode.color = Pal.yellow.uiColor
         selectionNode.colorBlendFactor = 1
@@ -101,20 +118,35 @@ final class GameScene: SKScene {
             .fadeAlpha(to: 0.85, duration: 0.5), .fadeAlpha(to: 0.35, duration: 0.5),
         ])))
 
-        corePedestal.usePixelAnchor()
-        coreCrystal.usePixelAnchor()
-        coreCrystal.zPosition = 1
-        corePedestal.addChild(coreCrystal)
-        coreCrystal.position = CGPoint(x: 0, y: 9)
-        coreCrystal.run(.repeatForever(.sequence([
-            .moveBy(x: 0, y: 1, duration: 0), .wait(forDuration: 0.45),
-            .moveBy(x: 0, y: -1, duration: 0), .wait(forDuration: 0.45),
-        ])))
-        decorLayer.addChild(corePedestal)
+        for _ in map.coreCells {
+            let pedestal = SKSpriteNode(texture: Art.corePedestal)
+            let crystal = SKSpriteNode(texture: Art.coreCrystal)
+            pedestal.usePixelAnchor()
+            crystal.usePixelAnchor()
+            crystal.zPosition = 1
+            pedestal.addChild(crystal)
+            crystal.position = CGPoint(x: 0, y: 9)
+            crystal.run(.repeatForever(.sequence([
+                .moveBy(x: 0, y: 1, duration: 0), .wait(forDuration: 0.45),
+                .moveBy(x: 0, y: -1, duration: 0), .wait(forDuration: 0.45),
+            ])))
+            decorLayer.addChild(pedestal)
+            corePedestals.append(pedestal)
+            coreCrystals.append(crystal)
+        }
 
-        portal.usePixelAnchor()
-        portal.run(.repeatForever(.animate(with: Art.portalFrames, timePerFrame: 0.12)))
-        decorLayer.addChild(portal)
+        for path in paths where !portals.contains(where: { $0.path.points[0] == path.points[0] }) {
+            let portal = SKSpriteNode(texture: Art.portalFrames[0])
+            portal.usePixelAnchor()
+            portal.run(.repeatForever(.animate(with: Art.portalFrames, timePerFrame: 0.12)))
+            decorLayer.addChild(portal)
+            portals.append((portal, path))
+        }
+
+        leverNode.usePixelAnchor()
+        gateNode.usePixelAnchor()
+        if map.lever != nil { decorLayer.addChild(leverNode) }
+        if map.gate != nil { decorLayer.addChild(gateNode) }
 
         for cell in map.obstacles {
             let variant = PixelNoise.value(cell.col, cell.row, seed: 3)
@@ -125,7 +157,8 @@ final class GameScene: SKScene {
         }
 
         for row in 0..<map.rows {
-            for col in 0..<map.columns where map.isBuildable(GridPoint(col, row)) || map.water.contains(GridPoint(col, row)) {
+            for col in 0..<map.columns where map.isBuildable(GridPoint(col, row)) || map.water.contains(GridPoint(col, row))
+                || map.pathCells.contains(GridPoint(col, row)) {
                 let sprite = SKSpriteNode(texture: Art.bracket)
                 sprite.colorBlendFactor = 1
                 highlightLayer.addChild(sprite)
@@ -150,7 +183,8 @@ final class GameScene: SKScene {
     func restoreTowers() {
         guard let engine = session?.engine else { return }
         for tower in engine.towers {
-            let node = TowerNode(towerID: tower.id, kind: tower.kind, tiers: tower.tiers)
+            let node = TowerNode(towerID: tower.id, kind: tower.kind, tiers: tower.tiers,
+                                 mastered: tower.mastery == ResearchState.masteryThresholds.count)
             towerLayer.addChild(node)
             towerNodes[tower.id] = node
         }
@@ -180,8 +214,14 @@ final class GameScene: SKScene {
         boardSprite.position = CGPoint(x: worldSize.width / 2, y: worldSize.height / 2)
         boardSprite.zRotation = newLayout.rotated ? -.pi / 2 : 0
 
-        corePedestal.position = newLayout.snappedWorldPoint(map.coreCell.center) + CGPoint(x: 0, y: -3)
-        portal.position = newLayout.snappedWorldPoint(paths[0].point(at: 1.0))
+        for (pedestal, cell) in zip(corePedestals, map.coreCells) {
+            pedestal.position = newLayout.snappedWorldPoint(cell.center) + CGPoint(x: 0, y: -3)
+        }
+        for (portal, path) in portals {
+            portal.position = newLayout.snappedWorldPoint(path.point(at: 1.0))
+        }
+        if let lever = map.lever { leverNode.position = newLayout.snappedWorldPoint(lever.center) }
+        if let gate = map.gate { gateNode.position = newLayout.snappedWorldPoint(gate.center) }
         for (cell, sprite) in obstacleNodes {
             sprite.position = newLayout.snappedWorldPoint(cell.center) + CGPoint(x: 0, y: -7)
         }
@@ -191,6 +231,9 @@ final class GameScene: SKScene {
         if let engine = session?.engine {
             for tower in engine.towers {
                 towerNodes[tower.id]?.position = newLayout.snappedWorldPoint(tower.cell.center)
+            }
+            for (pit, cell) in zip(pitNodes, engine.pits) {
+                pit.position = newLayout.snappedWorldPoint(cell.center)
             }
         }
         effectLayer.removeAllChildren()
@@ -217,6 +260,8 @@ final class GameScene: SKScene {
         for event in events { handle(event, layout: layout, now: currentTime) }
         syncTowers(layout, dt: gameDelta)
         syncCommander(layout, now: currentTime)
+        syncGate()
+        syncPits(layout)
         syncEnemies(layout, dt: gameDelta)
         syncProjectiles(layout)
         updateOverlays(layout)
@@ -233,20 +278,28 @@ final class GameScene: SKScene {
     /// Mirrors the commander: a walk cycle while moving, its level and, when selected, its range.
     private func syncCommander(_ layout: BoardLayout, now: TimeInterval) {
         guard let session, let commander = session.engine.commander else { return }
-        let frames = Art.commanderFrames(commander.kind, skin: commander.skin)
+        let frames = Art.commanderFrames(commander.kind, skin: commander.skin, level: commander.level)
         let node: SKNode
         if let commanderNode {
             node = commanderNode
         } else {
             node = SKNode()
-            let shadow = SKSpriteNode(texture: Art.shadow(width: 10))
-            shadow.position = CGPoint(x: 0, y: -7)
+            let shadow = SKSpriteNode(texture: Art.shadow(width: 12))
+            shadow.position = CGPoint(x: 0, y: -10)
+            // A pulsing glow under the commander once it reaches max level.
+            commanderGlow.position = shadow.position
+            commanderGlow.color = Pal.commander(commander.kind).uiColor
+            commanderGlow.colorBlendFactor = 1
+            commanderGlow.isHidden = true
+            commanderGlow.run(.repeatForever(.sequence([
+                .fadeAlpha(to: 0.4, duration: 0.6), .fadeAlpha(to: 1, duration: 0.6),
+            ])))
             commanderBody.texture = frames[0]
             commanderBody.size = frames[0].size()
             commanderBody.usePixelAnchor()
-            commanderBadge.position = CGPoint(x: 0, y: 11)
+            commanderBadge.position = CGPoint(x: 0, y: 14)
             commanderRing.zPosition = -2
-            for child in [commanderRing, shadow, commanderBody, commanderBadge] { node.addChild(child) }
+            for child in [commanderRing, commanderGlow, shadow, commanderBody, commanderBadge] { node.addChild(child) }
             towerLayer.addChild(node)
             commanderNode = node
         }
@@ -259,11 +312,36 @@ final class GameScene: SKScene {
             let badge = Art.text("\(commander.level)", color: Pal.yellow)
             commanderBadge.texture = badge
             commanderBadge.size = badge.size()
+            commanderGlow.isHidden = commander.level < CommanderKind.maxLevel
+        }
+        if commanderRange != commander.range {
+            commanderRange = commander.range
             let ring = Art.rangeRing(range: Double(commander.range), color: Pal.commander(commander.kind))
             commanderRing.texture = ring
             commanderRing.size = ring.size()
         }
         commanderRing.isHidden = !session.isCommanderSelected
+    }
+
+    /// Pulls the lever and bars the gate while the commander holds it, and darkens the shut road's arrows.
+    private func syncGate() {
+        guard let engine = session?.engine, map.lever != nil else { return }
+        let shut = engine.isGateShut
+        leverNode.texture = Art.lever(up: !shut)
+        gateNode.texture = Art.gate(shut: shut)
+        for chevron in chevrons[1] { chevron.alpha = shut ? 0.08 : 0.3 }
+    }
+
+    /// Adds a hole for each tile the Sinkmaw caved in, including those of a resumed match.
+    private func syncPits(_ layout: BoardLayout) {
+        guard let engine = session?.engine else { return }
+        while pitNodes.count < engine.pits.count {
+            let pit = SKSpriteNode(texture: Art.pit)
+            pit.usePixelAnchor()
+            pit.position = layout.snappedWorldPoint(engine.pits[pitNodes.count].center)
+            decorLayer.addChild(pit)
+            pitNodes.append(pit)
+        }
     }
 
     private func syncEnemies(_ layout: BoardLayout, dt: Double) {
@@ -340,6 +418,7 @@ final class GameScene: SKScene {
             selectedID: selected?.id,
             selectedRange: selected?.stats.range ?? 0,
             towerCount: session.engine.towers.count,
+            pitCount: session.engine.pits.count,
             layout: layout
         )
         guard state != overlayState else { return }
@@ -349,7 +428,8 @@ final class GameScene: SKScene {
         if let kind = state.buildKind {
             for (cell, sprite) in highlightNodes {
                 sprite.isHidden = session.engine.tower(at: cell) != nil || cell == state.pendingCell
-                    || map.water.contains(cell) != kind.isNaval
+                    || map.water.contains(cell) != kind.isNaval || map.pathCells.contains(cell) != kind.holdsPath
+                    || session.engine.isRouteEnd(cell) || session.engine.isPit(cell)
                 sprite.color = Pal.towerLight(kind).uiColor
             }
         }
@@ -357,6 +437,7 @@ final class GameScene: SKScene {
         ghost?.removeFromParent()
         ghost = nil
         rangeNode.isHidden = true
+        for line in lineNodes { line.isHidden = true }
         selectionNode.isHidden = true
 
         if let kind = state.buildKind, let cell = state.pendingCell {
@@ -367,15 +448,29 @@ final class GameScene: SKScene {
             node.tint(state.pendingOK ? nil : Pal.red)
             world.addChild(node)
             ghost = node
-            showRange(kind.baseStats.range, color: state.pendingOK ? Pal.white : Pal.red, at: cell, layout: layout)
+            let range = kind.baseStats.range + (map.highGround.contains(cell) ? 0.5 : 0)
+            showRange(range, of: kind, color: state.pendingOK ? Pal.white : Pal.red, at: cell, layout: layout)
         } else if let selected, let tower = session.engine.tower(id: selected.id) {
-            showRange(selected.stats.range, color: Pal.towerLight(selected.kind), at: tower.cell, layout: layout)
+            showRange(selected.stats.range, of: selected.kind, color: Pal.towerLight(selected.kind), at: tower.cell, layout: layout)
             selectionNode.position = layout.snappedWorldPoint(tower.cell.center)
             selectionNode.isHidden = false
         }
     }
 
-    private func showRange(_ range: Double, color: PixelColor, at cell: GridPoint, layout: BoardLayout) {
+    private func showRange(_ range: Double, of kind: TowerKind, color: PixelColor, at cell: GridPoint, layout: BoardLayout) {
+        if kind.attackStyle == .cross {
+            let center = cell.center
+            let ends = [(CGPoint(x: 0, y: center.y), CGPoint(x: CGFloat(map.columns), y: center.y)),
+                        (CGPoint(x: center.x, y: 0), CGPoint(x: center.x, y: CGFloat(map.rows)))]
+            for (line, (start, end)) in zip(lineNodes, ends) {
+                let a = layout.snappedWorldPoint(start), b = layout.snappedWorldPoint(end)
+                line.color = color.uiColor
+                line.size = CGSize(width: max(2, abs(b.x - a.x)), height: max(2, abs(b.y - a.y)))
+                line.position = CGPoint(x: (a.x + b.x) / 2, y: (a.y + b.y) / 2)
+                line.isHidden = false
+            }
+            return
+        }
         let texture = Art.rangeRing(range: range, color: color)
         rangeNode.texture = texture
         rangeNode.size = texture.size()
@@ -480,7 +575,8 @@ final class GameScene: SKScene {
 
         switch event {
         case let .towerBuilt(id, kind, cell):
-            let node = TowerNode(towerID: id, kind: kind)
+            let node = TowerNode(towerID: id, kind: kind,
+                                 mastered: session?.engine.tower(id: id)?.mastery == ResearchState.masteryThresholds.count)
             let target = toWorld(cell.center)
             node.position = target + CGPoint(x: 0, y: 6)
             towerLayer.addChild(node)
@@ -496,7 +592,16 @@ final class GameScene: SKScene {
         case let .towerUpgraded(id, _, _):
             guard let node = towerNodes[id], let tower = session?.engine.tower(id: id) else { break }
             node.setTiers(tower.tiers)
-            playFrames(Art.sparkleFrames, at: node.position, timePerFrame: 0.08)
+            let target = toWorld(tower.cell.center)
+            node.removeAction(forKey: "hop")
+            node.position = target
+            node.run(.sequence([
+                .move(to: target + CGPoint(x: 0, y: 3), duration: 0.06),
+                .move(to: target, duration: 0.06),
+            ]), withKey: "hop")
+            playFrames(Art.ringFrames(radius: 14, color: Pal.tower(tower.kind), accent: Pal.towerLight(tower.kind)),
+                       at: target, timePerFrame: 0.05, z: -2)
+            playFrames(Art.sparkleFrames, at: target, timePerFrame: 0.08)
             SoundEngine.shared.play(.upgrade)
             Haptics.impact(.medium)
 
@@ -504,6 +609,11 @@ final class GameScene: SKScene {
             floatText("+\(amount)", color: Pal.yellow, at: toWorld(at) + CGPoint(x: 0, y: 8))
             playFrames(Art.sparkleFrames, at: toWorld(at), timePerFrame: 0.08)
             SoundEngine.shared.play(.sell)
+
+        case let .comboFormed(name, first, second):
+            playFrames(Art.sparkleFrames, at: toWorld(first), timePerFrame: 0.08)
+            playFrames(Art.sparkleFrames, at: toWorld(second), timePerFrame: 0.08)
+            floatText(name.uppercased(), color: Pal.yellow, at: toWorld(first.lerp(to: second, 0.5)) + CGPoint(x: 0, y: 14))
 
         case let .towerSold(id, cell, refund):
             towerNodes[id]?.removeFromParent()
@@ -525,14 +635,14 @@ final class GameScene: SKScene {
                 }
             }
             switch kind {
-            case .pulse, .aegis, .weaver, .tide, .tamer: SoundEngine.shared.play(.pulse)
+            case .pulse, .aegis, .weaver, .tide, .tamer, .bramble, .warden: SoundEngine.shared.play(.pulse)
             case .cyclone: SoundEngine.shared.play(.gust)
             case .mortar, .alchemist: SoundEngine.shared.play(.mortar)
             case .tesla: SoundEngine.shared.play(.tesla)
-            case .rail, .star, .sniper: SoundEngine.shared.play(.rail)
+            case .rail, .star, .sniper, .rook: SoundEngine.shared.play(.rail)
             case .inferno: SoundEngine.shared.play(.flame)
-            case .echo: SoundEngine.shared.play(.scream)
-            case .mind: SoundEngine.shared.play(.psychic)
+            case .echo, .siren: SoundEngine.shared.play(.scream)
+            case .mind, .omen: SoundEngine.shared.play(.psychic)
             case .frost: SoundEngine.shared.play(.frost)
             case .chrono, .midas: SoundEngine.shared.play(.tick)
             }
@@ -546,8 +656,12 @@ final class GameScene: SKScene {
 
         case let .coneBlast(towerID, origin, direction, range, angle):
             let kind = session?.engine.tower(id: towerID)?.kind ?? .inferno
-            cone(at: toWorld(origin), angle: layout.worldAngle(of: direction), spread: angle, length: range * 16,
-                 colors: kind == .inferno ? [Pal.yellow, Pal.orange, Pal.red] : [Pal.white, Pal.lime, Pal.green])
+            let colors: [PixelColor] = switch kind {
+            case .inferno: [Pal.yellow, Pal.orange, Pal.red]
+            case .siren: [Pal.white, Pal.cyan, Pal.blue]
+            default: [Pal.white, Pal.lime, Pal.green]
+            }
+            cone(at: toWorld(origin), angle: layout.worldAngle(of: direction), spread: angle, length: range * 16, colors: colors)
 
         case let .mindBlast(from, to):
             let (texture, origin) = Art.beam(from: toWorld(from), to: toWorld(to), glow: Pal.pink, edge: Pal.magenta)
@@ -561,10 +675,13 @@ final class GameScene: SKScene {
             flicker(texture, origin: origin)
 
         case let .beam(towerID, from, to):
-            let isStar = session?.engine.tower(id: towerID)?.kind == .star
-            let (texture, origin) = isStar
-                ? Art.beam(from: toWorld(from), to: toWorld(to), glow: Pal.yellow, edge: Pal.amber)
-                : Art.beam(from: toWorld(from), to: toWorld(to))
+            let kind = session?.engine.tower(id: towerID)?.kind ?? .rail
+            let colors: [PixelColor] = switch kind {
+            case .star: [Pal.yellow, Pal.amber]
+            case .rook: [Pal.amber, Pal.yellow]
+            default: [Pal.pink, Pal.hotRed]
+            }
+            let (texture, origin) = Art.beam(from: toWorld(from), to: toWorld(to), glow: colors[0], edge: colors[1])
             let sprite = SKSpriteNode(texture: texture)
             sprite.anchorPoint = .zero
             sprite.position = origin
@@ -649,6 +766,11 @@ final class GameScene: SKScene {
             SoundEngine.shared.play(.emp)
             Haptics.impact(.medium)
 
+        case let .groundCollapsed(cell):
+            playFrames(Art.dustFrames, at: toWorld(cell.center), timePerFrame: 0.07)
+            shake(intensity: 2)
+            SoundEngine.shared.play(.mortar)
+
         case let .heavyHit(at, amount):
             // Damage numbers are capped so busy waves stay readable.
             guard now - lastNumberTime > 0.12 else { break }
@@ -657,7 +779,7 @@ final class GameScene: SKScene {
 
         case let .enemyKilled(_, kind, at, bounty):
             let point = toWorld(at)
-            if kind == .titan {
+            if kind.isBoss {
                 playFrames(Art.explosionFrames(radius: 26), at: point, timePerFrame: 0.07)
                 sparks(at: point, color: Pal.hotRed, count: 30)
                 shake(intensity: 3)
@@ -670,20 +792,29 @@ final class GameScene: SKScene {
             floatText("+\(bounty)", color: Pal.yellow, at: point + CGPoint(x: 0, y: 8))
 
         case let .enemyLeaked(_, _, livesLost):
-            coreCrystal.removeAction(forKey: "hit")
-            coreCrystal.run(.sequence([
-                .run { [weak self] in self?.coreCrystal.color = Pal.red.uiColor; self?.coreCrystal.colorBlendFactor = 0.8 },
-                .wait(forDuration: 0.1),
-                .run { [weak self] in self?.coreCrystal.colorBlendFactor = 0 },
-                .wait(forDuration: 0.08),
-                .run { [weak self] in self?.coreCrystal.colorBlendFactor = 0.8 },
-                .wait(forDuration: 0.1),
-                .run { [weak self] in self?.coreCrystal.colorBlendFactor = 0 },
-            ]), withKey: "hit")
-            floatText("-\(livesLost)", color: Pal.red, at: corePedestal.position + CGPoint(x: 0, y: 22))
+            // Pickpockets cost no lives; their stolen gold shows instead.
+            guard livesLost > 0 else { break }
+            // The crystals share one pool of lives, so they all flash.
+            for crystal in coreCrystals {
+                crystal.removeAction(forKey: "hit")
+                crystal.run(.sequence([
+                    .run { [weak crystal] in crystal?.color = Pal.red.uiColor; crystal?.colorBlendFactor = 0.8 },
+                    .wait(forDuration: 0.1),
+                    .run { [weak crystal] in crystal?.colorBlendFactor = 0 },
+                    .wait(forDuration: 0.08),
+                    .run { [weak crystal] in crystal?.colorBlendFactor = 0.8 },
+                    .wait(forDuration: 0.1),
+                    .run { [weak crystal] in crystal?.colorBlendFactor = 0 },
+                ]), withKey: "hit")
+            }
+            floatText("-\(livesLost)", color: Pal.red, at: corePedestals[0].position + CGPoint(x: 0, y: 22))
             shake(intensity: 2)
             SoundEngine.shared.play(.leak)
             Haptics.impact(.heavy)
+
+        case let .goldStolen(amount):
+            floatText("-\(amount)", color: Pal.red, at: corePedestals[0].position + CGPoint(x: 0, y: 22))
+            SoundEngine.shared.play(.leak)
 
         case let .enemyHealed(center, _):
             let point = toWorld(center)
@@ -710,11 +841,11 @@ final class GameScene: SKScene {
             SoundEngine.shared.play(isBoss ? .bossWarning : .waveStart)
 
         case let .waveCleared(_, bonus):
-            floatText("+\(bonus)", color: Pal.yellow, at: corePedestal.position + CGPoint(x: 0, y: 22))
+            floatText("+\(bonus)", color: Pal.yellow, at: corePedestals[0].position + CGPoint(x: 0, y: 22))
             SoundEngine.shared.play(.waveClear)
 
         case let .earlyCallBonus(amount):
-            floatText("+\(amount)", color: Pal.yellow, at: portal.position + CGPoint(x: 0, y: 10))
+            floatText("+\(amount)", color: Pal.yellow, at: portals[0].sprite.position + CGPoint(x: 0, y: 10))
             SoundEngine.shared.play(.coin)
 
         case let .commanderAttack(kind, from, to):
@@ -741,8 +872,28 @@ final class GameScene: SKScene {
 
         case let .commanderLevelUp(level, at):
             playFrames(Art.sparkleFrames, at: toWorld(at), timePerFrame: 0.08)
+            if Art.commanderStage(level: level) != Art.commanderStage(level: level - 1), let kind = session?.engine.commander?.kind {
+                // New gear: a white flash and a burst in the commander's color.
+                playFrames(Art.ringFrames(radius: 16, color: Pal.commander(kind), accent: Pal.white),
+                           at: toWorld(at), timePerFrame: 0.05, z: -2)
+                sparks(at: toWorld(at), color: Pal.commander(kind), count: 16)
+                commanderBody.run(.sequence([
+                    .run { [weak commanderBody] in commanderBody?.color = .white; commanderBody?.colorBlendFactor = 1 },
+                    .wait(forDuration: 0.15),
+                    .run { [weak commanderBody] in commanderBody?.colorBlendFactor = 0 },
+                ]))
+            }
             floatText("LEVEL \(level)", color: Pal.yellow, at: toWorld(at) + CGPoint(x: 0, y: 14))
             SoundEngine.shared.play(.upgrade)
+
+        case let .commanderEvolved(name, at):
+            guard let kind = session?.engine.commander?.kind else { break }
+            playFrames(Art.ringFrames(radius: 16, color: Pal.commander(kind), accent: Pal.white),
+                       at: toWorld(at), timePerFrame: 0.05, z: -2)
+            sparks(at: toWorld(at), color: Pal.commander(kind), count: 16)
+            floatText(name.uppercased(), color: Pal.yellow, at: toWorld(at) + CGPoint(x: 0, y: 14))
+            SoundEngine.shared.play(.upgrade)
+            Haptics.impact(.medium)
 
         case .victory:
             SoundEngine.shared.play(.victory)

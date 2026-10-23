@@ -30,11 +30,17 @@ final class Enemy {
     /// Armor temporarily removed by shredding attacks.
     var armorShred: Double = 0
     var armorShredTimer: Double = 0
+    /// Marked by Omen: takes `markAmount` more damage from every hit.
+    var markAmount: Double = 0
+    var markTimer: Double = 0
+    /// A Chameleon ignores the damage type that last hit it while this counts down.
+    var adaptedType: DamageType?
+    var adaptTimer: Double = 0
     /// Gargoyles in stone form ignore all damage.
     var stoneTimer: Double = 0
     /// A cloaked villain that has been exposed (Sonic Shatter) can be seen by anyone.
     var revealed = false
-    /// Hidden by a Bog Witch while this counts down.
+    /// Hidden by a Bog Witch while this counts down, or for good at Night.
     var cloakTimer: Double = 0
     var abilityTimer: Double
     /// Counts down after a hit so the renderer can flash the sprite.
@@ -61,6 +67,7 @@ final class Enemy {
     var isPoisoned: Bool { poisonTimer > 0 }
     var isConfused: Bool { confuseTimer > 0 }
     var isStone: Bool { stoneTimer > 0 }
+    var isMarked: Bool { markTimer > 0 }
     var isHidden: Bool { (kind.isCamo || cloakTimer > 0) && !revealed }
     var effectiveArmor: Double { max(0, kind.armor - armorShred) }
 
@@ -77,10 +84,14 @@ final class Tower {
     let id: Int
     let kind: TowerKind
     let cell: GridPoint
+    /// Built on a raised tile, which adds range.
+    let onHighGround: Bool
     /// Purchased tier on each upgrade path.
     private(set) var tiers: [Int] = Array(repeating: 0, count: UpgradeRules.pathCount)
     private(set) var stats: TowerStats
     private(set) var power: PowerDefinition?
+    /// Indices into `HeroCatalog.combos` formed with heroes on touching tiles.
+    private(set) var combos: [Int] = []
     var targeting: TargetingMode
     var cooldown: Double = 0
     /// Logical direction the turret faces.
@@ -90,6 +101,10 @@ final class Tower {
     var totalInvested: Int
     var kills = 0
     var damageDealt: Double = 0
+    /// Waves survived on the field, for heroes that grow.
+    var wavesHeld = 0
+    /// The hero's mastery stars when it was built.
+    var mastery = 0
     var powerCooldown: Double = 0
     var frenzyTimer: Double = 0
     var frenzyRate: Double = 1
@@ -104,14 +119,20 @@ final class Tower {
     var hasDetection = false
     /// Knocked offline by an EMP.
     var disabledTimer: Double = 0
+    /// For a Warden: where his tile lies along each route, nil where the route doesn't pass it.
+    var holdDistances: [CGFloat?] = []
+    /// Guard a Warden has lost to villains pushing him; at `stats.holdHealth` he is knocked down.
+    var holdDamage: Double = 0
 
-    init(id: Int, kind: TowerKind, cell: GridPoint) {
+    init(id: Int, kind: TowerKind, cell: GridPoint, onHighGround: Bool) {
         self.id = id
         self.kind = kind
         self.cell = cell
+        self.onHighGround = onHighGround
         self.targeting = kind.defaultTargeting
         self.totalInvested = kind.cost
         self.stats = kind.baseStats
+        refreshStats()
     }
 
     var position: CGPoint { cell.center }
@@ -125,7 +146,9 @@ final class Tower {
 
     /// Combined attack-speed multiplier from powers and allies.
     var rateMultiplier: Double { frenzyRate * (1 + auraRate) * (isRallied ? rallyRate : 1) }
-    var damageMultiplier: Double { frenzyDamage * (1 + auraDamage) * (isRallied ? rallyDamage : 1) }
+    var damageMultiplier: Double { frenzyDamage * (1 + auraDamage) * (isRallied ? rallyDamage : 1) * (1 + growthBonus) * (1 + 0.02 * Double(mastery)) }
+    /// Extra damage from the waves survived; it stops growing after 20.
+    var growthBonus: Double { stats.growth * Double(min(wavesHeld, 20)) }
 
     func nextTier(onPath path: Int) -> UpgradeTier? {
         let current = tiers[path]
@@ -134,8 +157,19 @@ final class Tower {
 
     func advance(path: Int) {
         tiers[path] += 1
-        stats = kind.stats(tiers: tiers)
+        refreshStats()
         power = kind.power(tiers: tiers)
+    }
+
+    func setCombos(_ list: [Int]) {
+        combos = list
+        refreshStats()
+    }
+
+    private func refreshStats() {
+        stats = kind.stats(tiers: tiers)
+        if onHighGround { stats.range += 0.5 }
+        for index in combos { HeroCatalog.combos[index].apply(kind, &stats) }
     }
 }
 
@@ -160,6 +194,8 @@ struct HitPayload {
     var confuseDuration: Double = 0
     var armorShred: Double = 0
     var shieldBreak: Double = 1
+    var mark: Double = 0
+    var markDuration: Double = 0
 }
 
 final class Projectile {
@@ -248,6 +284,8 @@ final class Commander {
     /// Sentry Mode: attacks faster while this counts down.
     var overdriveTimer: Double = 0
     var skillCooldowns: [Double]
+    /// Evolutions picked this match, one per stage.
+    var forms: [CommanderForm] = []
 
     init(loadout: CommanderLoadout, cell: GridPoint) {
         kind = loadout.kind
@@ -261,5 +299,21 @@ final class Commander {
 
     var isWalking: Bool { position != cell.center }
     var power: Double { CommanderKind.power(level: level, rank: rank) }
-    var range: CGFloat { CGFloat(kind.range * (1 + 0.04 * Double(level - 1))) }
+    var range: CGFloat { CGFloat(forms.reduce(kind.range * (1 + 0.04 * Double(level - 1))) { $0 + $1.range }) }
+    var splash: Double { forms.reduce(kind.splash) { $0 + $1.splash } }
+    var damageMultiplier: Double { forms.reduce(1) { $0 * $1.damage } }
+    /// Scales skill cooldowns.
+    var recharge: Double { forms.reduce(1) { $0 * $1.recharge } }
+    var slow: Double { forms.reduce(0) { max($0, $1.slow) } }
+    var burn: Double { forms.reduce(0) { max($0, $1.burn) } }
+    /// Attack-speed bonus for heroes near the commander.
+    var heroRate: Double { forms.reduce(0) { max($0, $1.heroRate) } }
+    var heroCamo: Bool { forms.contains { $0.heroCamo } }
+    var hitsAir: Bool { kind.hitsAir || forms.contains { $0.hitsAir } }
+    var detectsCamo: Bool { kind.detectsCamo || heroCamo }
+
+    /// The evolution stage waiting for a choice, once the commander has reached its level.
+    var pendingStage: Int? {
+        forms.count < CommanderKind.evolveLevels.count && level >= CommanderKind.evolveLevels[forms.count] ? forms.count : nil
+    }
 }

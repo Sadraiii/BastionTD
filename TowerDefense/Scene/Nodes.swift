@@ -18,21 +18,32 @@ final class TowerNode: SKNode {
     let towerID: Int
     let kind: TowerKind
     private(set) var tiers: [Int]
+    /// All five mastery stars: the tier pips are gold.
+    private let mastered: Bool
     private let base: SKSpriteNode
     private let turret: SKSpriteNode
     private let badge = SKSpriteNode(texture: Art.powerReady)
+    /// Yellow pip in the corner while the hero is part of a combo.
+    private let comboPip = SKSpriteNode(color: Pal.ink.uiColor, size: CGSize(width: 4, height: 4))
+    /// Sprouts on a Bramble's base after 5, 10 and 20 waves.
+    private let leaves: [SKSpriteNode]
+    /// A Warden's guard, which empties as villains push him.
+    private let guardFill: SKSpriteNode?
     private var displayedAngle: CGFloat = .pi / 2
     private var targetAngle: CGFloat = .pi / 2
     private var state = VisualState.normal
 
     private enum VisualState { case normal, frenzied, disabled }
 
-    init(towerID: Int, kind: TowerKind, tiers: [Int] = [0, 0]) {
+    init(towerID: Int, kind: TowerKind, tiers: [Int] = [0, 0], mastered: Bool = false) {
         self.towerID = towerID
         self.kind = kind
         self.tiers = tiers
-        base = SKSpriteNode(texture: Art.towerBase(kind, tiers: tiers))
-        turret = SKSpriteNode(texture: Art.turret(kind, level: TowerKind.visualLevel(tiers: tiers)))
+        self.mastered = mastered
+        base = SKSpriteNode(texture: Art.towerBase(kind, tiers: tiers, mastered: mastered))
+        turret = SKSpriteNode(texture: Art.turret(kind, tiers: tiers))
+        leaves = kind == .bramble ? (0..<3).map { _ in SKSpriteNode(texture: Art.leaf) } : []
+        guardFill = kind.holdsPath ? SKSpriteNode(color: Pal.mist.uiColor, size: CGSize(width: 12, height: 2)) : nil
         super.init()
         base.zPosition = 0
         turret.zPosition = 1
@@ -44,9 +55,35 @@ final class TowerNode: SKNode {
             .moveBy(x: 0, y: 1, duration: 0), .wait(forDuration: 0.3),
             .moveBy(x: 0, y: -1, duration: 0), .wait(forDuration: 0.3),
         ])))
+        comboPip.anchorPoint = .zero
+        comboPip.position = CGPoint(x: -8, y: 4)
+        comboPip.zPosition = 3
+        comboPip.isHidden = true
+        let fill = SKSpriteNode(color: Pal.yellow.uiColor, size: CGSize(width: 2, height: 2))
+        fill.anchorPoint = .zero
+        fill.position = CGPoint(x: 1, y: 1)
+        comboPip.addChild(fill)
         addChild(base)
         addChild(turret)
         addChild(badge)
+        addChild(comboPip)
+        for (leaf, position) in zip(leaves, [CGPoint(x: -7, y: -4), CGPoint(x: 7, y: -4), CGPoint(x: 8, y: 4)]) {
+            leaf.usePixelAnchor()
+            leaf.position = position
+            leaf.zPosition = 2
+            leaf.isHidden = true
+            addChild(leaf)
+        }
+        if let guardFill {
+            let back = SKSpriteNode(color: Pal.ink.uiColor, size: CGSize(width: 14, height: 4))
+            back.anchorPoint = .zero
+            back.position = CGPoint(x: -7, y: -14)
+            back.zPosition = 3
+            guardFill.anchorPoint = .zero
+            guardFill.position = CGPoint(x: 1, y: 1)
+            back.addChild(guardFill)
+            addChild(back)
+        }
     }
 
     @available(*, unavailable)
@@ -56,8 +93,8 @@ final class TowerNode: SKNode {
 
     func setTiers(_ tiers: [Int]) {
         self.tiers = tiers
-        base.texture = Art.towerBase(kind, tiers: tiers)
-        turret.texture = Art.turret(kind, level: TowerKind.visualLevel(tiers: tiers))
+        base.texture = Art.towerBase(kind, tiers: tiers, mastered: mastered)
+        turret.texture = Art.turret(kind, tiers: tiers)
     }
 
     /// Tints the whole tower, used for the invalid-placement ghost.
@@ -70,6 +107,12 @@ final class TowerNode: SKNode {
 
     func update(tower: Tower, aimAngle: CGFloat, dt: Double) {
         badge.isHidden = !tower.isPowerReady
+        comboPip.isHidden = tower.combos.isEmpty
+        for (leaf, waves) in zip(leaves, [5, 10, 20]) { leaf.isHidden = tower.wavesHeld < waves }
+        if let guardFill {
+            let left = tower.isDisabled ? 0 : max(0, 1 - tower.holdDamage / tower.stats.holdHealth)
+            guardFill.size.width = (CGFloat(left) * 12).rounded()
+        }
         let newState: VisualState = tower.isDisabled ? .disabled : (tower.isFrenzied || tower.isRallied) ? .frenzied : .normal
         if newState != state {
             state = newState
@@ -139,6 +182,16 @@ final class EnemyNode: SKNode {
     private let healthFill: SKSpriteNode
     private let shieldBubble: SKSpriteNode
     private let confusedMark = SKSpriteNode(texture: Art.text("?", color: Pal.pink))
+    /// One dot each for slowed, burning, poisoned, stunned and marked, since the body only shows one tint.
+    private let statusDots: [SKSpriteNode] = [Pal.cyan, Pal.orange, Pal.lime, Pal.mist, Pal.magenta].map { color in
+        let dot = SKSpriteNode(color: Pal.ink.uiColor, size: CGSize(width: 4, height: 4))
+        dot.anchorPoint = .zero
+        let fill = SKSpriteNode(color: color.uiColor, size: CGSize(width: 2, height: 2))
+        fill.anchorPoint = .zero
+        fill.position = CGPoint(x: 1, y: 1)
+        dot.addChild(fill)
+        return dot
+    }
     private let barWidth: CGFloat
     private var frameIndex = 0
     private var animationClock: Double
@@ -153,9 +206,11 @@ final class EnemyNode: SKNode {
         let shadowWidth = max(4, Int(spriteSize.width) - 3) & ~1
         shadow = SKSpriteNode(texture: Art.shadow(width: shadowWidth))
         shadow.usePixelAnchor()
-        barWidth = max(8, min(16, (spriteSize.width - 3).rounded()))
-        healthBack = SKSpriteNode(color: Pal.ink.uiColor, size: CGSize(width: barWidth + 2, height: 3))
-        healthFill = SKSpriteNode(color: Pal.lime.uiColor, size: CGSize(width: barWidth, height: 1))
+        // Bosses get a longer, thicker bar.
+        barWidth = kind.isBoss ? max(20, (spriteSize.width - 3).rounded()) : max(8, min(16, (spriteSize.width - 3).rounded()))
+        let barHeight: CGFloat = kind.isBoss ? 2 : 1
+        healthBack = SKSpriteNode(color: Pal.ink.uiColor, size: CGSize(width: barWidth + 2, height: barHeight + 2))
+        healthFill = SKSpriteNode(color: Pal.lime.uiColor, size: CGSize(width: barWidth, height: barHeight))
         animationClock = Double(enemyID % 7) * 0.13
         shieldBubble = SKSpriteNode(texture: Art.shieldBubble(width: Int(spriteSize.width)))
         super.init()
@@ -183,6 +238,12 @@ final class EnemyNode: SKNode {
         confusedMark.zPosition = 3
         confusedMark.isHidden = true
         addChild(confusedMark)
+        for dot in statusDots {
+            dot.position.y = healthBack.position.y + barHeight + 3
+            dot.zPosition = 3
+            dot.isHidden = true
+            addChild(dot)
+        }
         if kind.isCamo {
             body.alpha = 0.5
             body.run(.repeatForever(.sequence([
@@ -198,8 +259,8 @@ final class EnemyNode: SKNode {
         position = layout.snappedWorldPoint(enemy.position)
 
         let rate: Double = switch kind {
-        case .runner, .shardling, .caveBat, .lavaBlob: 9
-        case .wisp: 7
+        case .runner, .shardling, .caveBat, .lavaBlob, .pickpocket: 9
+        case .wisp, .shade: 7
         case .titan, .brute: 3.5
         default: 5
         }
@@ -216,16 +277,27 @@ final class EnemyNode: SKNode {
         }
 
         shieldBubble.isHidden = enemy.shield <= 0
-        // Burrowed sandworms sink out of sight; cloaked allies of a Bog Witch fade.
-        if kind == .sandworm {
-            body.alpha = enemy.isStone ? 0.25 : 1
+        let effects = [enemy.isSlowed, enemy.isBurning, enemy.isPoisoned, enemy.isStunned, enemy.isMarked]
+        var dotX = -CGFloat(effects.filter { $0 }.count * 3 + 1) / 2
+        for (dot, active) in zip(statusDots, effects) {
+            dot.isHidden = !active
+            guard active else { continue }
+            dot.position.x = dotX.rounded(.down)
+            dotX += 3
+        }
+        // Burrowed worms sink out of sight; cloaked villains fade.
+        if kind == .sandworm || kind == .sinkmaw {
+            body.alpha = enemy.isStone ? 0.25 : enemy.isHidden ? 0.5 : 1
         } else if !kind.isCamo {
             body.alpha = enemy.isHidden ? 0.5 : 1
         }
-        if enemy.hitFlash > 0 {
+        if let type = enemy.adaptedType, enemy.adaptTimer > 0 {
+            body.color = Pal.damage(type).uiColor
+            body.colorBlendFactor = 0.7
+        } else if enemy.hitFlash > 0 {
             body.color = .white
             body.colorBlendFactor = 0.85
-        } else if enemy.isStone && kind != .sandworm {
+        } else if enemy.isStone && kind != .sandworm && kind != .sinkmaw {
             body.color = Pal.steel.uiColor
             body.colorBlendFactor = 0.9
         } else if enemy.isStunned {

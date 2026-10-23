@@ -103,9 +103,47 @@ enum CommanderKind: String, CaseIterable, Codable, Identifiable {
         }
     }
 
+    /// The two evolutions offered at each of `evolveLevels`.
+    var forms: [[CommanderForm]] {
+        switch self {
+        case .knight: [
+            [CommanderForm(name: "Juggernaut", detail: "Wider swings that also hit flyers.", splash: 0.3, hitsAir: true),
+             CommanderForm(name: "Duelist", detail: "Hits 60% harder.", damage: 1.6)],
+            [CommanderForm(name: "Warlord", detail: "Nearby heroes attack 15% faster.", heroRate: 0.15),
+             CommanderForm(name: "Bulwark", detail: "Skills recharge 40% faster.", recharge: 0.6)],
+        ]
+        case .mage: [
+            [CommanderForm(name: "Pyromancer", detail: "Attacks set villains on fire.", burn: 12),
+             CommanderForm(name: "Frostcaller", detail: "Attacks slow villains.", slow: 0.3)],
+            [CommanderForm(name: "Archmage", detail: "Skills recharge 40% faster.", recharge: 0.6),
+             CommanderForm(name: "Stormlord", detail: "Hits 50% harder and reaches further.", damage: 1.5, range: 0.5)],
+        ]
+        case .ranger: [
+            [CommanderForm(name: "Sharpshooter", detail: "Shoots 1.5 tiles further.", range: 1.5),
+             CommanderForm(name: "Trapper", detail: "Shots slow villains.", slow: 0.35)],
+            [CommanderForm(name: "Deadeye", detail: "Hits 80% harder.", damage: 1.8),
+             CommanderForm(name: "Scout", detail: "Nearby heroes see cloaked villains.", heroCamo: true)],
+        ]
+        case .engineer: [
+            [CommanderForm(name: "Gunsmith", detail: "Hits 40% harder.", damage: 1.4),
+             CommanderForm(name: "Tinker", detail: "Nearby heroes attack 10% faster.", heroRate: 0.1)],
+            [CommanderForm(name: "Overseer", detail: "Skills recharge 40% faster.", recharge: 0.6),
+             CommanderForm(name: "Demolisher", detail: "Shots also hit villains around the target.", splash: 0.6)],
+        ]
+        case .healer: [
+            [CommanderForm(name: "Cleric", detail: "Skills recharge 30% faster.", recharge: 0.7),
+             CommanderForm(name: "Oracle", detail: "Sees cloaked villains, and so do nearby heroes.", heroCamo: true)],
+            [CommanderForm(name: "Saint", detail: "Nearby heroes attack 15% faster.", heroRate: 0.15),
+             CommanderForm(name: "Zealot", detail: "Hits 60% harder and reaches further.", damage: 1.6, range: 0.5)],
+        ]
+        }
+    }
+
     // MARK: In-match levels
 
     static let maxLevel = 10
+    /// Levels where the commander picks one of two evolutions.
+    static let evolveLevels = [5, 10]
     /// Skills you research in the lab; the last skill is the ultimate, unlocked at max level in a match.
     static let researchableSkills = 3
 
@@ -138,6 +176,14 @@ struct CommanderSkill {
 
     /// Research Points to raise a skill to `level`.
     static func cost(level: Int) -> Int { level * 5 }
+}
+
+/// An evolution the commander can pick during a match.
+struct CommanderForm: Equatable {
+    let name: String
+    let detail: String
+    var damage = 1.0, range = 0.0, splash = 0.0, recharge = 1.0
+    var hitsAir = false, slow = 0.0, burn = 0.0, heroRate = 0.0, heroCamo = false
 }
 
 /// The commander a match starts with and its researched skill levels (0 means locked).

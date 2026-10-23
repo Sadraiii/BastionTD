@@ -44,26 +44,31 @@ enum Art {
 
     // MARK: Towers
 
-    static func towerBase(_ kind: TowerKind, tiers: [Int]) -> SKTexture {
-        texture("base.\(kind.rawValue).\(tiers[0]).\(tiers[1])") { towerBaseCanvas(kind, tiers: tiers) }
+    static func towerBase(_ kind: TowerKind, tiers: [Int], mastered: Bool = false) -> SKTexture {
+        texture("base.\(kind.rawValue).\(tiers[0]).\(tiers[1]).\(mastered)") { towerBaseCanvas(kind, tiers: tiers, mastered: mastered) }
     }
 
-    static func turret(_ kind: TowerKind, level: Int) -> SKTexture {
-        texture("turret.\(kind.rawValue).\(level)") { turretCanvas(kind, level: level) }
+    static func turret(_ kind: TowerKind, tiers: [Int]) -> SKTexture {
+        texture("turret.\(kind.rawValue).\(tiers[0]).\(tiers[1])") { turretCanvas(kind, tiers: tiers) }
     }
 
     /// Base and turret composited, for the build panel and menus.
     static func towerIcon(_ kind: TowerKind, tiers: [Int] = [0, 0]) -> UIImage {
         image("towerIcon.\(kind.rawValue).\(tiers[0]).\(tiers[1])") {
             var canvas = towerBaseCanvas(kind, tiers: tiers)
-            canvas.stamp(turretCanvas(kind, level: TowerKind.visualLevel(tiers: tiers)), x: 0, y: 0)
-            return canvas
+            canvas.stamp(turretCanvas(kind, tiers: tiers), x: 0, y: 0)
+            guard tiers.max() == 0 else { return canvas }
+            // An unupgraded hero fits in 16x16, so its icon keeps the old size.
+            var small = PixelCanvas(width: 16, height: 16)
+            small.stamp(canvas, x: -2, y: -2)
+            return small
         }
     }
 
     /// Each hero stands on its own platform, drawn in a slight 3/4 view: a top
     /// surface plus a darker band below it that gives the platform some height.
-    static func towerBaseCanvas(_ kind: TowerKind, tiers: [Int]) -> PixelCanvas {
+    /// Returns 20x20 so upgraded heroes can grow past their 16x16 tile.
+    static func towerBaseCanvas(_ kind: TowerKind, tiers: [Int], mastered: Bool = false) -> PixelCanvas {
         var c = PixelCanvas(width: 16, height: 16)
         let accent = Pal.tower(kind)
 
@@ -180,20 +185,96 @@ enum Art {
             c.fillEllipse(cx: 8, cy: 8.5, rx: 7.2, ry: 4.8, Pal.blue)
             c.ring(cx: 8, cy: 8, r: 6, Pal.cyan) { x, y in (x + y * 2) % 5 != 0 }
 
+        case .siren:
+            c.fillEllipse(cx: 8, cy: 8.5, rx: 7.2, ry: 4.8, Pal.blue)
+            for i in 0..<8 {
+                let angle = Double(i) * .pi / 4
+                let x = Int(8 + cos(angle) * 5.6), y = Int(8.5 + sin(angle) * 3.6)
+                c.set(x - 1, y, Pal.cyan); c.set(x, y - 1, Pal.white); c.set(x + 1, y, Pal.cyan)
+            }
+
         case .midas:
             disc(top: Pal.rust, side: Pal.bark, rim: Pal.amber)
             for (x, y) in [(3, 7), (13, 7), (8, 4), (8, 11)] { c.set(x, y, Pal.yellow) }
+
+        case .bramble:
+            disc(top: Pal.bark, side: Pal.plum, rim: Pal.clay)
+            c.line(2, 8, 5, 7, Pal.plum); c.line(13, 6, 11, 7, Pal.plum); c.line(6, 11, 7, 9, Pal.plum)
+
+        case .omen:
+            disc(top: Pal.navy, side: Pal.ink, rim: Pal.purple)
+            for i in 0..<6 {
+                let angle = Double(i) * .pi / 3
+                c.set(Int(8 + cos(angle) * 5.4), Int(7.5 + sin(angle) * 3.4), accent)
+            }
+
+        case .rook:
+            // A small chessboard.
+            platform([(2, 3), (14, 3), (14, 11), (2, 11)], top: Pal.mist, side: Pal.steel)
+            for y in 3...10 {
+                for x in 2...13 where ((x - 2) / 3 + (y - 3) / 2) % 2 == 1 { c.set(x, y, Pal.slate) }
+            }
+
+        case .warden:
+            // An iron plate set into the road, studded in his color.
+            platform(octagon, top: Pal.slate, side: Pal.navy)
+            c.fillPolygon([(5.5, 4.5), (10.5, 4.5), (13, 6), (13, 9), (10.5, 10.5), (5.5, 10.5), (3, 9), (3, 6)], Pal.steel)
+            for (x, y) in [(3, 5), (12, 5), (3, 9), (12, 9)] { c.set(x, y, accent) }
         }
 
-        // Tier pips along the front: path 1 from the left, path 2 from the right.
-        for i in 0..<tiers[0] { c.set(3 + i * 2, 14, Pal.amber) }
-        for i in 0..<tiers[1] { c.set(12 - i * 2, 14, Pal.cyan) }
         // The web is drawn straight onto the grass; an outline would make it look solid.
         if kind != .weaver { c.outline() }
-        return c
+
+        var big = PixelCanvas(width: 20, height: 20)
+        let top = tiers.max() ?? 0
+        // Heroes near the top of a path stand on a wider footing in their own colors, with pillars once maxed.
+        let stone: (top: PixelColor, side: PixelColor) = switch kind {
+        case .pulse, .aegis, .siren, .rook, .warden: (Pal.steel, Pal.slate)
+        case .frost, .cyclone: (Pal.mist, Pal.silver)
+        case .mortar, .chrono: (Pal.clay, Pal.bark)
+        case .tesla, .star: (Pal.slate, Pal.navy)
+        case .rail, .sniper: (Pal.slate, Pal.ink)
+        case .inferno: (Pal.bark, Pal.ink)
+        case .weaver, .alchemist, .omen: (Pal.purple, Pal.plum)
+        case .echo, .tamer, .bramble: (Pal.forest, Pal.deepTeal)
+        case .mind: (Pal.magenta, Pal.purple)
+        case .midas: (Pal.copper, Pal.rust)
+        case .tide: (Pal.ocean, Pal.navy)
+        }
+        let trim = Pal.tower(kind) == stone.top ? Pal.towerLight(kind) : Pal.tower(kind)
+        if top >= 3 {
+            big.fillEllipse(cx: 10, cy: 12.5, rx: 9.5, ry: 6, stone.side)
+            big.fillEllipse(cx: 10, cy: 11, rx: 9.5, ry: 6, stone.top)
+            for (x, y) in [(1, 11), (18, 11), (4, 16), (15, 16), (4, 6), (15, 6)] { big.set(x, y, trim) }
+        }
+        if top >= 4 {
+            for x in [1, 17] {
+                big.fillRect(x, 3, 2, 8, stone.side)
+                big.set(x, 4, stone.top)
+                big.fillRect(x, 1, 2, 2, trim)
+            }
+        }
+        big.outline()
+        big.stamp(c, x: 2, y: 2)
+        // Tier pips along the front: path 1 in amber, then path 2 in cyan. A hero with all five mastery stars gets gold bars.
+        let pips = tiers[0] + tiers[1]
+        var x = 10 - (pips * 3 + 1) / 2
+        for i in 0..<pips {
+            big.fillRect(x, 16, 4, 3, Pal.ink)
+            if mastered {
+                big.fillRect(x + 1, 16, 2, 2, Pal.amber)
+                big.fillRect(x + 1, 16, 2, 1, Pal.yellow)
+            } else {
+                big.fillRect(x + 1, 17, 2, 1, i < tiers[0] ? Pal.amber : Pal.cyan)
+            }
+            x += 3
+        }
+        return big
     }
 
-    static func turretCanvas(_ kind: TowerKind, level: Int) -> PixelCanvas {
+    /// The turret on a 20x20 canvas: one of three looks by overall level, plus gear from each upgrade path.
+    static func turretCanvas(_ kind: TowerKind, tiers: [Int]) -> PixelCanvas {
+        let level = TowerKind.visualLevel(tiers: tiers)
         var c = PixelCanvas(width: 16, height: 16)
         switch kind {
         case .pulse:
@@ -433,6 +514,23 @@ enum Art {
             c.set(7, 13, Pal.cyan); c.set(8, 14, Pal.cyan)
             if level == 3 { c.set(5, 8, Pal.red); c.set(10, 8, Pal.red) }
 
+        case .siren:
+            // A siren with long flowing hair and a fish tail.
+            let hair = level == 3 ? Pal.cyan : Pal.blue
+            c.fillEllipse(cx: 8, cy: 4.5, rx: 3.4, ry: 3.4, hair)
+            c.fillRect(4, 4, 2, 4 + level, hair)
+            c.fillRect(10, 4, 2, 4 + level, hair)
+            c.fillEllipse(cx: 8, cy: 12, rx: 2.6, ry: 1.8, Pal.lime)
+            c.fillRect(10, 12, 2, 2, Pal.lime)
+            c.set(7, 12, Pal.green); c.set(9, 13, Pal.green)
+            c.fillPolygon([(11, 13), (14.5, 10), (13.5, 13), (14.5, 16)], Pal.green)
+            c.fillRect(6, 8, 4, 3, Pal.sand)
+            c.fillRect(6, 9, 4, 1, Pal.pink)
+            c.fillEllipse(cx: 8, cy: 5, rx: 2.3, ry: 2, Pal.sand)
+            c.set(6, 4, Pal.ink); c.set(9, 4, Pal.ink)
+            c.set(7, 6, Pal.crimson); c.set(8, 6, Pal.crimson)
+            if level == 3 { for (x, y) in [(6, 1), (7, 1), (8, 0), (9, 1), (10, 1)] { c.set(x, y, Pal.yellow) } }
+
         case .midas:
             // A stack of coins that grows with each level.
             for i in 0...level {
@@ -443,19 +541,359 @@ enum Art {
             }
             c.set(10, 9 - level * 2, Pal.white)
             c.set(11, 8 - level * 2, Pal.white)
+
+        case .bramble:
+            // A thorny bush seen from above that fills out with each level.
+            let clumps = [(5.5, 9.5), (10.5, 9.5), (8.0, 6.0), (8.0, 12.0), (8.0, 9.0)].prefix(level + 2)
+            let thorns = 5 + level * 2
+            let reach = 5.2 + Double(level) * 0.6
+            for i in 0..<thorns {
+                let angle = Double(i) * 2 * .pi / Double(thorns) + 0.3
+                let x = Int(8 + cos(angle) * reach), y = Int(9 + sin(angle) * reach)
+                c.line(8, 9, x, y, Pal.bark)
+                c.set(x, y, Pal.sand)
+            }
+            for (x, y) in clumps { c.fillCircle(cx: x, cy: y, r: 2.7, Pal.forest) }
+            for (x, y) in clumps { c.fillCircle(cx: x - 0.4, cy: y - 0.4, r: 2, Pal.green) }
+            for (x, y) in clumps { c.set(Int(x) - 1, Int(y) - 1, Pal.lime); c.set(Int(x), Int(y) - 2, Pal.lime) }
+            if level >= 2 { for (x, y) in [(10, 5), (4, 11)] { c.fillRect(x, y, 2, 2, Pal.purple); c.set(x, y, Pal.magenta) } }
+            if level == 3 {
+                for (x, y) in [(8, 8), (11, 11)] {
+                    c.fillRect(x - 1, y, 3, 1, Pal.white)
+                    c.fillRect(x, y - 1, 1, 3, Pal.white)
+                    c.set(x, y, Pal.yellow)
+                }
+            }
+
+        case .omen:
+            // A hooded seer holding a crystal ball. Its eyes burn brighter and a third eye opens.
+            let cloak = Pal.tower(kind)
+            let eyes = level == 3 ? Pal.white : Pal.pink
+            c.fillPolygon([(5, 7), (11, 7), (13.5, 15), (2.5, 15)], Pal.purple)
+            c.fillEllipse(cx: 8, cy: 5, rx: 4, ry: 4.2, cloak)
+            c.fillPolygon([(7, 8), (9, 8), (10, 15), (6, 15)], cloak)
+            c.fillEllipse(cx: 8, cy: 5.8, rx: 2.4, ry: 2.3, Pal.ink)
+            c.set(6, 6, eyes); c.set(9, 6, eyes)
+            if level >= 2 { c.set(7, 2, Pal.pink); c.set(8, 2, Pal.pink) }
+            if level == 3 { c.set(7, 3, Pal.white); c.set(8, 3, Pal.white) }
+            c.fillCircle(cx: 8, cy: 11.5, r: 1.9, Pal.mist)
+            c.set(8, 11, Pal.pink); c.set(7, 10, Pal.white)
+
+        case .rook:
+            // A chess rook with a lance through it along its row and another up its column. The lances grow with each level.
+            let body = Pal.tower(kind)
+            let tip = 3 - level
+            for y in 0...4 { c.set(7, y, Pal.silver); c.set(8, y, Pal.steel) }
+            c.fillRect(4, 2, 2, 2, body); c.fillRect(10, 2, 2, 2, body)
+            c.fillRect(4, 4, 8, 2, body)
+            c.fillRect(5, 6, 6, 1, body)
+            c.fillRect(6, 7, 4, 5, body)
+            c.fillRect(5, 12, 6, 1, body)
+            c.fillRect(4, 13, 8, 2, body)
+            for y in 7...11 { c.set(6, y, Pal.silver); c.set(9, y, Pal.slate) }
+            c.fillRect(4, 5, 8, 1, Pal.slate)
+            c.fillRect(4, 14, 8, 1, Pal.slate)
+            c.set(4, 2, Pal.silver); c.set(10, 2, Pal.silver); c.set(4, 13, Pal.silver)
+            for x in tip...(15 - tip) { c.set(x, 8, Pal.silver); c.set(x, 9, Pal.steel) }
+            let point = level == 3 ? Pal.white : Pal.amber
+            for (x, y) in [(tip, 8), (tip, 9), (15 - tip, 8), (15 - tip, 9), (7, 0), (8, 0)] { c.set(x, y, point) }
+            c.fillRect(7, 8, 2, 2, level >= 2 ? Pal.yellow : Pal.amber)
+
+        case .warden:
+            // A helmeted guard behind a tall shield, his spear upright at his side. A gold rim and a plume come next, then a white cross.
+            let tip = level == 3 ? Pal.white : Pal.silver
+            for y in 3...15 { c.set(13, y, Pal.bark) }
+            c.set(13, 0, tip)
+            c.fillRect(12, 1, 3, 2, tip)
+            c.set(14, 2, Pal.steel)
+            c.fillCircle(cx: 6.5, cy: 3.8, r: 3, Pal.steel)
+            c.fillRect(5, 2, 2, 1, Pal.silver)
+            c.fillRect(4, 4, 6, 1, Pal.ink)
+            if level >= 2 { c.fillRect(6, 0, 2, 1, Pal.red) }
+            c.fillRect(11, 8, 3, 2, Pal.steel)
+            c.set(12, 8, Pal.silver)
+            c.fillPolygon([(1, 6), (12, 6), (12, 11), (6.5, 16), (1, 11)], level >= 2 ? Pal.amber : Pal.bark)
+            c.fillPolygon([(2, 7), (11, 7), (11, 11), (6.5, 15), (2, 11)], Pal.tower(kind))
+            let cross = level == 3 ? Pal.white : Pal.towerLight(kind)
+            c.fillRect(6, 8, 1, 6, cross)
+            c.fillRect(4, 10, 5, 1, cross)
         }
-        // Rail barrels reach the top edge at level 3, so keep the outline inside the canvas.
-        c.outline()
-        return c
+        var big = c.padded(2)
+        drawTurretUpgrades(kind, a: tiers[0], b: tiers[1], on: &big)
+        big.outline()
+        return big
+    }
+
+    /// Gear each upgrade path adds to a hero's turret, drawn on a 20x20 canvas
+    /// (the 16x16 turret sits at 2, 2). `a` and `b` are the tiers bought on each path.
+    static func drawTurretUpgrades(_ kind: TowerKind, a: Int, b: Int, on c: inout PixelCanvas) {
+        switch kind {
+        case .pulse:
+            // Velocity: swept fins that grow into wings. Impact: armor plating and knuckle spikes.
+            if a >= 1 { c.fillRect(4, 10, 2, 3, Pal.ocean); c.fillRect(14, 10, 2, 3, Pal.ocean) }
+            if a >= 2 { c.fillRect(3, 12, 2, 3, Pal.blue); c.fillRect(15, 12, 2, 3, Pal.blue) }
+            if a >= 3 { for x in [8, 11] { c.set(x, 16, Pal.cyan); c.set(x, 17, Pal.white) } }
+            if a >= 4 {
+                c.fillPolygon([(4, 8), (1, 18), (5, 15)], Pal.cyan)
+                c.fillPolygon([(16, 8), (19, 18), (15, 15)], Pal.cyan)
+                c.set(2, 16, Pal.white); c.set(17, 16, Pal.white)
+            }
+            if b >= 1 { c.fillRect(6, 13, 8, 2, Pal.steel) }
+            if b >= 2 { c.set(7, 14, Pal.amber); c.set(12, 14, Pal.amber) }
+            if b >= 3 { c.fillRect(4, 7, 2, 5, Pal.silver); c.fillRect(14, 7, 2, 5, Pal.silver) }
+            if b >= 4 { for x in [5, 14] { c.set(x, 6, Pal.white); c.set(x, 5, Pal.white) } }
+
+        case .frost:
+            // Permafrost: the arms grow icicle tips. Hailstorm: hail stones orbit the core.
+            if a >= 1 { for (x, y) in [(9, 2), (10, 2), (9, 17), (10, 17), (2, 9), (2, 10), (17, 9), (17, 10)] { c.set(x, y, Pal.white) } }
+            if a >= 3 { for (x, y) in [(9, 1), (10, 1), (9, 18), (10, 18), (1, 9), (1, 10), (18, 9), (18, 10)] { c.set(x, y, Pal.cyan) } }
+            if a >= 4 { c.ring(cx: 10, cy: 10, r: 8.5, Pal.white) { x, y in (x + y) % 4 == 0 } }
+            for (i, (x, y)) in [(4, 4), (15, 15), (15, 4), (4, 15)].enumerated() where i < b {
+                c.fillRect(x, y, 2, 2, Pal.mist)
+                c.set(x, y, Pal.white)
+            }
+
+        case .mortar:
+            // Seismic: a heavier, wider barrel. Fury: ammo drums on the sides.
+            if a >= 1 { for y in 6...11 { c.set(7, y, Pal.slate); c.set(12, y, Pal.slate) } }
+            if a >= 2 { for x in 7...12 { c.set(x, 4, Pal.steel) } }
+            if a >= 3 { for x in 6...13 { c.set(x, 3, Pal.amber) } }
+            if a >= 4 { c.ring(cx: 10, cy: 11, r: 6.3, Pal.orange) { x, y in y > 11 && (x + y) % 2 == 0 } }
+            if b >= 1 { c.fillCircle(cx: 4.5, cy: 12, r: 2, Pal.bark); c.set(4, 11, Pal.tan) }
+            if b >= 2 { c.fillCircle(cx: 15.5, cy: 12, r: 2, Pal.bark); c.set(15, 11, Pal.tan) }
+            if b >= 3 { c.fillCircle(cx: 4.5, cy: 15.5, r: 1.6, Pal.bark); c.fillCircle(cx: 15.5, cy: 15.5, r: 1.6, Pal.bark) }
+            if b >= 4 { c.set(4, 15, Pal.tan); c.set(15, 15, Pal.tan) }
+
+        case .tesla:
+            // Tempest: storm clouds gather around the coil. Skyhammer: a tall lightning rod.
+            if a >= 1 { c.fillCircle(cx: 3.5, cy: 5, r: 2, Pal.silver) }
+            if a >= 2 { c.fillCircle(cx: 16.5, cy: 15, r: 2, Pal.silver) }
+            if a >= 3 { c.fillCircle(cx: 16, cy: 4.5, r: 2.2, Pal.mist); c.fillCircle(cx: 4, cy: 15.5, r: 2.2, Pal.mist) }
+            if a >= 4 { for (x, y) in [(3, 7), (2, 8), (17, 3), (16, 2), (17, 17), (5, 18)] { c.set(x, y, Pal.yellow) } }
+            if b >= 1 { c.set(10, 3, Pal.steel); c.set(10, 4, Pal.steel) }
+            if b >= 2 { for y in 1...4 { c.set(10, y, Pal.silver) }; c.set(10, 1, Pal.yellow) }
+            if b >= 3 { c.set(9, 1, Pal.yellow); c.set(11, 1, Pal.yellow); c.set(10, 0, Pal.white) }
+            if b >= 4 { c.ring(cx: 10, cy: 10, r: 7.8, Pal.yellow) { x, y in (x * 2 + y) % 5 == 0 } }
+
+        case .rail:
+            // Repulsor: a glowing lens at the muzzle. Arsenal: missile pods on the flanks.
+            if a >= 1 { c.set(9, 2, Pal.pink); c.set(10, 2, Pal.pink) }
+            if a >= 2 { c.fillRect(8, 1, 4, 1, Pal.cyan) }
+            if a >= 3 { c.fillRect(7, 0, 6, 1, Pal.white); for y in 4...10 { c.set(9, y, Pal.white); c.set(10, y, Pal.white) } }
+            if a >= 4 { c.set(6, 1, Pal.cyan); c.set(13, 1, Pal.cyan) }
+            for i in 0..<b {
+                let y = 5 + i * 2
+                c.fillRect(3, y, 3, 2, Pal.steel); c.set(3, y, Pal.red)
+                c.fillRect(14, y, 3, 2, Pal.steel); c.set(16, y, Pal.red)
+            }
+
+        case .inferno:
+            // Wildfire: a wider flame nozzle. Phoenix: fiery wings.
+            if a >= 1 { c.set(8, 4, Pal.orange); c.set(11, 4, Pal.orange) }
+            if a >= 2 { c.fillRect(7, 3, 6, 1, Pal.copper) }
+            if a >= 3 { c.set(8, 2, Pal.amber); c.set(11, 2, Pal.amber); c.set(7, 1, Pal.red); c.set(12, 1, Pal.red) }
+            if a >= 4 { c.set(9, 0, Pal.yellow); c.set(10, 0, Pal.white) }
+            if b >= 1 { c.fillPolygon([(6, 10), (2, 8), (5, 13)], Pal.orange); c.fillPolygon([(14, 10), (18, 8), (15, 13)], Pal.orange) }
+            if b >= 2 { c.fillPolygon([(6, 11), (1, 12), (6, 14)], Pal.red); c.fillPolygon([(14, 11), (19, 12), (14, 14)], Pal.red) }
+            if b >= 3 { c.set(3, 9, Pal.yellow); c.set(16, 9, Pal.yellow) }
+            if b >= 4 { c.fillPolygon([(8, 15), (10, 19), (12, 15)], Pal.amber); c.set(10, 17, Pal.yellow) }
+
+        case .weaver:
+            // Webmaster: a silk line and a cocoon in tow. Venom: dripping fangs and green markings.
+            if a >= 1 { for y in 15...17 { c.set(10, y, Pal.mist) } }
+            if a >= 2 { c.fillEllipse(cx: 10, cy: 18, rx: 1.5, ry: 1.5, Pal.mist) }
+            if a >= 3 { c.line(9, 14, 4, 19, Pal.mist); c.line(10, 14, 15, 19, Pal.mist) }
+            if a >= 4 { c.fillEllipse(cx: 10, cy: 17.5, rx: 2.2, ry: 2, Pal.white); c.set(10, 17, Pal.mist) }
+            if b >= 1 { c.set(9, 5, Pal.lime); c.set(10, 5, Pal.lime) }
+            if b >= 2 { c.set(9, 4, Pal.green); c.set(10, 4, Pal.green) }
+            if b >= 3 { for (x, y) in [(9, 11), (10, 11), (9, 13), (10, 13), (9, 12), (10, 12)] { c.set(x, y, Pal.lime) } }
+            if b >= 4 { for (x, y) in [(5, 9), (14, 9), (4, 13), (15, 13)] { c.set(x, y, Pal.lime) } }
+        case .aegis:
+            // Ricochet: spikes ring the shield. Commander: a red crest, then a laurel.
+            let spikes = [(10, 0), (17, 5), (17, 13), (2, 13), (2, 5), (10, 18)]
+            for (i, (x, y)) in spikes.enumerated() where i < a + (a >= 3 ? 2 : 0) {
+                c.fillRect(x - (x == 10 ? 1 : 0), y, 2, 2, Pal.silver)
+                c.set(x, y, Pal.white)
+            }
+            if b >= 1 { c.fillRect(9, 2, 2, 2, Pal.red) }
+            if b >= 2 { c.fillRect(8, 1, 4, 1, Pal.red); c.set(10, 0, Pal.yellow) }
+            if b >= 3 { for (x, y) in [(4, 14), (5, 15), (15, 14), (14, 15)] { c.set(x, y, Pal.lime) } }
+            if b >= 4 { for (x, y) in [(3, 11), (3, 12), (16, 11), (16, 12), (6, 16), (13, 16)] { c.set(x, y, Pal.lime) } }
+        case .cyclone:
+            // Gale: outer gusts. Squall: hail riding the wind.
+            if a >= 1 { c.ring(cx: 10, cy: 10, r: 8, Pal.mist) { x, y in (x + y * 3) % 7 == 0 } }
+            if a >= 3 { c.ring(cx: 10, cy: 10, r: 8.8, Pal.white) { x, y in (x * 3 + y) % 9 == 0 } }
+            for (i, (x, y)) in [(4, 3), (16, 16), (16, 3), (3, 16)].enumerated() where i < b {
+                c.set(x, y, Pal.cyan); c.set(x + 1, y, Pal.white)
+            }
+
+        case .echo:
+            // Resonance: crystal tips on the horn. Echolocation: a wider dish and sound arcs.
+            if a >= 1 { c.fillRect(4, 4, 2, 2, Pal.cyan); c.fillRect(14, 4, 2, 2, Pal.cyan) }
+            if a >= 2 { c.set(4, 3, Pal.white); c.set(15, 3, Pal.white) }
+            if a >= 3 { c.fillRect(9, 1, 2, 2, Pal.cyan); c.set(9, 1, Pal.white) }
+            if a >= 4 { for (x, y) in [(2, 8), (17, 8), (3, 1), (16, 1)] { c.set(x, y, Pal.cyan) } }
+            if b >= 1 { c.fillRect(5, 14, 10, 2, Pal.forest) }
+            if b >= 2 { c.set(4, 13, Pal.green); c.set(15, 13, Pal.green); c.set(4, 14, Pal.green); c.set(15, 14, Pal.green) }
+            if b >= 3 { c.ring(cx: 10, cy: 7, r: 7.5, Pal.lime) { x, y in y < 3 && (x + y) % 2 == 0 } }
+            if b >= 4 { c.ring(cx: 10, cy: 8, r: 9.5, Pal.white) { x, y in y < 2 && (x + y) % 2 == 0 } }
+        case .mind:
+            // Telepathy: antennae with glowing tips. Telekinesis: rocks float around it.
+            if a >= 1 { c.line(7, 5, 6, 3, Pal.magenta); c.line(12, 5, 13, 3, Pal.magenta) }
+            if a >= 2 { c.fillRect(5, 1, 2, 2, Pal.cyan); c.fillRect(13, 1, 2, 2, Pal.cyan) }
+            if a >= 3 { c.set(10, 4, Pal.cyan); c.set(10, 3, Pal.white) }
+            if a >= 4 { c.ring(cx: 10, cy: 10, r: 8.6, Pal.cyan) { x, y in (x + y) % 3 == 0 } }
+            for (i, (x, y)) in [(2, 11), (17, 10), (10, 18), (3, 3)].enumerated() where i < b {
+                c.fillCircle(cx: Double(x), cy: Double(y), r: 1.6, Pal.steel)
+                c.set(x - 1, y - 1, Pal.silver)
+            }
+        case .chrono:
+            // Stasis: gear teeth around the face. Rewind: a blue backward hand and arrows.
+            if a >= 1 { for (x, y) in [(10, 3), (9, 3), (17, 10), (17, 9), (10, 17), (9, 17), (2, 10), (2, 9)] { c.set(x, y, Pal.steel) } }
+            if a >= 2 { for (x, y) in [(4, 4), (15, 4), (4, 15), (15, 15)] { c.set(x, y, Pal.steel) } }
+            if a >= 3 { c.ring(cx: 10, cy: 10, r: 8.5, Pal.silver) { x, y in (x + y) % 3 == 0 } }
+            if a >= 4 { c.fillRect(9, 0, 2, 2, Pal.yellow) }
+            if b >= 1 { for x in 6...9 { c.set(x, 10, Pal.blue) } }
+            if b >= 2 { c.set(6, 9, Pal.blue); c.set(6, 11, Pal.blue) }
+            if b >= 3 { c.ring(cx: 10, cy: 10, r: 8, Pal.cyan) { x, y in x < 7 && y > 5 } }
+            if b >= 4 { c.ring(cx: 10, cy: 10, r: 8, Pal.cyan) { x, y in x > 13 && y < 14 } }
+        case .star:
+            // Solar: a longer, brighter beam and sun rays. Gravity: dark rings and orbiting stones.
+            if a >= 1 { c.set(9, 2, Pal.yellow); c.set(10, 2, Pal.white) }
+            if a >= 2 { c.set(8, 4, Pal.amber); c.set(11, 4, Pal.amber) }
+            if a >= 3 { c.set(9, 1, Pal.amber); c.set(10, 1, Pal.yellow); c.set(10, 0, Pal.white) }
+            if a >= 4 { for (x, y) in [(4, 12), (16, 12), (5, 17), (15, 17), (6, 7), (14, 7)] { c.set(x, y, Pal.yellow) } }
+            if b >= 1 { c.ring(cx: 10, cy: 12, r: 6, Pal.purple) { x, y in (x + y) % 2 == 0 } }
+            if b >= 2 { c.ring(cx: 10, cy: 12, r: 7, Pal.plum) { x, y in (x + y) % 2 == 1 } }
+            if b >= 3 { c.fillRect(3, 9, 2, 2, Pal.ink); c.fillRect(15, 15, 2, 2, Pal.ink) }
+            if b >= 4 { c.fillRect(16, 6, 2, 2, Pal.purple); c.fillRect(2, 16, 2, 2, Pal.purple) }
+        case .midas:
+            // Treasury: gems on the coins and a sack of gold. Golden Touch: a crown, then a scepter.
+            if a >= 1 { c.set(7, 15, Pal.red) }
+            if a >= 2 { c.set(13, 13, Pal.cyan) }
+            if a >= 3 { c.fillCircle(cx: 16, cy: 15, r: 2.4, Pal.tan); c.set(16, 12, Pal.bark); c.set(15, 15, Pal.yellow) }
+            if a >= 4 { c.fillCircle(cx: 4, cy: 15, r: 2.4, Pal.tan); c.set(4, 12, Pal.bark); c.set(4, 15, Pal.yellow) }
+            if b >= 1 {
+                let top = 12 - max(a, b) * 2
+                c.fillRect(8, top - 2, 5, 2, Pal.yellow)
+                c.set(8, top - 3, Pal.yellow); c.set(10, top - 3, Pal.yellow); c.set(12, top - 3, Pal.yellow)
+                if b >= 2 { c.set(10, top - 2, Pal.red) }
+            }
+            if b >= 3 { c.line(15, 6, 15, 14, Pal.yellow); c.set(15, 5, Pal.cyan) }
+        case .tide:
+            // Torpedoes: torpedoes slung along the hull. Sonar: a dish and sound rings ahead.
+            for i in 0..<a {
+                let x = i % 2 == 0 ? 5 : 14
+                let y = i < 2 ? 6 : 11
+                c.fillRect(x, y, 1, 4, Pal.silver)
+                c.set(x, y, Pal.red)
+            }
+            if b >= 1 { c.fillRect(9, 3, 2, 1, Pal.steel) }
+            if b >= 2 { c.ring(cx: 10, cy: 5, r: 3.5, Pal.cyan) { x, y in y < 3 } }
+            if b >= 3 { c.ring(cx: 10, cy: 5, r: 5.5, Pal.cyan) { x, y in y < 2 && x % 2 == 0 } }
+            if b >= 4 { c.ring(cx: 10, cy: 10.5, r: 8.5, Pal.blue) { x, y in (x + y * 2) % 5 == 0 } }
+        case .sniper:
+            // Marksman: a longer barrel, a muzzle brake and a bipod. Spotter: a bigger scope and a laser.
+            if a >= 1 { c.set(9, 4, Pal.steel); c.set(11, 4, Pal.steel) }
+            if a >= 2 { c.set(10, 2, Pal.silver); c.fillRect(9, 2, 3, 1, Pal.steel) }
+            if a >= 3 { c.line(8, 9, 5, 12, Pal.slate); c.line(12, 9, 15, 12, Pal.slate) }
+            if a >= 4 { c.fillRect(9, 0, 3, 2, Pal.steel); c.set(10, 0, Pal.ink) }
+            if b >= 1 { c.set(13, 6, Pal.red) }
+            if b >= 2 { c.fillRect(11, 5, 3, 3, Pal.slate); c.set(12, 6, Pal.red) }
+            if b >= 3 { for y in 1...4 { c.set(12, y, Pal.red) } }
+            if b >= 4 { c.fillRect(11, 8, 4, 2, Pal.steel); c.set(14, 8, Pal.amber) }
+        case .tamer:
+            // Pack: a spiked collar, then pups at its side. Wild: fangs, a scar and a shaggy mane.
+            if a >= 1 { c.fillRect(7, 14, 6, 1, Pal.bark) }
+            if a >= 2 { c.set(7, 15, Pal.silver); c.set(10, 15, Pal.silver); c.set(12, 15, Pal.silver) }
+            if a >= 3 {
+                c.fillCircle(cx: 16, cy: 15, r: 2.2, Pal.steel)
+                c.set(15, 12, Pal.steel); c.set(17, 12, Pal.steel); c.set(15, 15, Pal.ink); c.set(17, 15, Pal.ink)
+            }
+            if a >= 4 {
+                c.fillCircle(cx: 4, cy: 15, r: 2.2, Pal.silver)
+                c.set(3, 12, Pal.silver); c.set(5, 12, Pal.silver); c.set(3, 15, Pal.ink); c.set(5, 15, Pal.ink)
+            }
+            if b >= 1 { c.set(9, 15, Pal.white); c.set(11, 15, Pal.white) }
+            if b >= 2 { c.line(6, 8, 8, 10, Pal.red) }
+            if b >= 3 { for (x, y) in [(5, 9), (4, 11), (15, 9), (16, 11), (6, 13), (14, 13)] { c.set(x, y, Pal.tan) } }
+            if b >= 4 { c.set(8, 10, Pal.red); c.set(12, 10, Pal.red); c.set(5, 7, Pal.tan); c.set(15, 7, Pal.tan) }
+        case .alchemist:
+            // Acids: bubbles fizz out and acid drips. Brews: a cork, a potion belt and side vials.
+            if a >= 1 { c.set(12, 3, Pal.lime) }
+            if a >= 2 { c.set(8, 2, Pal.lime); c.set(13, 1, Pal.green) }
+            if a >= 3 { c.set(11, 0, Pal.lime); c.set(7, 0, Pal.green); c.set(6, 15, Pal.lime); c.set(14, 16, Pal.lime) }
+            if a >= 4 { c.fillCircle(cx: 10, cy: 13, r: 2.2, Pal.yellow); c.set(9, 12, Pal.white) }
+            if b >= 1 { c.fillRect(9, 3, 2, 1, Pal.bark) }
+            if b >= 2 { c.fillRect(5, 11, 10, 1, Pal.bark); c.set(6, 11, Pal.red); c.set(13, 11, Pal.blue) }
+            if b >= 3 {
+                c.fillRect(3, 11, 2, 3, Pal.blue); c.set(3, 10, Pal.mist)
+                c.fillRect(15, 11, 2, 3, Pal.red); c.set(16, 10, Pal.mist)
+            }
+            if b >= 4 { c.fillRect(9, 1, 2, 2, Pal.red); c.set(9, 1, Pal.pink) }
+        case .siren:
+            // Lullaby: shells in her hair, a scallop and floating notes. Undertow: a trident and curling waves.
+            if a >= 1 { c.fillRect(6, 4, 2, 2, Pal.pink); c.set(6, 4, Pal.white) }
+            if a >= 2 { c.fillRect(12, 4, 2, 2, Pal.pink); c.set(13, 4, Pal.white) }
+            if a >= 3 { c.fillPolygon([(1.5, 9.5), (6.5, 9.5), (4, 14.5)], Pal.pink); c.set(3, 10, Pal.white); c.set(5, 10, Pal.white) }
+            if a >= 4 { c.fillRect(1, 4, 2, 1, Pal.white); c.line(2, 1, 2, 3, Pal.white); c.fillRect(4, 2, 2, 1, Pal.white); c.line(5, 0, 5, 1, Pal.white) }
+            if b >= 1 { c.line(16, 4, 16, 18, Pal.amber) }
+            if b >= 2 { c.line(14, 4, 18, 4, Pal.amber); for x in [14, 16, 18] { c.line(x, 1, x, 3, Pal.yellow) } }
+            if b >= 3 { c.ring(cx: 10, cy: 11, r: 8.5, Pal.cyan) { x, y in y > 14 && (x + y) % 3 != 0 } }
+            if b >= 4 { c.ring(cx: 10, cy: 11, r: 8.5, Pal.white) { x, y in y > 14 && (x + y) % 3 == 0 }; c.set(16, 0, Pal.white) }
+        case .bramble:
+            // Roots: roots in the soil, a creeping vine, a broad leaf and a sapling. Thorns: spiked canes that arch over the top.
+            if a >= 1 { c.line(5, 13, 1, 15, Pal.clay); c.line(15, 13, 19, 15, Pal.clay) }
+            if a >= 2 { c.line(3, 11, 1, 7, Pal.green); c.set(0, 8, Pal.lime); c.set(2, 7, Pal.lime); c.set(0, 10, Pal.lime) }
+            if a >= 3 { c.fillEllipse(cx: 16.5, cy: 7.5, rx: 2.5, ry: 1.5, Pal.lime); c.line(15, 8, 18, 7, Pal.green) }
+            if a >= 4 { c.fillRect(9, 3, 2, 4, Pal.bark); c.fillCircle(cx: 10, cy: 2.5, r: 2.5, Pal.green); c.set(9, 1, Pal.lime); c.set(10, 2, Pal.lime) }
+            if b >= 1 { c.line(5, 6, 3, 4, Pal.bark); c.set(2, 3, Pal.sand); c.line(15, 6, 17, 4, Pal.bark); c.set(18, 3, Pal.sand) }
+            if b >= 2 { c.line(3, 12, 1, 12, Pal.bark); c.set(0, 12, Pal.sand); c.line(17, 12, 19, 12, Pal.bark); c.set(19, 11, Pal.sand) }
+            if b >= 3 { c.ring(cx: 10, cy: 10, r: 8.5, Pal.bark) { x, y in y < 5 && (x + y) % 3 != 0 } }
+            if b >= 4 { c.ring(cx: 10, cy: 10, r: 8.5, Pal.sand) { x, y in y < 5 && (x + y) % 3 == 0 }; c.set(10, 0, Pal.red) }
+        case .omen:
+            // Doom: a red gem on a staff that opens into an eye, then a curse ring. Hex: floating runes, then a ring of hexes.
+            if a >= 1 { c.fillRect(2, 3, 2, 2, Pal.crimson); c.set(2, 3, Pal.red) }
+            if a >= 2 { c.line(3, 6, 3, 18, Pal.bark) }
+            if a >= 3 { c.fillRect(1, 4, 5, 2, Pal.white); c.fillRect(2, 3, 3, 4, Pal.white); c.fillRect(3, 4, 1, 2, Pal.red) }
+            if a >= 4 { c.ring(cx: 10, cy: 11, r: 8.5, Pal.crimson) { x, y in y > 14 && (x + y) % 2 == 0 } }
+            for (i, (x, y)) in [(16, 5), (17, 11)].enumerated() where i < b {
+                c.set(x, y - 1, Pal.pink); c.set(x - 1, y, Pal.pink); c.set(x + 1, y, Pal.pink); c.set(x, y + 1, Pal.pink)
+                c.set(x, y, Pal.white)
+            }
+            if b >= 3 { c.ring(cx: 10, cy: 11, r: 8.5, Pal.tower(kind)) { x, y in y > 14 && (x + y) % 3 != 0 } }
+            if b >= 4 { c.ring(cx: 10, cy: 11, r: 8.5, Pal.pink) { x, y in y > 14 && (x + y) % 3 == 0 } }
+        case .rook:
+            // Lance: gold collars, shells, spear heads, then red-hot tips. Command: a pennant, a spyglass, a gold band, then a gold crown.
+            if a >= 1 { for (x, y) in [(7, 10), (7, 11), (12, 10), (12, 11)] { c.set(x, y, Pal.amber) } }
+            if a >= 2 { for x in [7, 9, 11] { c.set(x, 15, Pal.amber); c.set(x + 1, 15, Pal.copper) } }
+            if a >= 3 { for (x, y) in [(3, 9), (3, 12), (16, 9), (16, 12), (8, 3), (11, 3)] { c.set(x, y, Pal.silver) } }
+            if a >= 4 { for (x, y) in [(1, 10), (1, 11), (18, 10), (18, 11), (9, 1), (10, 1)] { c.set(x, y, Pal.red) } }
+            if b >= 1 { c.line(2, 1, 2, 8, Pal.bark); c.fillRect(3, 1, 3, 1, Pal.red); c.fillRect(3, 2, 2, 1, Pal.red) }
+            if b >= 2 { c.line(14, 7, 17, 4, Pal.copper); c.set(18, 3, Pal.cyan) }
+            if b >= 3 { c.fillRect(6, 7, 8, 1, Pal.yellow) }
+            if b >= 4 { for x in [6, 7, 12, 13] { c.set(x, 4, Pal.yellow) }; c.set(6, 5, Pal.amber); c.set(13, 5, Pal.amber) }
+        case .warden:
+            // Bulwark: rivets, a wider shield, pauldrons, then a gold boss. Banneret: a pennant, a longer spear head, a banner, then a gold fringe.
+            if a >= 1 { for (x, y) in [(4, 9), (13, 9), (4, 12), (13, 12)] { c.set(x, y, Pal.silver) } }
+            if a >= 2 { c.fillRect(1, 9, 2, 5, Pal.tower(kind)) }
+            if a >= 3 { c.fillRect(4, 6, 2, 2, Pal.silver); c.fillRect(11, 6, 2, 2, Pal.silver) }
+            if a >= 4 { c.fillCircle(cx: 8.5, cy: 12.5, r: 1.6, Pal.yellow); c.set(8, 12, Pal.white) }
+            if b >= 1 { c.fillRect(16, 4, 2, 3, Pal.red); c.set(18, 5, Pal.red) }
+            if b >= 2 { c.set(15, 1, Pal.silver); c.set(15, 0, Pal.white) }
+            if b >= 3 { c.fillRect(16, 7, 3, 6, Pal.tower(kind)); c.set(17, 9, Pal.yellow) }
+            if b >= 4 { for x in [16, 18] { c.set(x, 13, Pal.yellow) }; c.set(17, 14, Pal.yellow) }
+        }
     }
 
     // MARK: Enemies
 
     // MARK: Commanders
 
-    static func commanderCanvas(_ kind: CommanderKind, frame: Int, skin: CommanderSkin) -> PixelCanvas {
+    static func commanderCanvas(_ kind: CommanderKind, frame: Int, skin: CommanderSkin, stage: Int) -> PixelCanvas {
         let maps = SpriteMaps.commanderFrames(kind)
-        var canvas = PixelCanvas(map: maps[frame % maps.count]).padded(1)
+        let palette = Pal.chars.merging(SpriteMaps.commanderGear(kind, stage: stage)) { $1 }
+        var canvas = PixelCanvas(map: maps[frame % maps.count], palette: palette).padded(1)
         if let ramp = Pal.ramp(skin) {
             // Keep the light and shade of each pixel, but in the skin's colours.
             canvas = canvas.recolored { color in
@@ -467,14 +905,23 @@ enum Art {
         return canvas
     }
 
-    static func commanderFrames(_ kind: CommanderKind, skin: CommanderSkin) -> [SKTexture] {
-        frames("commander.\(kind.rawValue).\(skin.rawValue)") {
-            (0..<SpriteMaps.commanderFrames(kind).count).map { commanderCanvas(kind, frame: $0, skin: skin) }
+    /// Which gear a commander wears at an in-match level: new gear at levels 3, 6 and max.
+    static func commanderStage(level: Int) -> Int {
+        level >= CommanderKind.maxLevel ? 3 : level >= 6 ? 2 : level >= 3 ? 1 : 0
+    }
+
+    static func commanderFrames(_ kind: CommanderKind, skin: CommanderSkin, level: Int = 1) -> [SKTexture] {
+        let stage = commanderStage(level: level)
+        return frames("commander.\(kind.rawValue).\(skin.rawValue).\(stage)") {
+            (0..<SpriteMaps.commanderFrames(kind).count).map { commanderCanvas(kind, frame: $0, skin: skin, stage: stage) }
         }
     }
 
-    static func commanderIcon(_ kind: CommanderKind, skin: CommanderSkin) -> UIImage {
-        image("commanderIcon.\(kind.rawValue).\(skin.rawValue)") { commanderCanvas(kind, frame: 0, skin: skin) }
+    static func commanderIcon(_ kind: CommanderKind, skin: CommanderSkin, level: Int = 1) -> UIImage {
+        let stage = commanderStage(level: level)
+        return image("commanderIcon.\(kind.rawValue).\(skin.rawValue).\(stage)") {
+            commanderCanvas(kind, frame: 0, skin: skin, stage: stage)
+        }
     }
 
     static func enemyCanvas(_ kind: EnemyKind, frame: Int) -> PixelCanvas {
@@ -492,6 +939,15 @@ enum Art {
 
     static func enemyIcon(_ kind: EnemyKind, frame: Int = 0) -> UIImage {
         image("enemyIcon.\(kind.rawValue).\(frame)") { enemyCanvas(kind, frame: frame) }
+    }
+
+    /// A villain not beaten yet, as a dark shape for the Codex.
+    static func enemySilhouette(_ kind: EnemyKind) -> UIImage {
+        image("enemySilhouette.\(kind.rawValue)") {
+            var canvas = PixelCanvas(map: SpriteMaps.enemyFrames(kind)[0]).recolored { _ in Pal.ink }.padded(1)
+            canvas.outline(Pal.slate)
+            return canvas
+        }
     }
 
     static var coreImage: UIImage {
@@ -564,6 +1020,58 @@ enum Art {
         }
     }
 
+    static func lever(up: Bool) -> SKTexture { texture("lever.\(up)") { leverCanvas(up: up) } }
+
+    /// A stone block with a handle: up while the gate is open, pulled over while the commander holds it.
+    private static func leverCanvas(up: Bool) -> PixelCanvas {
+        var c = PixelCanvas(width: 16, height: 16)
+        let tx = up ? 4 : 13, ty = up ? 3 : 8
+        c.line(7, 11, tx, ty, Pal.bark)
+        c.line(8, 11, tx + 1, ty, Pal.clay)
+        c.fillCircle(cx: Double(tx) + 1, cy: Double(ty), r: 1.6, Pal.red)
+        c.fillRect(3, 11, 10, 4, Pal.steel)
+        c.fillRect(3, 11, 10, 1, Pal.silver)
+        c.fillRect(6, 11, 4, 1, Pal.slate)
+        c.outline()
+        return c
+    }
+
+    static func gate(shut: Bool) -> SKTexture { texture("gate.\(shut)") { gateCanvas(shut: shut) } }
+
+    /// A wooden gateway that gets barred with planks when shut.
+    private static func gateCanvas(shut: Bool) -> PixelCanvas {
+        var c = PixelCanvas(width: 16, height: 16)
+        if shut {
+            for y in [4, 8, 12] {
+                c.fillRect(3, y, 10, 2, Pal.clay)
+                c.fillRect(3, y, 10, 1, Pal.tan)
+            }
+            c.line(3, 13, 12, 5, Pal.bark)
+        }
+        for x in [1, 13] {
+            c.fillRect(x, 1, 2, 14, Pal.bark)
+            c.fillRect(x, 1, 1, 14, Pal.clay)
+        }
+        c.fillRect(1, 1, 14, 2, Pal.bark)
+        c.fillRect(1, 1, 14, 1, Pal.clay)
+        c.outline()
+        return c
+    }
+
+    /// A build tile the Sinkmaw caved in: a dark hole ringed with broken earth.
+    static var pit: SKTexture {
+        texture("pit") {
+            var c = PixelCanvas(width: 16, height: 16)
+            c.fillEllipse(cx: 8, cy: 8, rx: 7, ry: 6, Pal.clay)
+            c.fillEllipse(cx: 8, cy: 8, rx: 5.8, ry: 4.8, Pal.bark)
+            c.fillEllipse(cx: 8, cy: 8.5, rx: 5.2, ry: 4.2, Pal.plum)
+            c.fillEllipse(cx: 8, cy: 9.3, rx: 4.2, ry: 3.2, Pal.ink)
+            for (x, y) in [(3, 4), (11, 3), (13, 9), (4, 12)] { c.set(x, y, Pal.tan) }
+            c.outline()
+            return c
+        }
+    }
+
     static var chevron: SKTexture { texture("chevron") { PixelCanvas(map: SpriteMaps.chevron) } }
 
     static var bracket: SKTexture { texture("bracket") { PixelCanvas(map: SpriteMaps.bracket) } }
@@ -582,14 +1090,22 @@ enum Art {
     // MARK: Projectiles and effects
 
     static var bolt: SKTexture {
-        texture("bolt") { PixelCanvas(map: [".C.", "CWC", ".C."]) }
+        texture("bolt") {
+            var c = PixelCanvas(map: [".C.", "CWC", ".C."]).padded(1)
+            c.outline()
+            return c
+        }
     }
 
     /// Projectile sprite for a bolt-style hero.
     static func bolt(for kind: TowerKind) -> SKTexture {
         switch kind {
         case .weaver:
-            texture("bolt.weaver") { PixelCanvas(map: [".w.", "wWw", ".w."]) }
+            texture("bolt.weaver") {
+                var c = PixelCanvas(map: [".w.", "wWw", ".w."]).padded(1)
+                c.outline()
+                return c
+            }
         case .aegis:
             texture("bolt.aegis") {
                 var c = PixelCanvas(map: [".YYY.", "YBBBY", "YBWBY", "YBBBY", ".YYY."])
@@ -598,7 +1114,17 @@ enum Art {
                 return c
             }
         case .cyclone:
-            texture("bolt.cyclone") { PixelCanvas(map: ["w...w", ".wWw.", "..W.."]) }
+            texture("bolt.cyclone") {
+                var c = PixelCanvas(map: ["w...w", ".wWw.", "..W.."]).padded(1)
+                c.outline()
+                return c
+            }
+        case .bramble:
+            texture("bolt.bramble") {
+                var c = PixelCanvas(map: [".E.", "EDE", ".E."]).padded(1)
+                c.outline()
+                return c
+            }
         default:
             bolt
         }
@@ -624,6 +1150,15 @@ enum Art {
     static var powerReady: SKTexture {
         texture("powerReady") {
             var c = PixelCanvas(map: SpriteMaps.icon(.bolt)).padded(1)
+            c.outline()
+            return c
+        }
+    }
+
+    /// A sprout on a Bramble's base, one for each stage of growth.
+    static var leaf: SKTexture {
+        texture("leaf") {
+            var c = PixelCanvas(map: ["y.y", "GyG", ".G."]).padded(1)
             c.outline()
             return c
         }
@@ -862,7 +1397,7 @@ enum Art {
         image("boardImage.\(map.id)") { boardCanvas(for: map) }
     }
 
-    /// Board plus obstacles, crystal and portal, for the map picker.
+    /// Board plus obstacles, crystals, portal, lever and gate, for the map picker.
     static func mapPreview(for map: MapDefinition) -> UIImage {
         image("mapPreview.\(map.id)") {
             var c = boardCanvas(for: map)
@@ -882,11 +1417,18 @@ enum Art {
             portal.fillCircle(cx: 8, cy: 8, r: 5.2, Pal.plum)
             portal.fillCircle(cx: 8, cy: 8, r: 3.2, Pal.ink)
             portal.outline()
-            let entry = map.waypoints[0]
-            c.stamp(portal, x: max(0, entry.col + 1) * tilePixels, y: entry.row * tilePixels)
+            for route in map.routes {
+                // The first tile on the board, stepping in from the off-board start.
+                let step = GridPoint((route[1].col - route[0].col).signum(), (route[1].row - route[0].row).signum())
+                var entry = route[0]
+                while !map.contains(entry) { entry = GridPoint(entry.col + step.col, entry.row + step.row) }
+                c.stamp(portal, x: entry.col * tilePixels, y: entry.row * tilePixels)
+            }
+            if let lever = map.lever { c.stamp(leverCanvas(up: true), x: lever.col * tilePixels, y: lever.row * tilePixels) }
+            if let gate = map.gate { c.stamp(gateCanvas(shut: false), x: gate.col * tilePixels, y: gate.row * tilePixels) }
             var crystal = PixelCanvas(map: SpriteMaps.coreCrystal).padded(1)
             crystal.outline()
-            stampCentered(crystal, at: map.coreCell, bottomOffset: -2)
+            for cell in map.coreCells { stampCentered(crystal, at: cell, bottomOffset: -2) }
             return c
         }
     }
@@ -906,6 +1448,7 @@ enum Art {
         for y in 0..<h {
             for x in 0..<w {
                 let n = PixelNoise.value(x, y, seed: 7)
+                let cell = GridPoint(x / tilePixels, y / tilePixels)
                 let onPath = isPath(x, y)
                 let edge = isPath(x - 1, y) != onPath || isPath(x + 1, y) != onPath
                     || isPath(x, y - 1) != onPath || isPath(x, y + 1) != onPath
@@ -913,12 +1456,23 @@ enum Art {
                 if onPath {
                     color = colors.path
                     if n < 60 { color = colors.pathLight } else if n < 110 { color = colors.pathMid } else if n < 150 { color = colors.pathDark }
+                    if map.mud.contains(cell) {
+                        color = n < 150 ? Pal.clay : n < 450 ? Pal.plum : Pal.bark
+                    } else if map.ice.contains(cell) {
+                        color = n < 500 ? Pal.mist : n < 900 ? Pal.white : Pal.cyan
+                    }
                     if edge { color = colors.pathDark }
                 } else if isWater(x, y) {
                     color = n < 120 ? Pal.blue : n >= 985 ? Pal.cyan : Pal.ocean
                     if !isWater(x - 1, y) || !isWater(x + 1, y) || !isWater(x, y - 1) || !isWater(x, y + 1) { color = Pal.deepTeal }
+                } else if map.highGround.contains(cell) {
+                    // A raised tile: grass on top, a stone face below and a shadow on the right.
+                    let px = x % tilePixels, py = y % tilePixels
+                    color = n < 80 ? colors.groundA : colors.light
+                    if py == 0 { color = Pal.lime }
+                    if py >= tilePixels - 3 { color = n < 400 ? Pal.steel : Pal.silver }
+                    if py == tilePixels - 1 || px == tilePixels - 1 { color = Pal.slate }
                 } else {
-                    let cell = GridPoint(x / tilePixels, y / tilePixels)
                     color = (cell.col + cell.row) % 2 == 0 ? colors.groundA : colors.groundB
                     if n < 40 { color = colors.light } else if n < 85 { color = colors.dark }
                     if n >= 997 {
@@ -930,6 +1484,7 @@ enum Art {
                     }
                     if edge { color = colors.dark }
                 }
+                if map.mist.contains(cell) && (x + y) % 2 == 0 { color = Pal.mist }
                 c.set(x, y, color)
             }
         }

@@ -48,6 +48,16 @@ struct UpgradePath {
     let tiers: [UpgradeTier]
 }
 
+/// Two heroes on touching tiles (corners count) that boost each other.
+struct HeroCombo {
+    let name: String
+    let detail: String
+    let first: TowerKind
+    let second: TowerKind
+    /// Applied to each of the two heroes with its own kind.
+    let apply: (TowerKind, inout TowerStats) -> Void
+}
+
 /// Upgrade paths and powers for every hero. Each path has four tiers; tier 3
 /// grants an active power and tier 4 empowers it.
 enum HeroCatalog {
@@ -71,6 +81,11 @@ enum HeroCatalog {
         case .sniper: hawkeye
         case .tamer: fang
         case .alchemist: vial
+        case .siren: siren
+        case .bramble: bramble
+        case .omen: omen
+        case .rook: rook
+        case .warden: warden
         }
     }
 
@@ -878,4 +893,319 @@ enum HeroCatalog {
             },
         ]),
     ]
+
+    // MARK: Siren - sea singer
+
+    private static let siren: [UpgradePath] = [
+        UpgradePath(name: "Lullaby", tiers: [
+            UpgradeTier(name: "Soft Song", detail: "Turns villains around more often.", cost: 60, research: 0) {
+                $0.confuseChance += 0.08
+            },
+            UpgradeTier(name: "Long Song", detail: "More range.", cost: 120, research: 4) {
+                $0.range += 0.4
+            },
+            UpgradeTier(name: "Siren Song", detail: "POWER: every villain in range turns around.", cost: 260, research: 10,
+                        power: power("Siren Song", "Villains in range walk backwards for 3 seconds.", cooldown: 30,
+                                     .confuse(duration: 3, damage: 30, rangeScale: 1.3))) {
+                $0.damage += 4
+            },
+            UpgradeTier(name: "Endless Song", detail: "Turns villains around much more often. 5s Siren Song.", cost: 700, research: 20,
+                        power: power("Endless Song", "Villains in a wide area walk backwards for 5 seconds.", cooldown: 30,
+                                     .confuse(duration: 5, damage: 120, rangeScale: 1.7))) {
+                $0.confuseChance += 0.15
+                $0.confuseDuration += 0.6
+            },
+        ]),
+        UpgradePath(name: "Undertow", tiers: [
+            UpgradeTier(name: "Pull", detail: "Pulls villains back along the path.", cost: 60, research: 0) {
+                $0.knockback += 0.2
+            },
+            UpgradeTier(name: "Cold Current", detail: "Slows villains.", cost: 110, research: 4) {
+                $0.slow = 0.3
+                $0.slowDuration = 1.2
+            },
+            UpgradeTier(name: "Tidal Wave", detail: "POWER: a wave washes villains back.", cost: 250, research: 10,
+                        power: power("Tidal Wave", "A wave hits ground villains in range and washes them back.", cooldown: 28,
+                                     .burst(damage: 150, stun: 0.5, knockback: 1.5, rangeScale: 1.3, groundOnly: true))) {
+                $0.damage += 6
+            },
+            UpgradeTier(name: "Great Wave", detail: "Stronger pull. A huge Tidal Wave.", cost: 700, research: 20,
+                        power: power("Great Wave", "A huge wave hits ground villains in a wide area and washes them far back.", cooldown: 28,
+                                     .burst(damage: 450, stun: 1, knockback: 2.5, rangeScale: 1.6, groundOnly: true))) {
+                $0.damage += 12
+                $0.knockback += 0.15
+            },
+        ]),
+    ]
+
+    // MARK: Bramble - thorn bush
+
+    private static let bramble: [UpgradePath] = [
+        UpgradePath(name: "Roots", tiers: [
+            UpgradeTier(name: "Deep Roots", detail: "Grows 7% stronger each wave instead of 5%.", cost: 60, research: 0) {
+                $0.growth = 0.07
+            },
+            UpgradeTier(name: "Snaring Vines", detail: "Thorns slow villains.", cost: 110, research: 4) {
+                $0.slow = 0.3
+                $0.slowDuration = 1.2
+            },
+            UpgradeTier(name: "Overgrowth", detail: "POWER: a thicket that slows and hurts.", cost: 240, research: 10,
+                        power: power("Overgrowth", "6-second thicket: damage and a 40% slow.", cooldown: 30,
+                                     .field(duration: 6, dps: 40, slow: 0.4, rangeScale: 1.2, type: .toxic))) {
+                $0.damage += 4
+            },
+            UpgradeTier(name: "Old Grove", detail: "+10 damage. Overgrowth lasts 8s.", cost: 650, research: 20,
+                        power: power("Old Grove", "8-second thicket: heavy damage and a 50% slow.", cooldown: 30,
+                                     .field(duration: 8, dps: 120, slow: 0.5, rangeScale: 1.5, type: .toxic))) {
+                $0.damage += 10
+            },
+        ]),
+        UpgradePath(name: "Thorns", tiers: [
+            UpgradeTier(name: "Sharp Thorns", detail: "+4 damage per thorn.", cost: 60, research: 0) {
+                $0.damage += 4
+            },
+            UpgradeTier(name: "Thorn Spray", detail: "Shoots two villains at once.", cost: 120, research: 4) {
+                $0.multishot = 2
+            },
+            UpgradeTier(name: "Thornburst", detail: "POWER: triple attack speed for 5s.", cost: 250, research: 10,
+                        power: power("Thornburst", "Triple attack speed and +20% damage for 5 seconds.", cooldown: 30,
+                                     .frenzy(duration: 5, rate: 3, damage: 1.2))) {
+                $0.pierce += 1
+            },
+            UpgradeTier(name: "Bramble Wall", detail: "Three targets, +8 damage. Thornburst lasts 8s at 4x.", cost: 700, research: 20,
+                        power: power("Bramble Wall", "4x attack speed and +50% damage for 8 seconds.", cooldown: 30,
+                                     .frenzy(duration: 8, rate: 4, damage: 1.5))) {
+                $0.multishot = 3
+                $0.damage += 8
+            },
+        ]),
+    ]
+
+    // MARK: Omen - seer
+
+    private static let omen: [UpgradePath] = [
+        UpgradePath(name: "Doom", tiers: [
+            UpgradeTier(name: "Dark Sign", detail: "Marked villains take 30% more damage.", cost: 80, research: 0) {
+                $0.mark = 0.3
+            },
+            UpgradeTier(name: "Long Shadow", detail: "Marks last 5 seconds.", cost: 140, research: 4) {
+                $0.markDuration = 5
+            },
+            UpgradeTier(name: "Expose", detail: "POWER: strip cloaks, shields and armor.", cost: 280, research: 10,
+                        power: power("Expose", "Reveal cloaked villains and strip shields and armor in range.", cooldown: 30,
+                                     .strip(damage: 60, rangeScale: 1.4))) {
+                $0.range += 0.3
+            },
+            UpgradeTier(name: "Doom", detail: "Marked villains take 45% more damage. A huge Expose.", cost: 750, research: 20,
+                        power: power("Doom", "Strip every villain's defenses in a huge area and hit them hard.", cooldown: 30,
+                                     .strip(damage: 300, rangeScale: 2))) {
+                $0.mark = 0.45
+            },
+        ]),
+        UpgradePath(name: "Hex", tiers: [
+            UpgradeTier(name: "Twin Hex", detail: "Marks two villains at once.", cost: 90, research: 0) {
+                $0.multishot = 2
+            },
+            UpgradeTier(name: "Far Sight", detail: "More range.", cost: 130, research: 4) {
+                $0.range += 0.6
+            },
+            UpgradeTier(name: "Hex Field", detail: "POWER: a hex that slows and hurts. Marks three villains.", cost: 260, research: 10,
+                        power: power("Hex Field", "5-second hex: psychic damage and a 50% slow.", cooldown: 30,
+                                     .field(duration: 5, dps: 30, slow: 0.5, rangeScale: 1.2, type: .psychic))) {
+                $0.multishot = 3
+            },
+            UpgradeTier(name: "Curse Ring", detail: "Four marks, +6 damage. Hex Field lasts 7s.", cost: 720, research: 20,
+                        power: power("Curse Ring", "7-second hex: heavy psychic damage and a 60% slow.", cooldown: 30,
+                                     .field(duration: 7, dps: 100, slow: 0.6, rangeScale: 1.5, type: .psychic))) {
+                $0.multishot = 4
+                $0.damage += 6
+            },
+        ]),
+    ]
+
+    // MARK: Rook - tactician
+
+    private static let rook: [UpgradePath] = [
+        UpgradePath(name: "Lance", tiers: [
+            UpgradeTier(name: "Heavy Lance", detail: "+15 damage per shot.", cost: 90, research: 0) {
+                $0.damage += 15
+            },
+            UpgradeTier(name: "Quick Reload", detail: "Fires 25% faster.", cost: 160, research: 4) {
+                $0.fireInterval *= 0.8
+            },
+            UpgradeTier(name: "Barrage", detail: "POWER: triple fire rate for 4s. +20 damage.", cost: 300, research: 10,
+                        power: power("Barrage", "Triple fire rate for 4 seconds.", cooldown: 32,
+                                     .frenzy(duration: 4, rate: 3, damage: 1))) {
+                $0.damage += 20
+            },
+            UpgradeTier(name: "Siege Lance", detail: "+60 damage, pierces armor. Barrage lasts 6s at 4x.", cost: 900, research: 20,
+                        power: power("Siege Lance", "4x fire rate and +30% damage for 6 seconds.", cooldown: 32,
+                                     .frenzy(duration: 6, rate: 4, damage: 1.3))) {
+                $0.damage += 60
+                $0.piercesArmor = true
+            },
+        ]),
+        UpgradePath(name: "Command", tiers: [
+            UpgradeTier(name: "Signal Flags", detail: "Heroes in its row and column attack 10% faster.", cost: 80, research: 0) {
+                $0.lineBuff = true
+                $0.buffRate = 0.1
+            },
+            UpgradeTier(name: "Long Sight", detail: "Sees cloaked villains.", cost: 120, research: 4) {
+                $0.detectsCamo = true
+            },
+            UpgradeTier(name: "Field Marshal", detail: "POWER: rally nearby heroes. Its row and column get +15% speed, +10% damage.", cost: 280, research: 10,
+                        power: power("Field Marshal", "Heroes nearby: +40% speed, +20% damage for 8s.", cooldown: 35,
+                                     .rally(duration: 8, rate: 1.4, damage: 1.2, rangeScale: 3))) {
+                $0.buffRate = 0.15
+                $0.buffDamage = 0.1
+            },
+            UpgradeTier(name: "Grand Marshal", detail: "Its row and column get +25% speed, +20% damage. A wider rally.", cost: 800, research: 20,
+                        power: power("Grand Marshal", "Heroes in a wide area: +70% speed, +40% damage for 10s.", cooldown: 35,
+                                     .rally(duration: 10, rate: 1.7, damage: 1.4, rangeScale: 4))) {
+                $0.buffRate = 0.25
+                $0.buffDamage = 0.2
+            },
+        ]),
+    ]
+
+    // MARK: Warden - shield bearer
+
+    private static let warden: [UpgradePath] = [
+        UpgradePath(name: "Bulwark", tiers: [
+            UpgradeTier(name: "Thick Shield", detail: "50% more guard.", cost: 70, research: 0) {
+                $0.holdHealth *= 1.5
+            },
+            UpgradeTier(name: "Shield Wall", detail: "50% more guard. His spear may stun.", cost: 140, research: 4) {
+                $0.holdHealth *= 1.5
+                $0.stunChance = 0.1
+                $0.stunDuration = 0.5
+            },
+            UpgradeTier(name: "Hold Fast", detail: "POWER: stun ground villains around him. +6 damage.", cost: 260, research: 10,
+                        power: power("Hold Fast", "Stun ground villains nearby for 2 seconds.", cooldown: 28,
+                                     .burst(damage: 80, stun: 2, knockback: 0, rangeScale: 1.5, groundOnly: true))) {
+                $0.damage += 6
+            },
+            UpgradeTier(name: "Unbreakable", detail: "Twice the guard. Hold Fast stuns for 3s in a wider area.", cost: 750, research: 20,
+                        power: power("Unbreakable", "Stun ground villains in a wide area for 3 seconds.", cooldown: 28,
+                                     .burst(damage: 300, stun: 3, knockback: 0, rangeScale: 2, groundOnly: true))) {
+                $0.holdHealth *= 2
+            },
+        ]),
+        UpgradePath(name: "Banneret", tiers: [
+            UpgradeTier(name: "Banner", detail: "Heroes in range attack 10% faster.", cost: 80, research: 0) {
+                $0.buffRate = 0.1
+            },
+            UpgradeTier(name: "Spear Reach", detail: "More range and +6 damage.", cost: 130, research: 4) {
+                $0.range += 0.5
+                $0.damage += 6
+            },
+            UpgradeTier(name: "Rally", detail: "POWER: rally nearby heroes. Heroes in range deal 15% more damage.", cost: 260, research: 10,
+                        power: power("Rally", "Heroes nearby: +40% speed, +30% damage for 8s.", cooldown: 35,
+                                     .rally(duration: 8, rate: 1.4, damage: 1.3, rangeScale: 2.5))) {
+                $0.buffDamage = 0.15
+            },
+            UpgradeTier(name: "War Banner", detail: "Heroes in range get +25% speed, +25% damage. A wider rally.", cost: 750, research: 20,
+                        power: power("War Banner", "Heroes in a wide area: +70% speed, +50% damage for 10s.", cooldown: 35,
+                                     .rally(duration: 10, rate: 1.7, damage: 1.5, rangeScale: 3))) {
+                $0.buffRate = 0.25
+                $0.buffDamage = 0.25
+            },
+        ]),
+    ]
+
+    // MARK: Combos
+
+    static let combos: [HeroCombo] = [
+        HeroCombo(name: "Thermal Shock", detail: "Both strip 2 armor per hit.", first: .frost, second: .inferno) { _, stats in
+            stats.armorShred = max(stats.armorShred, 2)
+        },
+        HeroCombo(name: "Superconductor", detail: "Stormbringer chains to 2 more villains. Glacia gets +3 damage.",
+                  first: .frost, second: .tesla) { kind, stats in
+            if kind == .tesla { stats.chainTargets += 2 } else { stats.damage += 3 }
+        },
+        HeroCombo(name: "Live Wire", detail: "Stormbringer chains to 1 more villain. Riptide's torpedoes can stun.",
+                  first: .tesla, second: .tide) { kind, stats in
+            if kind == .tesla {
+                stats.chainTargets += 1
+            } else {
+                stats.stunChance = max(stats.stunChance, 0.1)
+                stats.stunDuration = max(stats.stunDuration, 0.5)
+            }
+        },
+        HeroCombo(name: "Acid Shells", detail: "Quake's shells poison. Vial's flasks splash wider.", first: .mortar, second: .alchemist) { kind, stats in
+            if kind == .mortar {
+                stats.poisonDPS = max(stats.poisonDPS, 8)
+                stats.poisonDuration = max(stats.poisonDuration, 3)
+            } else {
+                stats.splashRadius += 0.2
+            }
+        },
+        HeroCombo(name: "Crossfire", detail: "Both get +2 damage and hit one more villain per shot.", first: .pulse, second: .aegis) { _, stats in
+            stats.pierce += 1
+            stats.damage += 2
+        },
+        HeroCombo(name: "Eagle Eye", detail: "Both reach further. Hawkeye sees cloaked villains.", first: .rail, second: .sniper) { kind, stats in
+            stats.range += 0.6
+            if kind == .sniper { stats.detectsCamo = true }
+        },
+        HeroCombo(name: "Venom Web", detail: "Weaver's webs poison. Vial's flasks slow.", first: .weaver, second: .alchemist) { kind, stats in
+            if kind == .weaver {
+                stats.poisonDPS = max(stats.poisonDPS, 6)
+                stats.poisonDuration = max(stats.poisonDuration, 3)
+            } else {
+                stats.slow = max(stats.slow, 0.2)
+                stats.slowDuration = max(stats.slowDuration, 1)
+            }
+        },
+        HeroCombo(name: "Brainquake", detail: "Echo's scream can confuse. Mindwave reaches further.", first: .echo, second: .mind) { kind, stats in
+            if kind == .echo {
+                stats.confuseChance += 0.1
+                stats.confuseDuration = max(stats.confuseDuration, 1)
+            } else {
+                stats.range += 0.4
+            }
+        },
+        HeroCombo(name: "Fire Tornado", detail: "Inferno's flames reach wider and further. Cyclone's blades burn.",
+                  first: .inferno, second: .cyclone) { kind, stats in
+            if kind == .inferno {
+                stats.coneAngle += 0.4
+                stats.range += 0.3
+            } else {
+                stats.burnDPS = max(stats.burnDPS, 4)
+                stats.burnDuration = max(stats.burnDuration, 2)
+            }
+        },
+        HeroCombo(name: "Long Night", detail: "Starlight hits bosses 25% harder. Chrono slows more.", first: .chrono, second: .star) { kind, stats in
+            if kind == .star { stats.bossMultiplier *= 1.25 } else { stats.slow += 0.1 }
+        },
+        HeroCombo(name: "Rip Current", detail: "Siren's song pushes villains back. Riptide's torpedoes hit one more villain.",
+                  first: .siren, second: .tide) { kind, stats in
+            if kind == .siren { stats.knockback += 0.15 } else { stats.pierce += 1 }
+        },
+        HeroCombo(name: "Frost Thorns", detail: "Bramble's thorns slow villains. Glacia reaches further.",
+                  first: .bramble, second: .frost) { kind, stats in
+            if kind == .bramble {
+                stats.slow = max(stats.slow, 0.25)
+                stats.slowDuration = max(stats.slowDuration, 1)
+            } else {
+                stats.range += 0.3
+            }
+        },
+        HeroCombo(name: "Marked Target", detail: "Hawkeye hits 20% harder. Omen's marks last a second longer.",
+                  first: .omen, second: .sniper) { kind, stats in
+            if kind == .sniper { stats.damage *= 1.2 } else { stats.markDuration += 1 }
+        },
+        HeroCombo(name: "Crossbeam", detail: "Rook's lances get +15 damage. Vanguard reaches further.",
+                  first: .rook, second: .rail) { kind, stats in
+            if kind == .rook { stats.damage += 15 } else { stats.range += 0.5 }
+        },
+        HeroCombo(name: "Hammer and Anvil", detail: "Quake's boulders splash wider. Warden's guard is 30% stronger.",
+                  first: .warden, second: .mortar) { kind, stats in
+            if kind == .mortar { stats.splashRadius += 0.3 } else { stats.holdHealth *= 1.3 }
+        },
+    ]
+
+    static func comboIndex(_ a: TowerKind, _ b: TowerKind) -> Int? {
+        combos.firstIndex { ($0.first == a && $0.second == b) || ($0.first == b && $0.second == a) }
+    }
 }

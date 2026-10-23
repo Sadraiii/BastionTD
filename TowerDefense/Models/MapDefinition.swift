@@ -17,7 +17,7 @@ enum Difficulty: String, CaseIterable, Codable {
 
 /// Campaign chapters. Each world groups its levels and brings its own villains.
 enum World: Int, CaseIterable, Identifiable {
-    case grassland, desert, swamp, snowfield, volcano, caves
+    case grassland, desert, swamp, snowfield, volcano, caves, highlands
 
     var id: Int { rawValue }
 
@@ -29,21 +29,22 @@ enum World: Int, CaseIterable, Identifiable {
         case .snowfield: "Snowfield"
         case .volcano: "Volcano"
         case .caves: "Crystal Caves"
+        case .highlands: "Highlands"
         }
     }
 }
 
 /// The look of a battlefield: ground and path colors and the decoration sprites.
 enum Terrain: String {
-    case grassland, desert, snowfield, volcanic, swamp, beach, caves
+    case grassland, desert, snowfield, volcanic, swamp, beach, caves, highlands
 }
 
 /// A battlefield layout: grid size, the enemy route and unbuildable decoration.
 ///
 /// The route is a list of axis-aligned waypoints. The first waypoint may sit just
 /// outside the grid so enemies walk in from the edge; the last one holds the crystal
-/// the player defends. Optional branches are extra routes with the same start and end
-/// that split off and rejoin; villains take turns between the routes.
+/// the player defends. Optional branches are extra routes that split off and rejoin, come in
+/// from another edge, or end at a second crystal; villains take turns between the routes.
 struct MapDefinition: Identifiable, Hashable {
     let id: String
     let name: String
@@ -59,6 +60,17 @@ struct MapDefinition: Identifiable, Hashable {
     let obstacles: Set<GridPoint>
     /// Water tiles: only naval heroes can be placed there.
     let water: Set<GridPoint>
+    /// Road tiles where villains walk slower (mud) or faster (ice).
+    let mud: Set<GridPoint>
+    let ice: Set<GridPoint>
+    /// Road tiles that hide villains from heroes that can't see cloaked ones.
+    let mist: Set<GridPoint>
+    /// Raised tiles that give the hero built there more range.
+    let highGround: Set<GridPoint>
+    /// A grass tile that shuts the gate on the branch while the commander stands on it.
+    let lever: GridPoint?
+    /// Where the gate is drawn on the branch.
+    let gate: GridPoint?
     let startingGold: Int
     let startingLives: Int
     /// Generated waves for the level; nil plays the classic 20-wave campaign.
@@ -78,6 +90,12 @@ struct MapDefinition: Identifiable, Hashable {
         branches: [[GridPoint]] = [],
         obstacles: Set<GridPoint>,
         water: Set<GridPoint> = [],
+        mud: Set<GridPoint> = [],
+        ice: Set<GridPoint> = [],
+        mist: Set<GridPoint> = [],
+        highGround: Set<GridPoint> = [],
+        lever: GridPoint? = nil,
+        gate: GridPoint? = nil,
         startingGold: Int,
         startingLives: Int,
         wavePlan: WavePlan? = nil
@@ -94,13 +112,24 @@ struct MapDefinition: Identifiable, Hashable {
         self.routes = [waypoints] + branches
         self.obstacles = obstacles
         self.water = water
+        self.mud = mud
+        self.ice = ice
+        self.mist = mist
+        self.highGround = highGround
+        self.lever = lever
+        self.gate = gate
         self.startingGold = startingGold
         self.startingLives = startingLives
         self.wavePlan = wavePlan
         self.pathCells = routes.reduce(into: Set()) { $0.formUnion(Self.cells(along: $1, columns: columns, rows: rows)) }
     }
 
-    var coreCell: GridPoint { waypoints[waypoints.count - 1] }
+    /// Where the crystals stand: the end of each route, once each.
+    var coreCells: [GridPoint] {
+        routes.map { $0[$0.count - 1] }.reduce(into: [GridPoint]()) { cells, end in
+            if !cells.contains(end) { cells.append(end) }
+        }
+    }
 
     var waves: [WaveDefinition] {
         guard let wavePlan else { return WaveLibrary.standard }
@@ -119,7 +148,7 @@ struct MapDefinition: Identifiable, Hashable {
     }
 
     func isBuildable(_ cell: GridPoint) -> Bool {
-        contains(cell) && !pathCells.contains(cell) && !obstacles.contains(cell) && !water.contains(cell)
+        contains(cell) && !pathCells.contains(cell) && !obstacles.contains(cell) && !water.contains(cell) && cell != lever
     }
 
     static func == (lhs: MapDefinition, rhs: MapDefinition) -> Bool { lhs.id == rhs.id }
@@ -193,7 +222,8 @@ extension MapDefinition {
         waypoints: points([(-1, 2), (3, 2), (3, 7), (7, 7), (7, 1), (11, 1), (11, 7), (15, 7), (15, 3), (17, 3)]),
         obstacles: Set(points([(0, 0), (5, 4), (13, 4), (16, 9), (1, 9), (9, 9), (9, 0)])),
         startingGold: 300,
-        startingLives: 25
+        startingLives: 25,
+        wavePlan: WavePlan(count: 16, villains: [.drone, .runner, .sandworm, .ironclad, .berserker, .blastguard], boss: .titan, healthScale: 1.05)
     )
 
     static let bayou = MapDefinition(
@@ -209,7 +239,8 @@ extension MapDefinition {
         branches: [points([(-1, 6), (3, 6), (3, 10), (11, 10), (11, 6), (16, 6), (16, 2), (19, 2)])],
         obstacles: Set(points([(0, 0), (7, 6), (14, 9), (18, 6), (0, 11), (19, 11), (13, 0)])),
         startingGold: 300,
-        startingLives: 20
+        startingLives: 20,
+        wavePlan: WavePlan(count: 16, villains: [.drone, .splitter, .husk, .medic, .bogWitch, .phantom], boss: .dreadnought, healthScale: 1.2)
     )
 
     static let glacier = MapDefinition(
@@ -224,7 +255,8 @@ extension MapDefinition {
         waypoints: points([(-1, 9), (2, 9), (2, 2), (6, 2), (6, 10), (10, 10), (10, 2), (14, 2), (14, 10), (18, 10), (18, 5), (19, 5)]),
         obstacles: Set(points([(0, 0), (4, 11), (12, 0), (16, 4), (8, 6), (19, 11), (0, 5)])),
         startingGold: 300,
-        startingLives: 20
+        startingLives: 20,
+        wavePlan: WavePlan(count: 18, villains: [.runner, .drone, .wisp, .frostborn, .yeti, .brute, .mirage], boss: .titan, healthScale: 1.3, midBoss: .titan)
     )
 
     static let caldera = MapDefinition(
@@ -239,7 +271,8 @@ extension MapDefinition {
         waypoints: points([(-1, 1), (18, 1), (18, 10), (1, 10), (1, 4), (15, 4), (15, 7), (5, 7)]),
         obstacles: Set(points([(0, 11), (19, 0), (10, 2), (8, 5), (12, 9), (3, 8), (19, 11)])),
         startingGold: 220,
-        startingLives: 15
+        startingLives: 15,
+        wavePlan: WavePlan(count: 18, villains: [.drone, .pyrefiend, .berserker, .magmaGolem, .voidling, .gargoyle], boss: .overlord, healthScale: 1.45, midBoss: .titan)
     )
 
     static let harbor = MapDefinition(
@@ -254,7 +287,8 @@ extension MapDefinition {
         obstacles: Set(points([(0, 9), (17, 0), (17, 9), (9, 0)])),
         water: Set((5...12).flatMap { col in (3...6).map { GridPoint(col, $0) } }),
         startingGold: 320,
-        startingLives: 25
+        startingLives: 25,
+        wavePlan: WavePlan(count: 16, villains: [.drone, .runner, .crab, .splitter, .bogWitch, .wisp], boss: .dreadnought, healthScale: 1.2)
     )
 
     static let meadow = MapDefinition(
@@ -320,7 +354,7 @@ extension MapDefinition {
         water: Set((2...15).flatMap { col in (7...9).map { GridPoint(col, $0) } }),
         startingGold: 300,
         startingLives: 20,
-        wavePlan: WavePlan(count: 14, villains: [.runner, .crab, .sandworm, .wisp, .ironclad], boss: .dreadnought, healthScale: 1.2)
+        wavePlan: WavePlan(count: 14, villains: [.runner, .crab, .sandworm, .wisp, .ironclad, .pickpocket], boss: .dreadnought, healthScale: 1.2)
     )
 
     static let mire = MapDefinition(
@@ -336,7 +370,7 @@ extension MapDefinition {
         obstacles: Set(points([(1, 1), (7, 5), (12, 5), (16, 8), (0, 0)])),
         startingGold: 280,
         startingLives: 20,
-        wavePlan: WavePlan(count: 13, villains: [.drone, .splitter, .husk, .medic, .bogWitch, .phantom, .hexer], boss: .dreadnought, healthScale: 1.25)
+        wavePlan: WavePlan(count: 13, villains: [.drone, .splitter, .husk, .medic, .bogWitch, .phantom, .hexer, .gravecaller], boss: .dreadnought, healthScale: 1.25)
     )
 
     static let shore = MapDefinition(
@@ -369,7 +403,7 @@ extension MapDefinition {
         obstacles: Set(points([(16, 0), (0, 7), (8, 0), (9, 7)])),
         startingGold: 280,
         startingLives: 20,
-        wavePlan: WavePlan(count: 13, villains: [.runner, .drone, .wisp, .frostborn, .yeti, .brute, .mirage], boss: .titan, healthScale: 1.35)
+        wavePlan: WavePlan(count: 13, villains: [.runner, .drone, .wisp, .frostborn, .yeti, .brute, .mirage], boss: .titan, healthScale: 1.35, midBoss: .titan)
     )
 
     static let icefall = MapDefinition(
@@ -385,7 +419,7 @@ extension MapDefinition {
         obstacles: Set(points([(0, 0), (19, 0), (19, 11), (9, 5)])),
         startingGold: 300,
         startingLives: 20,
-        wavePlan: WavePlan(count: 15, villains: [.runner, .drone, .wisp, .frostborn, .yeti, .brute, .mirage], boss: .dreadnought, healthScale: 1.4)
+        wavePlan: WavePlan(count: 15, villains: [.runner, .drone, .wisp, .frostborn, .yeti, .brute, .mirage], boss: .dreadnought, healthScale: 1.4, midBoss: .titan)
     )
 
     static let avalanche = MapDefinition(
@@ -401,7 +435,7 @@ extension MapDefinition {
         obstacles: Set(points([(0, 0), (5, 4), (9, 4), (13, 6), (0, 8)])),
         startingGold: 280,
         startingLives: 15,
-        wavePlan: WavePlan(count: 14, villains: [.runner, .drone, .wisp, .frostborn, .yeti, .brute, .mirage], boss: .overlord, healthScale: 1.45)
+        wavePlan: WavePlan(count: 14, villains: [.runner, .drone, .wisp, .frostborn, .yeti, .brute, .mirage], boss: .overlord, healthScale: 1.45, midBoss: .titan)
     )
 
     static let ashlands = MapDefinition(
@@ -417,7 +451,7 @@ extension MapDefinition {
         obstacles: Set(points([(0, 9), (6, 5), (10, 6), (15, 4), (16, 0)])),
         startingGold: 300,
         startingLives: 20,
-        wavePlan: WavePlan(count: 14, villains: [.drone, .pyrefiend, .berserker, .blastguard, .magmaGolem, .voidling, .gargoyle], boss: .titan, healthScale: 1.5)
+        wavePlan: WavePlan(count: 14, villains: [.drone, .pyrefiend, .berserker, .blastguard, .magmaGolem, .voidling, .gargoyle, .sapper], boss: .titan, healthScale: 1.5, midBoss: .titan)
     )
 
     static let magmaFalls = MapDefinition(
@@ -434,7 +468,7 @@ extension MapDefinition {
         obstacles: Set(points([(9, 5), (0, 0), (0, 11), (19, 0), (19, 11), (17, 8)])),
         startingGold: 400,
         startingLives: 25,
-        wavePlan: WavePlan(count: 15, villains: [.drone, .pyrefiend, .berserker, .blastguard, .magmaGolem, .voidling, .gargoyle], boss: .dreadnought, healthScale: 1.35)
+        wavePlan: WavePlan(count: 15, villains: [.drone, .pyrefiend, .berserker, .blastguard, .magmaGolem, .voidling, .gargoyle], boss: .dreadnought, healthScale: 1.35, midBoss: .titan)
     )
 
     static let infernoPeak = MapDefinition(
@@ -450,7 +484,7 @@ extension MapDefinition {
         obstacles: Set(points([(0, 0), (19, 0), (19, 11), (9, 5), (3, 4)])),
         startingGold: 320,
         startingLives: 15,
-        wavePlan: WavePlan(count: 15, villains: [.drone, .pyrefiend, .berserker, .blastguard, .magmaGolem, .voidling, .gargoyle], boss: .overlord, healthScale: 1.6)
+        wavePlan: WavePlan(count: 15, villains: [.drone, .pyrefiend, .berserker, .blastguard, .magmaGolem, .voidling, .gargoyle], boss: .overlord, healthScale: 1.6, midBoss: .titan)
     )
 
     static let grotto = MapDefinition(
@@ -466,7 +500,7 @@ extension MapDefinition {
         obstacles: Set(points([(0, 0), (5, 4), (10, 8), (14, 8), (10, 0)])),
         startingGold: 300,
         startingLives: 20,
-        wavePlan: WavePlan(count: 13, villains: [.drone, .caveBat, .voidling, .crab, .warper, .gargoyle, .phantom, .hexer], boss: .titan, healthScale: 1.65)
+        wavePlan: WavePlan(count: 13, villains: [.drone, .caveBat, .voidling, .crab, .warper, .gargoyle, .phantom, .hexer], boss: .titan, healthScale: 1.65, midBoss: .titan)
     )
 
     static let echoHall = MapDefinition(
@@ -483,7 +517,7 @@ extension MapDefinition {
         obstacles: Set(points([(0, 0), (6, 5), (11, 7), (16, 9), (17, 0)])),
         startingGold: 380,
         startingLives: 25,
-        wavePlan: WavePlan(count: 14, villains: [.drone, .caveBat, .voidling, .crab, .warper, .gargoyle, .phantom, .hexer], boss: .dreadnought, healthScale: 1.5)
+        wavePlan: WavePlan(count: 14, villains: [.drone, .caveBat, .voidling, .crab, .warper, .gargoyle, .phantom, .hexer], boss: .dreadnought, healthScale: 1.5, midBoss: .titan)
     )
 
     static let crystalMine = MapDefinition(
@@ -499,7 +533,7 @@ extension MapDefinition {
         obstacles: Set(points([(2, 5), (8, 5), (12, 6), (17, 4), (0, 11), (19, 0), (3, 9)])),
         startingGold: 340,
         startingLives: 20,
-        wavePlan: WavePlan(count: 15, villains: [.drone, .caveBat, .voidling, .crab, .warper, .gargoyle, .phantom, .hexer], boss: .overlord, healthScale: 1.75)
+        wavePlan: WavePlan(count: 15, villains: [.drone, .caveBat, .voidling, .crab, .warper, .gargoyle, .phantom, .hexer, .chameleon], boss: .overlord, healthScale: 1.75, midBoss: .titan)
     )
 
     static let deepCore = MapDefinition(
@@ -515,7 +549,85 @@ extension MapDefinition {
         obstacles: Set(points([(0, 0), (0, 11), (19, 0), (19, 11), (9, 9)])),
         startingGold: 340,
         startingLives: 15,
-        wavePlan: WavePlan(count: 15, villains: [.drone, .caveBat, .voidling, .crab, .warper, .gargoyle, .phantom, .hexer], boss: .overlord, healthScale: 1.85)
+        wavePlan: WavePlan(count: 15, villains: [.drone, .caveBat, .voidling, .crab, .warper, .gargoyle, .phantom, .hexer], boss: .overlord, healthScale: 1.85, midBoss: .titan)
+    )
+
+    static let twinGates = MapDefinition(
+        id: "twingates",
+        name: "Twin Gates",
+        tagline: "Villains come through two gates. Heroes on raised tiles reach further.",
+        difficulty: .hard,
+        terrain: .highlands,
+        world: .highlands,
+        columns: 18,
+        rows: 10,
+        waypoints: points([(-1, 7), (4, 7), (4, 2), (8, 2), (8, 6), (13, 6), (13, 4), (16, 4)]),
+        branches: [points([(15, -1), (15, 2), (11, 2), (11, 6), (13, 6), (13, 4), (16, 4)])],
+        obstacles: Set(points([(3, 3), (9, 4), (12, 3), (14, 5), (6, 9), (0, 0), (17, 9)])),
+        highGround: Set(points([(2, 4), (10, 0), (16, 8)])),
+        startingGold: 340,
+        startingLives: 20,
+        wavePlan: WavePlan(count: 15, villains: [.drone, .runner, .sapper, .wisp, .brute, .pickpocket, .phantom], boss: .titan, healthScale: 1.7, midBoss: .titan)
+    )
+
+    static let mistmoor = MapDefinition(
+        id: "mistmoor",
+        name: "Mistmoor",
+        tagline: "Mist hides villains and mud slows them down.",
+        difficulty: .hard,
+        terrain: .highlands,
+        world: .highlands,
+        columns: 18,
+        rows: 10,
+        waypoints: points([(-1, 1), (14, 1), (14, 4), (3, 4), (3, 8), (16, 8), (16, 5)]),
+        obstacles: Set(points([(2, 2), (9, 2), (12, 6), (6, 6), (17, 0), (0, 9), (17, 9)])),
+        mud: Set(points([(13, 1), (14, 1), (14, 2), (14, 3), (14, 4), (13, 4), (3, 5), (3, 6), (3, 7), (3, 8), (4, 8)])),
+        mist: Set(points([(6, 4), (7, 4), (8, 4), (9, 4), (10, 4), (11, 4), (8, 8), (9, 8), (10, 8), (11, 8)])),
+        highGround: Set(points([(8, 6), (1, 6)])),
+        startingGold: 320,
+        startingLives: 20,
+        wavePlan: WavePlan(count: 15, villains: [.drone, .phantom, .sapper, .pickpocket, .medic, .chameleon, .mirage], boss: .dreadnought, healthScale: 1.75, midBoss: .titan)
+    )
+
+    static let leverPass = MapDefinition(
+        id: "leverpass",
+        name: "Lever Pass",
+        tagline: "Stand your commander on the lever to shut the short road.",
+        difficulty: .hard,
+        terrain: .highlands,
+        world: .highlands,
+        columns: 18,
+        rows: 10,
+        waypoints: points([(-1, 4), (3, 4), (3, 1), (14, 1), (14, 4), (16, 4)]),
+        branches: [points([(-1, 4), (16, 4)])],
+        obstacles: Set(points([(8, 3), (11, 6), (6, 6), (1, 8), (16, 0)])),
+        ice: Set((5...12).map { GridPoint($0, 1) }),
+        lever: GridPoint(9, 8),
+        gate: GridPoint(4, 4),
+        startingGold: 360,
+        startingLives: 20,
+        wavePlan: WavePlan(count: 15, villains: [.runner, .drone, .chameleon, .berserker, .gravecaller, .warper, .gargoyle], boss: .overlord, healthScale: 1.8, midBoss: .titan)
+    )
+
+    static let twinCrowns = MapDefinition(
+        id: "twincrowns",
+        name: "Twin Crowns",
+        tagline: "The road splits to two crystals. They share your lives.",
+        difficulty: .hard,
+        terrain: .highlands,
+        world: .highlands,
+        columns: 20,
+        rows: 12,
+        waypoints: points([(10, -1), (10, 3), (3, 3), (3, 7), (7, 7), (7, 10), (1, 10)]),
+        branches: [points([(10, -1), (10, 3), (16, 3), (16, 7), (12, 7), (12, 10), (18, 10)])],
+        obstacles: Set(points([(9, 5), (11, 5), (5, 9), (14, 9), (0, 0), (19, 0), (19, 6), (0, 6)])),
+        mud: Set(points([(7, 8), (7, 9), (12, 8), (12, 9)])),
+        ice: Set((11...15).map { GridPoint($0, 3) }),
+        mist: Set(points([(3, 4), (3, 5), (3, 6)])),
+        highGround: Set(points([(10, 8), (5, 1), (15, 1)])),
+        startingGold: 400,
+        startingLives: 15,
+        wavePlan: WavePlan(count: 16, villains: [.drone, .gravecaller, .sapper, .chameleon, .caveBat, .pickpocket, .hexer, .mirage], boss: .sinkmaw, healthScale: 1.9, midBoss: .dreadnought)
     )
 
     /// The Boss Rush event map. It isn't part of the campaign.
@@ -533,7 +645,21 @@ extension MapDefinition {
         startingLives: 10
     )
 
-    /// Every campaign level, world by world. Each one unlocks the next.
+    /// The Lone Commander map. It isn't part of the campaign.
+    static let courtyard = MapDefinition(
+        id: "courtyard",
+        name: "Courtyard",
+        tagline: "A small yard where your commander fights alone.",
+        difficulty: .normal,
+        columns: 12,
+        rows: 7,
+        waypoints: points([(-1, 1), (10, 1), (10, 5), (1, 5)]),
+        obstacles: Set(points([(5, 3), (0, 6), (11, 0)])),
+        startingGold: 0,
+        startingLives: 10
+    )
+
+    /// Every campaign level, world by world. Each one unlocks the next, except the Highlands, which open with stars.
     static let all: [MapDefinition] = [
         circuit, switchback, overload, meadow,
         dunes, oasis, canyon, lagoon,
@@ -541,6 +667,7 @@ extension MapDefinition {
         glacier, tundra, icefall, avalanche,
         caldera, ashlands, magmaFalls, infernoPeak,
         grotto, echoHall, crystalMine, deepCore,
+        twinGates, mistmoor, leverPass, twinCrowns,
     ]
 
     /// The map after this one in the campaign list, if any.

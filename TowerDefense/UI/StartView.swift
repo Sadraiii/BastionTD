@@ -4,8 +4,7 @@ import SwiftUI
 struct StartView: View {
     let onPlay: (MapDefinition, MatchSetup) -> Void
     let onResume: (() -> Void)?
-    let onDaily: () -> Void
-    let onBossRush: () -> Void
+    let onModes: () -> Void
     let onHowToPlay: () -> Void
     let onResearch: () -> Void
     let onMedals: () -> Void
@@ -69,33 +68,11 @@ struct StartView: View {
 
                 Button {
                     playTap()
-                    onDaily()
+                    onModes()
                 } label: {
-                    let daily = MatchSetup.daily(for: Date())
-                    let best = PlayerProgress.bestDaily(daily.setup.day ?? 0)
-                    VStack(spacing: 4) {
-                        PixelText("DAILY: \(daily.map.name)", pixel: 2)
-                        if best > 0 {
-                            PixelText("BEST TODAY: WAVE \(best)", pixel: 1, shadow: nil)
-                        }
-                    }
-                    .frame(width: 236)
+                    PixelText("MODES", pixel: 3).frame(width: 236)
                 }
                 .buttonStyle(PixelButtonStyle.gold)
-
-                Button {
-                    playTap()
-                    onBossRush()
-                } label: {
-                    VStack(spacing: 4) {
-                        PixelText("BOSS RUSH", pixel: 2)
-                        if PlayerProgress.bestBossRush > 0 {
-                            PixelText("BEST: WAVE \(PlayerProgress.bestBossRush)/\(WaveLibrary.bossRush.count)", pixel: 1, shadow: nil)
-                        }
-                    }
-                    .frame(width: 236)
-                }
-                .buttonStyle(PixelButtonStyle.danger)
 
                 HStack(spacing: 12) {
                     Button {
@@ -262,13 +239,14 @@ struct MapSelectView: View {
                     let maps = MapDefinition.all.filter { $0.world == option }
                     let stars = maps.reduce(0) { $0 + PlayerProgress.bestStars(for: $1) }
                     let open = maps.contains(where: PlayerProgress.isUnlocked)
+                    let lock = option == .highlands ? "\(PlayerProgress.highlandsStars) STARS" : "LOCKED"
                     Button {
                         playTap()
                         world = option
                     } label: {
                         VStack(spacing: 3) {
                             PixelText("\(option.rawValue + 1). \(option.name)", pixel: 2, shadow: nil)
-                            PixelText(open ? "\(stars)/\(maps.count * 3) STARS" : "LOCKED", pixel: 1, shadow: nil)
+                            PixelText(open ? "\(stars)/\(maps.count * 3) STARS" : lock, pixel: 1, shadow: nil)
                         }
                     }
                     .buttonStyle(option == world ? PixelButtonStyle.gold
@@ -366,7 +344,11 @@ struct MapCard: View {
 
     private var lockMessage: String {
         guard let index = MapDefinition.all.firstIndex(of: map), index > 0 else { return "" }
-        return "BEAT \(MapDefinition.all[index - 1].name.uppercased()) TO UNLOCK"
+        let previous = MapDefinition.all[index - 1]
+        if map.world == .highlands && previous.world != .highlands {
+            return "\(PlayerProgress.campaignStars)/\(PlayerProgress.highlandsStars) STARS TO UNLOCK"
+        }
+        return "BEAT \(previous.name.uppercased()) TO UNLOCK"
     }
 }
 

@@ -24,4 +24,6 @@ enum AttackStyle {
     case cone
     /// Instant mental strike on the target (Mindwave).
     case mind
+    /// Fires along the hero's whole row and column (Rook).
+    case cross
 }

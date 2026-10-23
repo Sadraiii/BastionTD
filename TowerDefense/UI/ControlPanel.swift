@@ -12,8 +12,12 @@ struct ControlPanel: View {
                 VStack(spacing: 10) {
                     SideStats(session: session)
                     if let commander = session.commander, session.isCommanderSelected {
-                        CommanderPanel(session: session, commander: commander, compact: false)
-                        Spacer(minLength: 0)
+                        // On shorter phones Lone Commander's action bar leaves too little room for every skill.
+                        ScrollView(.vertical, showsIndicators: false) {
+                            CommanderPanel(session: session, commander: commander, compact: false)
+                                .padding(.bottom, 3)
+                        }
+                        if session.isLone { ActionBar(session: session) }
                     } else if let tower = session.selectedTower {
                         TowerInfoPanel(session: session, tower: tower, compact: false)
                         Spacer(minLength: 0)
@@ -27,6 +31,7 @@ struct ControlPanel: View {
             } else {
                 VStack(spacing: 8) {
                     if let commander = session.commander, session.isCommanderSelected {
+                        if session.isLone { ActionBar(session: session) }
                         CommanderPanel(session: session, commander: commander, compact: true)
                     } else if let tower = session.selectedTower {
                         TowerInfoPanel(session: session, tower: tower, compact: true)
@@ -57,6 +62,8 @@ struct TowerCard: View {
     let selected: Bool
     let affordable: Bool
     let unlocked: Bool
+    /// Hero mastery stars, shown down the top-right corner.
+    let stars: Int
     let action: () -> Void
 
     var body: some View {
@@ -96,6 +103,12 @@ struct TowerCard: View {
                     .overlay(Rectangle().stroke(Theme.border, lineWidth: 1))
                     .padding(6)
             }
+            .overlay(alignment: .topTrailing) {
+                VStack(spacing: 1) {
+                    ForEach(0..<stars, id: \.self) { _ in PixelIcon(icon: .smallStar, scale: 1, outlined: false) }
+                }
+                .padding(6)
+            }
             .offset(y: selected ? 3 : 0)
             .opacity(!unlocked || affordable || selected ? 1 : 0.55)
         }
@@ -113,7 +126,7 @@ struct BuildRow: View {
     var body: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 6) {
-                ForEach(TowerKind.allCases) { kind in
+                ForEach(session.heroes) { kind in
                     card(kind).frame(width: 68)
                 }
             }
@@ -124,7 +137,7 @@ struct BuildRow: View {
 
     private func card(_ kind: TowerKind) -> some View {
         TowerCard(kind: kind, selected: session.buildKind == kind, affordable: session.gold >= kind.cost,
-                  unlocked: session.isHeroUnlocked(kind)) {
+                  unlocked: session.isHeroUnlocked(kind), stars: session.engine.research.masteryStars(kind)) {
             session.chooseBuild(kind)
         }
     }
@@ -137,9 +150,9 @@ struct BuildGrid: View {
         VStack(alignment: .leading, spacing: 6) {
             ScrollView(.vertical, showsIndicators: false) {
                 LazyVGrid(columns: [GridItem(.flexible(), spacing: 8), GridItem(.flexible(), spacing: 8)], spacing: 8) {
-                    ForEach(TowerKind.allCases) { kind in
+                    ForEach(session.heroes) { kind in
                         TowerCard(kind: kind, selected: session.buildKind == kind, affordable: session.gold >= kind.cost,
-                                  unlocked: session.isHeroUnlocked(kind)) {
+                                  unlocked: session.isHeroUnlocked(kind), stars: session.engine.research.masteryStars(kind)) {
                             session.chooseBuild(kind)
                         }
                     }
@@ -201,7 +214,7 @@ struct ActionBar: View {
         } else {
             HStack(spacing: 6) {
                 PixelIcon(icon: .skull, scale: 2)
-                Text("\(session.enemiesRemaining) LEFT")
+                Text(session.boonOffer == nil ? "\(session.enemiesRemaining) LEFT" : "PICK A BOON")
                     .font(Theme.body(11))
                     .foregroundStyle(Theme.secondaryText)
                     .lineLimit(1)

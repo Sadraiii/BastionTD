@@ -369,6 +369,10 @@ private struct HeroResearchCard: View {
                         .font(Theme.body(10, weight: .regular))
                         .foregroundStyle(Theme.secondaryText)
                         .fixedSize(horizontal: false, vertical: true)
+                    Text(masteryLine)
+                        .font(Theme.body(10))
+                        .foregroundStyle(Theme.gold)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
                 Spacer(minLength: 0)
                 if !research.isHeroUnlocked(kind) {
@@ -402,6 +406,13 @@ private struct HeroResearchCard: View {
         .frame(maxWidth: 520, alignment: .leading)
         .frame(maxWidth: .infinity)
         .pixelPanel()
+    }
+
+    private var masteryLine: String {
+        let stars = research.masteryStars(kind)
+        let line = "MASTERY \(stars)/5 (+\(stars * 2)% DAMAGE)"
+        guard stars < ResearchState.masteryThresholds.count else { return line }
+        return line + " · \(research.wavesOnField(kind))/\(ResearchState.masteryThresholds[stars]) WAVES"
     }
 
     private func node(path: Int, tier: Int, upgrade: UpgradeTier) -> some View {

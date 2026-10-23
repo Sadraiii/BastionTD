@@ -11,6 +11,7 @@ enum GameEvent {
     case towerUpgraded(towerID: Int, path: Int, tier: Int)
     case towerSold(towerID: Int, cell: GridPoint, refund: Int)
     case towerIncome(towerID: Int, at: CGPoint, amount: Int)
+    case comboFormed(name: String, first: CGPoint, second: CGPoint)
 
     case shotFired(towerID: Int, kind: TowerKind)
     case auraPulse(towerID: Int, center: CGPoint, radius: CGFloat)
@@ -36,6 +37,7 @@ enum GameEvent {
 
     case enemyKilled(enemyID: Int, kind: EnemyKind, at: CGPoint, bounty: Int)
     case enemyLeaked(enemyID: Int, kind: EnemyKind, livesLost: Int)
+    case goldStolen(amount: Int)
     case enemyHealed(center: CGPoint, radius: CGFloat)
     case enemyShielded(center: CGPoint, radius: CGFloat)
     case enemySplit(at: CGPoint)
@@ -43,10 +45,12 @@ enum GameEvent {
     case enemyPetrified(at: CGPoint)
     case bossSummon(at: CGPoint)
     case towersDisrupted(center: CGPoint, radius: CGFloat)
+    case groundCollapsed(cell: GridPoint)
 
     case commanderAttack(kind: CommanderKind, from: CGPoint, to: CGPoint)
     case commanderSkill(kind: CommanderKind, name: String, center: CGPoint, radius: CGFloat)
     case commanderLevelUp(level: Int, at: CGPoint)
+    case commanderEvolved(name: String, at: CGPoint)
 
     case victory
     case defeat

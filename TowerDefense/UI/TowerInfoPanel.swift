@@ -43,10 +43,23 @@ struct TowerInfoPanel: View {
             if s.buffRate > 0 { parts.append("+\(Int(s.buffRate * 100))% SPEED NEARBY") }
             return parts.joined(separator: " · ")
         }
-        var parts = [s.damageType.title.uppercased(), "DMG \(format(s.damage))", "RNG \(format(s.range))", "\(format(s.shotsPerSecond))/S"]
+        let reach = tower.kind.attackStyle == .cross ? "ROW + COLUMN" : "RNG \(format(s.range))"
+        var parts = [s.damageType.title.uppercased(), "DMG \(format(s.damage))", reach, "\(format(s.shotsPerSecond))/S"]
+        if s.holdHealth > 0 { parts.append("GUARD \(Int(s.holdHealth))") }
         if s.detectsCamo { parts.append("SEES CLOAKED") }
         if !s.hitsAir { parts.append("GROUND ONLY") }
         return parts.joined(separator: " · ")
+    }
+
+    private var subtitle: String {
+        if tower.isDisabled { return tower.kind.holdsPath ? "KNOCKED DOWN" : "EMP: OFFLINE!" }
+        if let combo = tower.combos.first {
+            return "COMBO: \(combo.uppercased())" + (tower.combos.count > 1 ? " +\(tower.combos.count - 1)" : "")
+        }
+        if tower.stats.growth > 0 {
+            return "\(tower.stats.damageType.title.uppercased()) · GROWN +\(tower.growth)% · \(tower.kills) KO"
+        }
+        return "\(tower.stats.damageType.title.uppercased()) · \(tower.kind.archetype.uppercased()) · \(tower.kills) KO"
     }
 
     private var header: some View {
@@ -58,10 +71,11 @@ struct TowerInfoPanel: View {
                     .foregroundStyle(Theme.tower(tower.kind))
                     .lineLimit(1)
                     .minimumScaleFactor(0.7)
-                Text(tower.isDisabled ? "EMP: OFFLINE!" : "\(tower.stats.damageType.title.uppercased()) · \(tower.kind.archetype.uppercased()) · \(tower.kills) KO")
+                Text(subtitle)
                     .font(Theme.body(9, weight: .regular))
-                    .foregroundStyle(tower.isDisabled ? Theme.danger : Theme.secondaryText)
+                    .foregroundStyle(tower.isDisabled ? Theme.danger : tower.combos.isEmpty ? Theme.secondaryText : Theme.highlight)
                     .lineLimit(1)
+                    .minimumScaleFactor(0.7)
             }
             Spacer(minLength: 0)
             if compact { sellButton }

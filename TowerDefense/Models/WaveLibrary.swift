@@ -11,12 +11,13 @@ struct SpawnGroup {
 }
 
 /// How a level's waves are made: how many, which villains (introduced in this order),
-/// the boss of the last wave and extra health for later worlds.
+/// the boss of the last wave, extra health for later worlds and an optional boss two thirds of the way in.
 struct WavePlan {
     let count: Int
     let villains: [EnemyKind]
     let boss: EnemyKind
     var healthScale: Double = 1
+    var midBoss: EnemyKind? = nil
 }
 
 struct WaveDefinition {
@@ -78,6 +79,7 @@ enum WaveLibrary {
                 let count = max(2, Int(budget / Double(groupCount) / weight))
                 groups.append(g(kind, count, every: max(0.35, 1.0 - Double(n) * 0.04), after: Double(i) * 3))
             }
+            if n == plan.count * 2 / 3, let boss = plan.midBoss { groups.append(g(boss, 1, every: 1, after: 6)) }
             if n == plan.count { groups.append(g(plan.boss, 1, every: 1, after: 4)) }
             return WaveDefinition(groups: groups)
         }
@@ -97,11 +99,25 @@ enum WaveLibrary {
         WaveDefinition(groups: [g(.overlord, 2, every: 10), g(.titan, 2, every: 5, after: 4), g(.dreadnought, 1, every: 1, after: 12)]),
     ]
 
+    /// Ten short waves for Lone Commander, where the commander fights alone.
+    static let lone: [WaveDefinition] = [
+        WaveDefinition(groups: [g(.drone, 8, every: 1.0)]),
+        WaveDefinition(groups: [g(.drone, 10, every: 0.9), g(.runner, 6, every: 0.7, after: 4)]),
+        WaveDefinition(groups: [g(.brute, 3, every: 2.5), g(.drone, 8, every: 0.9, after: 2)]),
+        WaveDefinition(groups: [g(.runner, 14, every: 0.5), g(.medic, 2, every: 2, after: 2)]),
+        WaveDefinition(groups: [g(.ironclad, 5, every: 1.6), g(.berserker, 3, every: 2.2, after: 4)]),
+        WaveDefinition(groups: [g(.wisp, 3, every: 1.2), g(.drone, 10, every: 0.8, after: 2)]),
+        WaveDefinition(groups: [g(.husk, 6, every: 1.0), g(.brute, 4, every: 2.2, after: 3)]),
+        WaveDefinition(groups: [g(.splitter, 6, every: 1.4), g(.hexer, 2, every: 3, after: 2), g(.runner, 10, every: 0.45, after: 5)]),
+        WaveDefinition(groups: [g(.berserker, 5, every: 1.8), g(.brute, 3, every: 2.4, after: 2), g(.medic, 3, every: 2.2, after: 4)]),
+        WaveDefinition(groups: [g(.titan, 1, every: 1, after: 4), g(.drone, 12, every: 0.7)]),
+    ]
+
     /// Enemy health grows smoothly from 1x on wave 1 to about 9.5x on wave 20,
-    /// then ramps up exponentially in Endless mode.
-    static func healthMultiplier(wave: Int) -> Double {
+    /// then ramps up exponentially in Endless mode, after the level's `base` waves.
+    static func healthMultiplier(wave: Int, base: Int) -> Double {
         let n = Double(max(0, wave - 1))
-        let endless = pow(1.07, Double(max(0, wave - standard.count)))
+        let endless = pow(1.07, Double(max(0, wave - base)))
         return (1 + 0.18 * n + 0.014 * n * n) * endless
     }
 
@@ -112,13 +128,14 @@ enum WaveLibrary {
     /// Gold awarded for clearing a wave.
     static func clearBonus(wave: Int) -> Int { 15 + wave * 4 }
 
-    /// Procedural waves for Endless mode (wave 21 onward). Every fifth wave brings
+    /// Procedural waves for Endless mode, after the level's `base` waves. Every fifth wave brings
     /// a Titan and every tenth the Overlord; the health curve keeps climbing.
-    static func endlessWave(number: Int) -> WaveDefinition {
+    static func endlessWave(number: Int, base: Int) -> WaveDefinition {
         var rng = SplitMix64(seed: UInt64(number) &* 0x9E37_79B9)
         let pool: [EnemyKind] = [.drone, .runner, .brute, .medic, .wisp, .splitter, .berserker, .phantom, .hexer,
-                                 .ironclad, .pyrefiend, .frostborn, .voidling, .blastguard, .husk, .mirage, .gargoyle, .warper]
-        let extra = max(0, number - standard.count)
+                                 .ironclad, .pyrefiend, .frostborn, .voidling, .blastguard, .husk, .mirage, .gargoyle, .warper,
+                                 .sapper, .chameleon, .gravecaller]
+        let extra = max(0, number - base)
         var groups: [SpawnGroup] = []
         for i in 0..<4 {
             let kind = pool[Int(rng.next() % UInt64(pool.count))]

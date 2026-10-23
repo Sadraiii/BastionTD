@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// The selected commander: level, XP, its three skills and the ultimate.
+/// The selected commander: level, XP, its three skills and the ultimate, or the evolutions to pick from.
 struct CommanderPanel: View {
     let session: GameSession
     let commander: CommanderSnapshot
@@ -11,8 +11,14 @@ struct CommanderPanel: View {
             header
             let layout = compact ? AnyLayout(HStackLayout(spacing: 6)) : AnyLayout(VStackLayout(spacing: 6))
             layout {
-                ForEach(commander.skills, id: \.index) { skill in
-                    skillButton(skill)
+                if commander.choices.isEmpty {
+                    ForEach(commander.skills, id: \.index) { skill in
+                        skillButton(skill)
+                    }
+                } else {
+                    ForEach(Array(commander.choices.enumerated()), id: \.offset) { option, form in
+                        formButton(form, option: option)
+                    }
                 }
             }
         }
@@ -20,7 +26,7 @@ struct CommanderPanel: View {
 
     private var header: some View {
         HStack(spacing: 8) {
-            PixelImage(image: Art.commanderIcon(commander.kind, skin: commander.skin), scale: 2)
+            PixelImage(image: Art.commanderIcon(commander.kind, skin: commander.skin, level: commander.level), scale: 2)
             VStack(alignment: .leading, spacing: 3) {
                 Text("\(commander.kind.name.uppercased()) · LEVEL \(commander.level)")
                     .font(Theme.body(12))
@@ -34,16 +40,18 @@ struct CommanderPanel: View {
                         }
                 }
                 .frame(height: 4)
-                Text("TAP GRASS TO MOVE")
+                Text(!commander.choices.isEmpty ? "CHOOSE AN EVOLUTION" : commander.formName?.uppercased() ?? "TAP GRASS TO MOVE")
                     .font(Theme.body(9, weight: .regular))
                     .foregroundStyle(Theme.secondaryText)
             }
             Spacer(minLength: 0)
-            Button(action: session.deselectCommander) {
-                PixelIcon(icon: .close, scale: 2, outlined: false)
+            if !session.isLone {
+                Button(action: session.deselectCommander) {
+                    PixelIcon(icon: .close, scale: 2, outlined: false)
+                }
+                .buttonStyle(PixelButtonStyle(color: Theme.panel, highlight: Theme.panelLight, shade: Theme.border, minHeight: 32))
+                .accessibilityLabel("Close commander panel")
             }
-            .buttonStyle(PixelButtonStyle(color: Theme.panel, highlight: Theme.panelLight, shade: Theme.border, minHeight: 32))
-            .accessibilityLabel("Close commander panel")
         }
     }
 
@@ -82,9 +90,31 @@ struct CommanderPanel: View {
         }
         .accessibilityLabel(skill.level == 0 ? "\(skill.name), locked" : "\(skill.name). \(skill.detail)")
     }
+
+    private func formButton(_ form: CommanderForm, option: Int) -> some View {
+        Button {
+            session.evolveCommander(option)
+        } label: {
+            VStack(spacing: 2) {
+                Text(form.name.uppercased())
+                    .font(Theme.body(10))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.6)
+                Text(form.detail)
+                    .font(Theme.body(9, weight: .regular))
+                    .multilineTextAlignment(.center)
+                    .lineLimit(2)
+                    .minimumScaleFactor(0.6)
+            }
+            .padding(.vertical, 4)
+            .frame(maxWidth: .infinity)
+        }
+        .buttonStyle(PixelButtonStyle(color: Color(pixel: Pal.amber), highlight: Color(pixel: Pal.yellow), shade: Color(pixel: Pal.rust), minHeight: 40))
+        .accessibilityLabel("Evolve into \(form.name). \(form.detail)")
+    }
 }
 
-/// Opens the commander panel from the action bar; glows when a skill is ready.
+/// Opens the commander panel from the action bar; glows when a skill is ready and pulses while an evolution waits.
 struct CommanderChip: View {
     let commander: CommanderSnapshot
     let action: () -> Void
@@ -92,7 +122,7 @@ struct CommanderChip: View {
     var body: some View {
         let ready = commander.skills.contains(where: \.isReady)
         Button(action: action) {
-            PixelImage(image: Art.commanderIcon(commander.kind, skin: commander.skin), scale: 2)
+            PixelImage(image: Art.commanderIcon(commander.kind, skin: commander.skin, level: commander.level), scale: 2)
                 .overlay(alignment: .bottomTrailing) {
                     PixelText("\(commander.level)", pixel: 1, color: Theme.gold).offset(x: 3, y: 3)
                 }
@@ -102,6 +132,14 @@ struct CommanderChip: View {
                     bevel: ready ? Color(pixel: Pal.amber) : Theme.panelLight,
                     shadow: ready
                 )
+                .overlay {
+                    if !commander.choices.isEmpty {
+                        PixelFrame().strokeBorder(Color(pixel: Pal.yellow), lineWidth: 3)
+                            .phaseAnimator([1.0, 0.2]) { border, opacity in
+                                border.opacity(opacity)
+                            } animation: { _ in .easeInOut(duration: 0.4) }
+                    }
+                }
         }
         .buttonStyle(.plain)
         .accessibilityLabel("\(commander.kind.name), level \(commander.level)")

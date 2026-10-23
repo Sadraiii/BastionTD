@@ -84,6 +84,10 @@ enum Pal {
             TerrainColors(groundA: PixelColor(0x2A2238), groundB: PixelColor(0x262033), light: PixelColor(0x3D3352), dark: ink,
                           sparkles: [cyan, magenta, white],
                           path: slate, pathLight: steel, pathMid: PixelColor(0x323A58), pathDark: navy)
+        case .highlands:
+            TerrainColors(groundA: PixelColor(0x4F6B45), groundB: PixelColor(0x4A6541), light: PixelColor(0x6E8B5A), dark: PixelColor(0x3A5236),
+                          sparkles: [purple, magenta, white],
+                          path: PixelColor(0x9A8F7E), pathLight: PixelColor(0xB3A894), pathMid: PixelColor(0x7F7566), pathDark: PixelColor(0x4F4A42))
         }
     }
 
@@ -128,6 +132,11 @@ enum Pal {
         case .sniper: steel
         case .tamer: rust
         case .alchemist: lime
+        case .siren: PixelColor(0x23B5AF)
+        case .bramble: PixelColor(0x9CB93A)
+        case .omen: PixelColor(0x8E5BC4)
+        case .rook: PixelColor(0x4D6BD6)
+        case .warden: PixelColor(0x2F9E78)
         }
     }
 
@@ -152,6 +161,11 @@ enum Pal {
         case .sniper: white
         case .tamer: amber
         case .alchemist: yellow
+        case .siren: mist
+        case .bramble: yellow
+        case .omen: pink
+        case .rook: amber
+        case .warden: amber
         }
     }
 
@@ -199,6 +213,7 @@ enum Pal {
         case .titan: hotRed
         case .dreadnought: silver
         case .overlord: lime
+        case .sinkmaw: rust
         case .sandworm: tan
         case .yeti: mist
         case .magmaGolem: orange
@@ -206,6 +221,11 @@ enum Pal {
         case .bogWitch: green
         case .crab: red
         case .caveBat: purple
+        case .sapper: copper
+        case .pickpocket: blue
+        case .chameleon: lime
+        case .gravecaller: magenta
+        case .shade: silver
         }
     }
 }

@@ -24,6 +24,7 @@ private struct MenuBackdrop<Content: View>: View {
 }
 
 struct PauseMenuView: View {
+    let boons: [Boon]
     let onResume: () -> Void
     let onRestart: () -> Void
     let onHowToPlay: () -> Void
@@ -37,6 +38,9 @@ struct PauseMenuView: View {
             VStack(spacing: 12) {
                 PixelText("PAUSED", pixel: 4, color: Theme.highlight)
                     .padding(.bottom, 6)
+                if !boons.isEmpty {
+                    boonList
+                }
                 menuButton("RESUME", style: .primary, action: onResume)
                 menuButton("RESTART", style: .neutral, action: onRestart)
                 menuButton("HOW TO PLAY", style: .neutral, action: onHowToPlay)
@@ -69,6 +73,26 @@ struct PauseMenuView: View {
         }
     }
 
+    /// Each boon taken once, in the order first picked, with how many times it was taken.
+    private var boonList: some View {
+        let distinct = boons.reduce(into: [Boon]()) { list, boon in
+            if !list.contains(boon) { list.append(boon) }
+        }
+        return VStack(spacing: 4) {
+            PixelText("BOONS", pixel: 2, color: Theme.secondaryText)
+            ForEach(distinct, id: \.title) { boon in
+                HStack {
+                    Text(boon.title.uppercased()).foregroundStyle(Theme.secondaryText)
+                    Spacer()
+                    Text("X\(boons.filter { $0 == boon }.count)").foregroundStyle(Theme.text)
+                }
+                .font(Theme.body(12))
+            }
+        }
+        .padding(10)
+        .background(Color(pixel: Pal.ink).opacity(0.5))
+    }
+
     private func menuButton(_ title: String, style: PixelButtonStyle, action: @escaping () -> Void) -> some View {
         Button {
             playTap()
@@ -84,7 +108,8 @@ struct GameOverView: View {
     let outcome: GameOutcome
     let session: GameSession
     let onRestart: () -> Void
-    let onNextMap: (() -> Void)?
+    let nextMap: MapDefinition?
+    let onNextMap: (MapDefinition) -> Void
     let onQuit: () -> Void
     let onResearch: () -> Void
 
@@ -116,10 +141,11 @@ struct GameOverView: View {
                 }
 
                 rewardsBlock
+                nextUpBlock
 
                 VStack(spacing: 4) {
                     statRow("VILLAINS DEFEATED", "\(session.stats.enemiesDefeated)")
-                    statRow("POWERS UNLEASHED", "\(session.stats.powersUsed)")
+                    statRow("POWERS USED", "\(session.stats.powersUsed)")
                     statRow("GOLD EARNED", "\(session.stats.goldEarned)")
                     statRow("LIVES LEFT", "\(session.lives)/\(session.engine.startingLives)")
                 }
@@ -127,8 +153,14 @@ struct GameOverView: View {
                 .background(Color(pixel: Pal.ink).opacity(0.5))
 
                 if case .victory = outcome {
-                    button("ENDLESS MODE", style: .gold, action: session.continueEndless)
-                    if let onNextMap { button("NEXT MAP", style: .primary, action: onNextMap) }
+                    // Lone Commander is a short mode, and most Endless boons only help heroes.
+                    if !session.isLone {
+                        button("ENDLESS MODE", style: .gold, action: session.continueEndless)
+                    }
+                    // The Highlands open by stars, so beating Deep Core may not open the next map.
+                    if let next = nextMap, PlayerProgress.isUnlocked(next) {
+                        button("NEXT MAP", style: .primary) { onNextMap(next) }
+                    }
                 } else {
                     button("TRY AGAIN", style: .primary, action: onRestart)
                 }
@@ -143,7 +175,7 @@ struct GameOverView: View {
     @ViewBuilder
     private var rewardsBlock: some View {
         let rewards = session.rewards
-        if rewards.researchPoints > 0 || !rewards.medals.isEmpty {
+        if rewards.researchPoints > 0 || !rewards.medals.isEmpty || !rewards.stars.isEmpty {
             VStack(spacing: 6) {
                 HStack(spacing: 6) {
                     PixelIcon(icon: .flask, scale: 2)
@@ -157,10 +189,46 @@ struct GameOverView: View {
                             .foregroundStyle(Theme.highlight)
                     }
                 }
+                ForEach(rewards.stars, id: \.self) { line in
+                    HStack(spacing: 6) {
+                        PixelIcon(icon: .star, scale: 1)
+                        Text(line)
+                            .font(Theme.body(11))
+                            .foregroundStyle(Theme.gold)
+                    }
+                }
+                ForEach(rewards.badges, id: \.self) { line in
+                    HStack(spacing: 6) {
+                        PixelIcon(icon: .skull, scale: 1)
+                        Text(line)
+                            .font(Theme.body(11))
+                            .foregroundStyle(Theme.text)
+                    }
+                }
             }
             .padding(10)
             .frame(maxWidth: .infinity)
             .background(Color(pixel: Pal.ocean).opacity(0.35))
+            .accessibilityElement(children: .combine)
+        }
+    }
+
+    @ViewBuilder
+    private var nextUpBlock: some View {
+        if !session.nextUp.isEmpty {
+            VStack(spacing: 4) {
+                PixelText("NEXT UP", pixel: 2, color: Theme.secondaryText)
+                ForEach(session.nextUp, id: \.self) { line in
+                    Text(line)
+                        .font(Theme.body(11))
+                        .foregroundStyle(Theme.text)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.7)
+                }
+            }
+            .padding(10)
+            .frame(maxWidth: .infinity)
+            .background(Color(pixel: Pal.ink).opacity(0.5))
             .accessibilityElement(children: .combine)
         }
     }

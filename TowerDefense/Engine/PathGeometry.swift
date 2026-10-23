@@ -39,6 +39,14 @@ struct PathGeometry {
         return (points[i + 1] - points[i]).normalized
     }
 
+    /// How far along the route a cell's center lies, or nil if the route doesn't pass it.
+    func distance(to cell: GridPoint) -> CGFloat? {
+        for i in 0..<points.count - 1 where cell.center.distance(toSegment: points[i], points[i + 1]) < 0.01 {
+            return cumulative[i] + points[i].distance(to: cell.center)
+        }
+        return nil
+    }
+
     /// Evenly spaced points along the route, skipping the off-board entry.
     func samples(spacing: CGFloat, from start: CGFloat = 0.5) -> [CGPoint] {
         stride(from: start, through: totalLength, by: spacing).map { point(at: $0) }

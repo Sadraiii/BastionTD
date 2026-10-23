@@ -70,6 +70,29 @@ struct WaveLabel: View {
     }
 }
 
+/// The next wave's villains and their numbers, shown during the break. Bosses count in red.
+struct NextWaveStrip: View {
+    let entries: [ScoutEntry]
+
+    var body: some View {
+        HStack(spacing: 8) {
+            PixelText("NEXT", pixel: 1, color: Theme.secondaryText)
+            ForEach(entries.prefix(6), id: \.kind) { entry in
+                HStack(spacing: 2) {
+                    PixelImage(image: Art.enemyIcon(entry.kind), scale: 1)
+                    PixelText("X\(entry.count)", pixel: 1, color: entry.kind.isBoss ? Theme.danger : Theme.text)
+                }
+            }
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 4)
+        .background(Color(pixel: Pal.ink).opacity(0.75))
+        .allowsHitTesting(false)
+        .accessibilityElement()
+        .accessibilityLabel("Next wave: " + entries.map { "\($0.count) \($0.kind.name)" }.joined(separator: ", "))
+    }
+}
+
 struct SpeedButton: View {
     let session: GameSession
 

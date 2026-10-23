@@ -16,7 +16,10 @@ jobs:
 
     steps:
     - uses: actions/checkout@v4
+    # The game uses UIKit, so build it for iPhone rather than for the Mac. There are no test targets.
     - name: Build
-      run: swift build -v
-    - name: Run tests
-      run: swift test -v
+      run: swift build --sdk "$(xcrun --sdk iphoneos --show-sdk-path)" --triple arm64-apple-ios17.0
+    - name: Balance sim
+      continue-on-error: true
+      timeout-minutes: 25
+      run: sh Tools/run_balance_sim.sh

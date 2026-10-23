@@ -98,13 +98,13 @@ private struct OnboardingPage: View {
     private var message: String {
         switch index {
         case 0:
-            "Villains walk the path to your crystal. Each one that gets there costs lives. Survive 20 waves to win."
+            "Villains walk the path to your crystal. Each one that gets there costs lives. Survive every wave to win."
         case 1:
             "Pick a hero, tap a highlighted tile, then tap it again to build. Heroes attack on their own. Villains drop gold."
         case 2:
             "Tap a hero to upgrade it. Tier 3 gives a power you trigger yourself. Only one path can go past tier 2. Matches earn Research Points to spend in the Lab."
         default:
-            "Some villains fly, some are cloaked, and some are immune to a damage type. Mix your heroes. The Codex lists them all."
+            "Some villains fly, some are cloaked, and some are immune to a damage type. Mix your heroes. The Codex fills in as you beat them."
         }
     }
 
@@ -121,16 +121,20 @@ private struct OnboardingPage: View {
                 PixelImage(image: Art.coreImage, scale: 4)
             }
         case 1:
-            VStack(spacing: 10) {
-                LazyVGrid(columns: Array(repeating: GridItem(.fixed(58), spacing: 6), count: landscape ? 7 : 5), spacing: 8) {
-                    ForEach(TowerKind.allCases) { kind in
-                        VStack(spacing: 4) {
-                            PixelImage(image: Art.towerIcon(kind), scale: 2)
-                            Text(kind.shortName.uppercased())
-                                .font(Theme.body(10))
-                                .foregroundStyle(Theme.secondaryText)
-                        }
+            let heroes = LazyVGrid(columns: Array(repeating: GridItem(.fixed(58), spacing: 6), count: landscape ? 7 : 5), spacing: 8) {
+                ForEach(TowerKind.allCases) { kind in
+                    VStack(spacing: 4) {
+                        PixelImage(image: Art.towerIcon(kind), scale: 2)
+                        Text(kind.shortName.uppercased())
+                            .font(Theme.body(10))
+                            .foregroundStyle(Theme.secondaryText)
                     }
+                }
+            }
+            VStack(spacing: 10) {
+                ViewThatFits(in: .vertical) {
+                    heroes
+                    ScrollView { heroes }
                 }
                 HStack(spacing: 6) {
                     GoldLabel(amount: 50, pixel: 2)

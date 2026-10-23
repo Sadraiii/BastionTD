@@ -9,10 +9,12 @@ struct GameStats: Equatable {
     var livesLost = 0
     var powersUsed = 0
     var damageDealt: Double = 0
+    /// For each hero, the waves cleared while one or more stood on the field, toward mastery.
+    var heroWaves: [TowerKind: Int] = [:]
 }
 
 enum PlacementResult: Equatable {
-    case ok, outOfBounds, onPath, blocked, occupied, insufficientGold, locked, banned, needsWater, onWater
+    case ok, outOfBounds, onPath, blocked, occupied, insufficientGold, locked, banned, needsWater, onWater, needsPath
 
     var message: String {
         switch self {
@@ -26,6 +28,7 @@ enum PlacementResult: Equatable {
         case .banned: "Not allowed in this challenge"
         case .needsWater: "This hero goes on water"
         case .onWater: "Only sea heroes go on water"
+        case .needsPath: "This hero goes on the path"
         }
     }
 }
@@ -105,6 +108,14 @@ final class GameEngine {
     private(set) var waveEnemyTotal = 0
     private(set) var waveEnemiesResolved = 0
     private(set) var time: Double = 0
+    /// Build tiles the Sinkmaw has caved in, in the order they fell.
+    private(set) var pits: [GridPoint] = []
+    /// Boons taken, in the order picked.
+    private(set) var boons: [Boon] = []
+    /// The boons to pick from. The countdown to the next wave waits while it is set.
+    private(set) var boonOffer: [Boon]?
+    /// Heroes that joined an expedition's squad through boons, in the order picked.
+    private(set) var recruits: [TowerKind] = []
 
     private struct ScheduledSpawn {
         let time: Double
@@ -119,8 +130,15 @@ final class GameEngine {
     private var nextRoute = 0
     private var rng: SplitMix64
     private var towersByCell: [GridPoint: Tower] = [:]
+    private var pitCells: Set<GridPoint> = []
     private var enemiesByID: [Int: Enemy] = [:]
     private var lastImmuneEvent: Double = -1
+    private var hasteBonus: Double = 0
+    private var discount: Double = 0
+    private var slowBonus: Double = 0
+    private var rechargeBonus: Double = 0
+    private var interestRate: Double = 0
+    private var damageBonus: [DamageType: Double] = [:]
 
     init(map: MapDefinition, waves: [WaveDefinition] = WaveLibrary.standard,
          research: ResearchState = ResearchState(), setup: MatchSetup = MatchSetup(), seed: UInt64 = 0x5EED) {
@@ -149,13 +167,18 @@ final class GameEngine {
 
     var totalWaves: Int { waves.count }
 
-    var canStartWave: Bool { (phase == .preparing || phase == .intermission) && (isEndless || waveNumber < waves.count) }
+    var canStartWave: Bool { (phase == .preparing || phase == .intermission) && (isEndless || waveNumber < waves.count) && boonOffer == nil }
 
     /// Waves survived so far (the current wave counts once it is cleared).
     var wavesCleared: Int { phase == .waveActive || phase == .defeat ? waveNumber - 1 : waveNumber }
 
     func waveDefinition(number: Int) -> WaveDefinition {
-        number <= waves.count ? waves[number - 1] : WaveLibrary.endlessWave(number: number)
+        number <= waves.count ? waves[number - 1] : WaveLibrary.endlessWave(number: number, base: waves.count)
+    }
+
+    /// How many villains a group sends, after the Swarm modifier. Bosses still come alone.
+    func spawnCount(of group: SpawnGroup) -> Int {
+        setup.modifiers.contains(.swarm) && !group.kind.isBoss ? (group.count * 3 + 1) / 2 : group.count
     }
 
     /// Gold awarded for calling the next wave before the countdown ends.
@@ -170,9 +193,17 @@ final class GameEngine {
 
     var enemiesRemaining: Int { max(0, waveEnemyTotal - waveEnemiesResolved) }
 
+    /// While the commander stands on the lever, every new villain takes the main route.
+    var isGateShut: Bool {
+        guard let lever = map.lever, let commander else { return false }
+        return commander.cell == lever && !commander.isWalking
+    }
+
     func tower(at cell: GridPoint) -> Tower? { towersByCell[cell] }
 
     func tower(id: Int) -> Tower? { towers.first { $0.id == id } }
+
+    func isPit(_ cell: GridPoint) -> Bool { pitCells.contains(cell) }
 
     func enemy(id: Int) -> Enemy? { enemiesByID[id] }
 
@@ -185,17 +216,26 @@ final class GameEngine {
         guard research.isHeroUnlocked(kind) else { return .locked }
         guard allows(kind) else { return .banned }
         guard map.contains(cell) else { return .outOfBounds }
-        if map.pathCells.contains(cell) { return .onPath }
-        if map.obstacles.contains(cell) { return .blocked }
+        if map.pathCells.contains(cell) != kind.holdsPath { return kind.holdsPath ? .needsPath : .onPath }
+        if map.obstacles.contains(cell) || cell == map.lever || pitCells.contains(cell) || kind.holdsPath && isRouteEnd(cell) { return .blocked }
         if map.water.contains(cell) != kind.isNaval { return kind.isNaval ? .needsWater : .onWater }
         if towersByCell[cell] != nil || commander?.cell == cell { return .occupied }
         if gold < kind.cost { return .insufficientGold }
         return .ok
     }
 
+    /// The tile at a portal or under the crystal, where a Warden can't stand.
+    func isRouteEnd(_ cell: GridPoint) -> Bool {
+        paths.contains { path in
+            guard let distance = path.distance(to: cell) else { return false }
+            return distance < 1.5 || distance > path.totalLength - 0.5
+        }
+    }
+
     /// Whether the match's challenge rules let this hero be recruited.
     func allows(_ kind: TowerKind) -> Bool {
-        (setup.heroPool?.contains(kind) ?? true) && !(setup.modifiers.contains(.noFire) && kind.baseStats.damageType == .fire)
+        ((setup.heroPool?.contains(kind) ?? true) || recruits.contains(kind))
+            && !(setup.modifiers.contains(.noFire) && kind.baseStats.damageType == .fire)
     }
 
     func upgradeStatus(towerID: Int, path: Int) -> UpgradeStatus {
@@ -203,7 +243,8 @@ final class GameEngine {
         if UpgradeRules.isBlockedByOtherPath(tower.tiers, path: path) { return .blocked }
         let tier = tower.tiers[path] + 1
         if !research.isUnlocked(tower.kind, path: path, tier: tier) { return .needsResearch(points: next.research) }
-        let cost = research.has(.cheapUpgrades) ? Int((Double(next.cost) * 0.9).rounded()) : next.cost
+        let price = research.has(.cheapUpgrades) ? Int((Double(next.cost) * 0.9).rounded()) : next.cost
+        let cost = Int((Double(price) * (1 - discount)).rounded())
         return gold >= cost ? .available(cost: cost) : .unaffordable(cost: cost)
     }
 
@@ -230,11 +271,14 @@ final class GameEngine {
     func build(_ kind: TowerKind, at cell: GridPoint) -> Tower? {
         guard !phase.isOver, placementCheck(kind, at: cell) == .ok else { return nil }
         gold -= kind.cost
-        let tower = Tower(id: makeID(), kind: kind, cell: cell)
+        let tower = Tower(id: makeID(), kind: kind, cell: cell, onHighGround: map.highGround.contains(cell))
+        tower.mastery = research.masteryStars(kind)
+        if kind.holdsPath { tower.holdDistances = paths.map { $0.distance(to: cell) } }
         towers.append(tower)
         towersByCell[cell] = tower
         stats.towersBuilt += 1
         events.append(.towerBuilt(towerID: tower.id, kind: kind, cell: cell))
+        refreshCombos()
         return tower
     }
 
@@ -245,6 +289,7 @@ final class GameEngine {
         gold -= cost
         tower.totalInvested += cost
         tower.advance(path: path)
+        tower.holdDamage = 0
         events.append(.towerUpgraded(towerID: tower.id, path: path, tier: tower.tiers[path]))
         return true
     }
@@ -258,6 +303,7 @@ final class GameEngine {
         let refund = tower.sellValue
         gold += refund
         events.append(.towerSold(towerID: tower.id, cell: tower.cell, refund: refund))
+        refreshCombos()
         return refund
     }
 
@@ -277,10 +323,11 @@ final class GameEngine {
         return true
     }
 
-    /// Sends the commander walking to an empty grass tile.
+    /// Sends the commander walking to an empty grass tile or the lever.
     @discardableResult
     func moveCommander(to cell: GridPoint) -> Bool {
-        guard !phase.isOver, let commander, map.isBuildable(cell), towersByCell[cell] == nil else { return false }
+        guard !phase.isOver, let commander, map.isBuildable(cell) || cell == map.lever, towersByCell[cell] == nil,
+              !pitCells.contains(cell) else { return false }
         commander.cell = cell
         return true
     }
@@ -291,7 +338,7 @@ final class GameEngine {
         guard !phase.isOver, let commander, commander.skillLevels[index] > 0, commander.skillCooldowns[index] <= 0 else { return false }
         let level = Double(commander.skillLevels[index])
         let power = commander.power
-        var hit = HitPayload(damage: 0, type: commander.kind.damageType, detectsCamo: commander.kind.detectsCamo)
+        var hit = HitPayload(damage: 0, type: commander.kind.damageType, detectsCamo: commander.detectsCamo)
         var center = commander.position
         var radius: CGFloat = 1.5
 
@@ -413,13 +460,13 @@ final class GameEngine {
             }
         case (.ranger, 3):
             radius = 3
-            let targets = enemies.filter { $0.isTargetable && (!$0.isHidden || commander.kind.detectsCamo) }
+            let targets = enemies.filter { $0.isTargetable && (!$0.isHidden || commander.detectsCamo) }
             guard !targets.isEmpty else { return false }
             hit.damage = 250 * power
             for enemy in targets { commanderStrike(hit, on: enemy, showNumber: true) }
             events.append(.powerStrikes(points: targets.prefix(16).map(\.position), splash: 0.4))
         default:
-            let visible = enemies.filter { $0.isTargetable && (!$0.isHidden || commander.kind.detectsCamo) }
+            let visible = enemies.filter { $0.isTargetable && (!$0.isHidden || commander.detectsCamo) }
             guard let target = visible.max(by: { $0.health + $0.shield < $1.health + $1.shield }) else { return false }
             center = target.position
             radius = 0.6
@@ -429,8 +476,44 @@ final class GameEngine {
             events.append(.commanderAttack(kind: .ranger, from: commander.position, to: target.position))
             commanderStrike(hit, on: target, showNumber: true)
         }
-        commander.skillCooldowns[index] = commander.kind.skills[index].cooldown
+        commander.skillCooldowns[index] = commander.kind.skills[index].cooldown * commander.recharge
         events.append(.commanderSkill(kind: commander.kind, name: commander.kind.skills[index].name, center: center, radius: radius))
+        return true
+    }
+
+    /// Picks one of the two evolutions offered at the commander's pending stage.
+    @discardableResult
+    func evolveCommander(_ option: Int) -> Bool {
+        guard !phase.isOver, let commander, let stage = commander.pendingStage,
+              commander.kind.forms[stage].indices.contains(option) else { return false }
+        let form = commander.kind.forms[stage][option]
+        commander.forms.append(form)
+        // Skills already recharging pick up a faster recharge right away.
+        for i in commander.skillCooldowns.indices { commander.skillCooldowns[i] *= form.recharge }
+        events.append(.commanderEvolved(name: form.name, at: commander.position))
+        return true
+    }
+
+    /// Takes one of the boons on offer and lets the countdown run again.
+    @discardableResult
+    func pickBoon(_ index: Int) -> Bool {
+        guard let offer = boonOffer, offer.indices.contains(index) else { return false }
+        let boon = offer[index]
+        boons.append(boon)
+        boonOffer = nil
+        switch boon {
+        case .gold: gold += 200
+        case .lives: lives += 5
+        case .haste: hasteBonus += 0.1
+        case let .power(type): damageBonus[type, default: 0] += 0.2
+        case .discount: discount += 0.1
+        case .slowVillains: slowBonus += 0.1
+        case .interest: interestRate += 0.1
+        case .recharge: rechargeBonus += 0.15
+        case .veteran: if let commander { levelUp(commander) }
+        case .reach: refreshCombos()
+        case let .recruit(kind): recruits.append(kind)
+        }
         return true
     }
 
@@ -439,7 +522,12 @@ final class GameEngine {
         guard phase == .victory else { return }
         isEndless = true
         phase = .intermission
-        intermissionRemaining = Self.intermissionDuration
+        intermissionRemaining = intermission
+    }
+
+    /// Multiplies hero power cooldowns: Quick Powers research and Faster Powers boons shorten them.
+    var powerRecharge: Double {
+        (research.has(.quickPowers) ? 0.85 : 1) * (1 - rechargeBonus)
     }
 
     /// Triggers the tower's hero power. Returns false if it isn't ready or would hit nothing.
@@ -447,7 +535,7 @@ final class GameEngine {
     func activatePower(towerID: Int) -> Bool {
         guard !phase.isOver, !setup.modifiers.contains(.noPowers), let tower = tower(id: towerID),
               let power = tower.power, tower.isPowerReady, powerHasTargets(towerID: towerID) else { return false }
-        tower.powerCooldown = power.cooldown * (research.has(.quickPowers) ? 0.85 : 1)
+        tower.powerCooldown = power.cooldown * powerRecharge
         stats.powersUsed += 1
         let range = CGFloat(tower.stats.range)
         let type = tower.stats.damageType
@@ -547,7 +635,7 @@ final class GameEngine {
         time += dt
 
         switch phase {
-        case .intermission:
+        case .intermission where boonOffer == nil:
             intermissionRemaining -= dt
             if intermissionRemaining <= 0 { beginWave() }
         case .waveActive:
@@ -572,7 +660,7 @@ final class GameEngine {
         let definition = waveDefinition(number: waveNumber)
         spawnQueue = definition.groups
             .flatMap { group in
-                (0..<group.count).map { ScheduledSpawn(time: group.delay + Double($0) * group.interval, kind: group.kind) }
+                (0..<spawnCount(of: group)).map { ScheduledSpawn(time: group.delay + Double($0) * group.interval, kind: group.kind) }
             }
             .sorted { $0.time < $1.time }
         waveClock = 0
@@ -591,8 +679,9 @@ final class GameEngine {
         waveClock += dt
         while let next = spawnQueue.first, next.time <= waveClock {
             spawnQueue.removeFirst()
-            spawn(next.kind, at: Self.spawnDistance, route: nextRoute)
-            nextRoute = (nextRoute + 1) % paths.count
+            let shut = isGateShut
+            spawn(next.kind, at: Self.spawnDistance, route: shut ? 0 : nextRoute)
+            if !shut { nextRoute = (nextRoute + 1) % paths.count }
         }
         flushIncoming()
     }
@@ -600,13 +689,16 @@ final class GameEngine {
     @discardableResult
     private func spawn(_ kind: EnemyKind, at distance: CGFloat, route: Int) -> Enemy {
         let wave = max(1, waveNumber)
-        let health = kind.baseHealth * WaveLibrary.healthMultiplier(wave: wave) * map.difficulty.healthMultiplier
+        let swarm = setup.modifiers.contains(.swarm) && !kind.isBoss
+        let health = kind.baseHealth * WaveLibrary.healthMultiplier(wave: wave, base: waves.count) * map.difficulty.healthMultiplier
             * levelHealthScale(wave: wave)
             * (setup.bossRush ? 2 : 1)
-        let goldFactor = (setup.modifiers.contains(.halfGold) ? 0.5 : 1) * (research.has(.bounty) ? 1.1 : 1)
+            * (swarm ? 0.6 : 1)
+        let goldFactor: Double = (setup.modifiers.contains(.halfGold) ? 0.5 : 1) * (research.has(.bounty) ? 1.1 : 1) * (swarm ? 0.7 : 1)
         let bounty = max(1, Int((Double(kind.bounty) * WaveLibrary.bountyMultiplier(wave: wave) * goldFactor).rounded()))
         let lane = kind.isBoss ? 0 : CGFloat(Double.random(in: -0.14...0.14, using: &rng))
         let enemy = Enemy(id: makeID(), kind: kind, maxHealth: health, bounty: bounty, route: route, distance: distance, laneOffset: lane)
+        if setup.modifiers.contains(.night) && !kind.isBoss { enemy.cloakTimer = .infinity }
         place(enemy)
         incoming.append(enemy)
         return enemy
@@ -625,9 +717,20 @@ final class GameEngine {
         incoming.removeAll(keepingCapacity: true)
     }
 
-    /// Tiles per second, including the Fast Villains modifier.
+    /// Seconds between waves, including the No Breaks modifier.
+    private var intermission: Double {
+        setup.modifiers.contains(.noBreaks) ? 4 : Self.intermissionDuration
+    }
+
+    /// Tiles per second, including the Fast Villains modifier, mud or ice under ground villains and the Slower Villains boon.
     private func speed(of enemy: Enemy) -> Double {
-        enemy.currentSpeed * (setup.modifiers.contains(.fastVillains) ? 1.5 : 1)
+        let cell = tile(of: enemy)
+        let ground: Double = enemy.kind.isFlying ? 1 : map.mud.contains(cell) ? 0.65 : map.ice.contains(cell) ? 1.4 : 1
+        return enemy.currentSpeed * (setup.modifiers.contains(.fastVillains) ? 1.5 : 1) * ground * (1 - slowBonus)
+    }
+
+    private func tile(of enemy: Enemy) -> GridPoint {
+        GridPoint(Int(enemy.position.x.rounded(.down)), Int(enemy.position.y.rounded(.down)))
     }
 
     /// Later worlds' extra villain health, building up over the level.
@@ -649,9 +752,11 @@ final class GameEngine {
     }
 
     private func updateEnemies(_ dt: Double) {
+        let holders = towers.filter { $0.kind.holdsPath }
         for enemy in enemies where !enemy.isResolved {
             if enemy.hitFlash > 0 { enemy.hitFlash -= dt }
             if enemy.cloakTimer > 0 { enemy.cloakTimer -= dt }
+            if !enemy.kind.isBoss && map.mist.contains(tile(of: enemy)) { enemy.cloakTimer = max(enemy.cloakTimer, 0.2) }
             if enemy.slowTimer > 0 {
                 enemy.slowTimer -= dt
                 if enemy.slowTimer <= 0 { enemy.slowAmount = 0 }
@@ -660,6 +765,11 @@ final class GameEngine {
                 enemy.armorShredTimer -= dt
                 if enemy.armorShredTimer <= 0 { enemy.armorShred = 0 }
             }
+            if enemy.markTimer > 0 {
+                enemy.markTimer -= dt
+                if enemy.markTimer <= 0 { enemy.markAmount = 0 }
+            }
+            if enemy.adaptTimer > 0 { enemy.adaptTimer -= dt }
             tickDamageOverTime(enemy, dt)
             if enemy.isResolved { continue }
             if enemy.stoneTimer > 0 {
@@ -676,7 +786,24 @@ final class GameEngine {
                 place(enemy)
                 continue
             }
-            enemy.distance += CGFloat(speed(of: enemy) * dt)
+            var next = enemy.distance + CGFloat(speed(of: enemy) * dt)
+            // Ground villains stop in front of a Warden and push until he falls. A boss knocks him down at once.
+            if !enemy.kind.isFlying {
+                for holder in holders where !holder.isDisabled {
+                    guard let spot = holder.holdDistances[enemy.route] else { continue }
+                    let stop = spot - 0.45
+                    guard enemy.distance <= stop + 0.001, next > stop else { continue }
+                    if enemy.kind.isBoss {
+                        knockDown(holder)
+                        continue
+                    }
+                    next = stop
+                    holder.holdDamage += enemy.maxHealth * 0.04 * dt
+                    if holder.holdDamage >= holder.stats.holdHealth { knockDown(holder) }
+                    break
+                }
+            }
+            enemy.distance = next
             if remaining(enemy) <= 0 {
                 leak(enemy)
                 if phase.isOver { return }
@@ -738,11 +865,7 @@ final class GameEngine {
                 if shieldedAny { events.append(.enemyShielded(center: enemy.position, radius: CGFloat(radius))) }
 
             case let .disruptTowers(radius, duration):
-                for tower in towers where tower.position.distance(to: enemy.position) <= CGFloat(radius) {
-                    tower.disabledTimer = max(tower.disabledTimer, duration)
-                    tower.frenzyTimer = 0
-                }
-                events.append(.towersDisrupted(center: enemy.position, radius: CGFloat(radius)))
+                disruptTowers(near: enemy.position, radius: CGFloat(radius), for: duration)
 
             case let .stoneForm(duration):
                 enemy.stoneTimer = duration
@@ -763,6 +886,18 @@ final class GameEngine {
                 enemy.distance = min(enemy.distance + CGFloat(distance), paths[enemy.route].totalLength - 0.6)
                 place(enemy)
                 events.append(.enemyTeleported(from: from, to: enemy.position))
+
+            case let .collapse(tiles):
+                let buildable = (0..<map.rows).flatMap { row in (0..<map.columns).map { GridPoint($0, row) } }.filter(map.isBuildable)
+                // At most a quarter of the build tiles ever cave in.
+                let room = max(0, buildable.count / 4 - pits.count)
+                let picks = Self.nearest(buildable.filter { !pitCells.contains($0) }, to: enemy.position).prefix(min(tiles, room))
+                for cell in picks { collapse(cell) }
+                if let commander, pitCells.contains(commander.cell) {
+                    let free = buildable.filter { !pitCells.contains($0) && towersByCell[$0] == nil }
+                    if let cell = Self.nearest(free, to: commander.position).first { commander.cell = cell }
+                }
+                if !picks.isEmpty { refreshCombos() }
             }
         }
     }
@@ -774,6 +909,11 @@ final class GameEngine {
         stats.livesLost += cost
         waveEnemiesResolved += 1
         events.append(.enemyLeaked(enemyID: enemy.id, kind: enemy.kind, livesLost: cost))
+        if enemy.kind == .pickpocket && gold > 0 {
+            let stolen = min(gold, max(10, min(100, gold * 15 / 100)))
+            gold -= stolen
+            events.append(.goldStolen(amount: stolen))
+        }
         if lives == 0 {
             phase = .defeat
             events.append(.defeat)
@@ -794,6 +934,30 @@ final class GameEngine {
 
     // MARK: Towers
 
+    private static let neighbors = [(-1, -1), (0, -1), (1, -1), (-1, 0), (1, 0), (-1, 1), (0, 1), (1, 1)]
+    /// The 24 tiles up to two away, for the Wide Combos boon.
+    private static let wideNeighbors = (-2...2).flatMap { dr in (-2...2).map { dc in (dc, dr) } }.filter { $0 != (0, 0) }
+
+    /// Gives every hero the combos it forms with heroes on the eight tiles around it (24 with Wide Combos).
+    private func refreshCombos() {
+        let offsets = boons.contains(.reach) ? Self.wideNeighbors : Self.neighbors
+        for tower in towers {
+            var list: [Int] = []
+            for (dc, dr) in offsets {
+                guard let other = towersByCell[GridPoint(tower.cell.col + dc, tower.cell.row + dr)],
+                      let index = HeroCatalog.comboIndex(tower.kind, other.kind) else { continue }
+                if !list.contains(index) { list.append(index) }
+                // Announced once per pair, from the first hero's side. A new pair always has the hero just built,
+                // which is last in `towers`, so its combos are still empty here.
+                if HeroCatalog.combos[index].first == tower.kind && !(tower.combos.contains(index) && other.combos.contains(index)) {
+                    events.append(.comboFormed(name: HeroCatalog.combos[index].name, first: tower.position, second: other.position))
+                }
+            }
+            list.sort()
+            if list != tower.combos { tower.setCombos(list) }
+        }
+    }
+
     /// Detection from sonar/spider-sense and attack buffs from Aegis auras.
     private func refreshSupport() {
         let revealers = towers.filter { $0.stats.revealsCamo && !$0.isDisabled }
@@ -804,9 +968,14 @@ final class GameEngine {
             }
             var rate = 0.0, damage = 0.0
             for supporter in supporters where supporter !== tower
-                && supporter.position.distance(to: tower.position) <= CGFloat(supporter.stats.range) {
+                && (supporter.position.distance(to: tower.position) <= CGFloat(supporter.stats.range)
+                    || supporter.stats.lineBuff && (supporter.cell.col == tower.cell.col || supporter.cell.row == tower.cell.row)) {
                 rate = max(rate, supporter.stats.buffRate)
                 damage = max(damage, supporter.stats.buffDamage)
+            }
+            if let commander, commander.position.distance(to: tower.position) <= 2.5 {
+                rate = max(rate, commander.heroRate)
+                if commander.heroCamo { tower.hasDetection = true }
             }
             tower.auraRate = rate
             tower.auraDamage = damage
@@ -839,7 +1008,7 @@ final class GameEngine {
             guard let primary = targets.first else { continue }
             tower.aim = (primary.position - tower.position).normalized
             guard tower.cooldown <= 0 else { continue }
-            tower.cooldown = stats.fireInterval / tower.rateMultiplier
+            tower.cooldown = stats.fireInterval / tower.rateMultiplier / (1 + hasteBonus)
             tower.recoil = 0.12
             fire(tower, targets: targets)
         }
@@ -864,13 +1033,14 @@ final class GameEngine {
         guard commander.cooldown <= 0, let target = commanderTargets(within: commander.range).first else { return }
         commander.cooldown = commander.kind.attackInterval / (commander.overdriveTimer > 0 ? 3 : 1)
         commander.aim = (target.position - commander.position).normalized
-        let hit = HitPayload(damage: commander.kind.damage * commander.power, type: commander.kind.damageType,
-                             detectsCamo: commander.kind.detectsCamo)
+        let hit = HitPayload(damage: commander.kind.damage * commander.damageMultiplier * commander.power,
+                             type: commander.kind.damageType, detectsCamo: commander.detectsCamo,
+                             slow: commander.slow, slowDuration: 1.5, burnDPS: commander.burn, burnDuration: 2)
         events.append(.commanderAttack(kind: commander.kind, from: commander.position, to: target.position))
-        if commander.kind.splash > 0 {
+        if commander.splash > 0 {
             let center = target.position
-            for enemy in enemies where enemy.isTargetable && (!enemy.kind.isFlying || commander.kind.hitsAir)
-                && enemy.position.distance(to: center) <= CGFloat(commander.kind.splash) {
+            for enemy in enemies where enemy.isTargetable && (!enemy.kind.isFlying || commander.hitsAir)
+                && enemy.position.distance(to: center) <= CGFloat(commander.splash) {
                 commanderStrike(hit, on: enemy, showNumber: false)
             }
         } else {
@@ -882,8 +1052,8 @@ final class GameEngine {
     private func commanderTargets(within reach: CGFloat) -> [Enemy] {
         guard let commander else { return [] }
         return enemies.filter { enemy in
-            enemy.isTargetable && (!enemy.kind.isFlying || commander.kind.hitsAir)
-                && (!enemy.isHidden || commander.kind.detectsCamo)
+            enemy.isTargetable && (!enemy.kind.isFlying || commander.hitsAir)
+                && (!enemy.isHidden || commander.detectsCamo)
                 && enemy.position.distance(to: commander.position) <= reach + CGFloat(enemy.kind.radius * 0.5)
         }
         .sorted { remaining($0) < remaining($1) }
@@ -904,14 +1074,24 @@ final class GameEngine {
         let needed = CommanderKind.xpToNext(level: commander.level)
         if commander.xp >= needed {
             commander.xp -= needed
-            commander.level += 1
-            if commander.level == CommanderKind.maxLevel { commander.skillLevels[CommanderKind.researchableSkills] = 1 }
-            events.append(.commanderLevelUp(level: commander.level, at: commander.position))
+            levelUp(commander)
         }
+    }
+
+    private func levelUp(_ commander: Commander) {
+        commander.level += 1
+        if commander.level == CommanderKind.maxLevel { commander.skillLevels[CommanderKind.researchableSkills] = 1 }
+        events.append(.commanderLevelUp(level: commander.level, at: commander.position))
     }
 
     private func canSee(_ enemy: Enemy, from tower: Tower) -> Bool {
         (!enemy.kind.isFlying || tower.stats.hitsAir) && (!enemy.isHidden || tower.hasDetection)
+    }
+
+    /// Whether an enemy is on the tower's row or column, the Rook's reach.
+    private func isInLine(_ enemy: Enemy, with tower: Tower) -> Bool {
+        let reach = CGFloat(enemy.kind.radius + 0.15)
+        return abs(enemy.position.x - tower.position.x) <= reach || abs(enemy.position.y - tower.position.y) <= reach
     }
 
     /// Best visible targets in range by the tower's targeting mode, best first.
@@ -920,7 +1100,10 @@ final class GameEngine {
         var scored: [(score: Double, enemy: Enemy)] = []
         for enemy in enemies where enemy.isTargetable && canSee(enemy, from: tower) {
             let distance = tower.position.distance(to: enemy.position)
-            guard distance <= CGFloat(range + enemy.kind.radius * 0.5) else { continue }
+            let inReach = tower.kind.attackStyle == .cross
+                ? isInLine(enemy, with: tower)
+                : distance <= CGFloat(range + enemy.kind.radius * 0.5)
+            guard inReach else { continue }
             let score: Double = switch tower.targeting {
             case .first: -Double(remaining(enemy))
             case .last: Double(remaining(enemy))
@@ -938,13 +1121,13 @@ final class GameEngine {
     private func payload(for tower: Tower) -> HitPayload {
         let s = tower.stats
         return HitPayload(
-            damage: s.damage * tower.damageMultiplier, type: s.damageType, piercesArmor: s.piercesArmor,
+            damage: s.damage * tower.damageMultiplier * (1 + damageBonus[s.damageType, default: 0]), type: s.damageType, piercesArmor: s.piercesArmor,
             stunChance: s.stunChance, stunDuration: s.stunDuration,
             bossMultiplier: s.bossMultiplier, airMultiplier: s.airMultiplier, detectsCamo: tower.hasDetection,
             slow: s.slow, slowDuration: s.slowDuration, burnDPS: s.burnDPS, burnDuration: s.burnDuration,
             poisonDPS: s.poisonDPS, poisonDuration: s.poisonDuration, knockback: s.knockback,
             confuseChance: s.confuseChance, confuseDuration: s.confuseDuration,
-            armorShred: s.armorShred, shieldBreak: s.shieldBreak
+            armorShred: s.armorShred, shieldBreak: s.shieldBreak, mark: s.mark, markDuration: s.markDuration
         )
     }
 
@@ -1042,6 +1225,14 @@ final class GameEngine {
                 apply(hit, to: target, from: tower, showNumber: false)
                 events.append(.mindBlast(from: tower.position, to: target.position))
             }
+
+        case .cross:
+            for enemy in enemies where enemy.isTargetable && canSee(enemy, from: tower) && isInLine(enemy, with: tower) {
+                apply(hit, to: enemy, from: tower, showNumber: false)
+            }
+            let p = tower.position
+            events.append(.beam(towerID: tower.id, from: CGPoint(x: 0, y: p.y), to: CGPoint(x: CGFloat(map.columns), y: p.y)))
+            events.append(.beam(towerID: tower.id, from: CGPoint(x: p.x, y: 0), to: CGPoint(x: p.x, y: CGFloat(map.rows))))
         }
         events.append(.shotFired(towerID: tower.id, kind: tower.kind))
 
@@ -1173,6 +1364,43 @@ final class GameEngine {
         enemy.stunTimer = max(enemy.stunTimer, effective)
     }
 
+    /// Knocks heroes offline and ends their frenzy.
+    private func disruptTowers(near center: CGPoint, radius: CGFloat, for duration: Double) {
+        for tower in towers where tower.position.distance(to: center) <= radius {
+            tower.disabledTimer = max(tower.disabledTimer, duration)
+            tower.frenzyTimer = 0
+            tower.frenzyRate = 1
+            tower.frenzyDamage = 1
+        }
+        events.append(.towersDisrupted(center: center, radius: radius))
+    }
+
+    /// A Warden whose guard breaks is down for 6 seconds and gets up with it whole.
+    private func knockDown(_ holder: Tower) {
+        holder.holdDamage = 0
+        disruptTowers(near: holder.position, radius: 0.6, for: 6)
+    }
+
+    /// Turns a build tile into a pit for the rest of the match. A hero standing there falls out with all its gold back.
+    private func collapse(_ cell: GridPoint) {
+        pits.append(cell)
+        pitCells.insert(cell)
+        if let tower = towersByCell.removeValue(forKey: cell) {
+            towers.removeAll { $0 === tower }
+            gold += tower.totalInvested
+            events.append(.towerSold(towerID: tower.id, cell: cell, refund: tower.totalInvested))
+        }
+        events.append(.groundCollapsed(cell: cell))
+    }
+
+    /// Cells closest to a point first. Ties go by row, then column, so replays pick the same cells.
+    private static func nearest(_ cells: [GridPoint], to point: CGPoint) -> [GridPoint] {
+        cells.sorted { a, b in
+            let da = a.center.distance(to: point), db = b.center.distance(to: point)
+            return da != db ? da < db : (a.row, a.col) < (b.row, b.col)
+        }
+    }
+
     private func roll(_ chance: Double) -> Bool {
         chance >= 1 || (chance > 0 && Double.random(in: 0..<1, using: &rng) < chance)
     }
@@ -1180,7 +1408,7 @@ final class GameEngine {
     /// Applies one hit: immunity, status effects, armor, weaknesses, shields, then health.
     private func apply(_ hit: HitPayload, to enemy: Enemy, from tower: Tower?, showNumber: Bool, flash: Bool = true) {
         guard enemy.isTargetable else { return }
-        if enemy.isStone || enemy.kind.immunities.contains(hit.type) {
+        if enemy.isStone || enemy.kind.immunities.contains(hit.type) || (enemy.adaptTimer > 0 && enemy.adaptedType == hit.type) {
             if flash && time - lastImmuneEvent > 0.25 {
                 lastImmuneEvent = time
                 events.append(.immune(at: enemy.position))
@@ -1212,12 +1440,17 @@ final class GameEngine {
             enemy.armorShred = max(enemy.armorShred, hit.armorShred)
             enemy.armorShredTimer = max(enemy.armorShredTimer, 4)
         }
+        if hit.mark > 0 {
+            enemy.markAmount = max(enemy.markAmount, hit.mark)
+            enemy.markTimer = max(enemy.markTimer, hit.markDuration)
+        }
 
         let psychic = hit.type == .psychic
         var dealt = hit.piercesArmor || psychic ? hit.damage : max(hit.damage - enemy.effectiveArmor, hit.damage * 0.25)
         if enemy.kind.weaknesses.contains(hit.type) { dealt *= Self.weaknessMultiplier }
         if enemy.kind.isBoss { dealt *= hit.bossMultiplier }
         if enemy.kind.isFlying { dealt *= hit.airMultiplier }
+        if enemy.isMarked { dealt *= 1 + enemy.markAmount }
         if enemy.shield > 0 && !psychic {
             let shieldDamage = dealt * hit.shieldBreak
             let absorbed = min(enemy.shield, shieldDamage)
@@ -1226,6 +1459,10 @@ final class GameEngine {
         }
         let applied = min(dealt, enemy.health)
         enemy.health -= dealt
+        if enemy.kind == .chameleon {
+            enemy.adaptedType = hit.type
+            enemy.adaptTimer = 1.5
+        }
         if flash { enemy.hitFlash = 0.08 }
         tower?.damageDealt += applied
         stats.damageDealt += applied
@@ -1254,6 +1491,14 @@ final class GameEngine {
             }
             events.append(.enemySplit(at: enemy.position))
         }
+        if enemy.kind == .sapper { disruptTowers(near: enemy.position, radius: 1.3, for: 3) }
+        let rises = enemy.kind != .shade && !enemy.kind.isBoss && enemies.contains {
+            $0.kind == .gravecaller && $0.isTargetable && $0.position.distance(to: enemy.position) <= 1.8
+        }
+        if rises {
+            spawnChild(.shade, at: enemy.distance, route: enemy.route)
+            events.append(.bossSummon(at: enemy.position))
+        }
     }
 
     private func earn(_ amount: Int) {
@@ -1271,7 +1516,8 @@ final class GameEngine {
         guard phase == .waveActive, spawnQueue.isEmpty, incoming.isEmpty, enemies.isEmpty else { return }
         // Hard mode pays no wave bonus and no hero income.
         let hardMode = setup.modifiers.contains(.hardMode)
-        let bonus = hardMode ? 0 : WaveLibrary.clearBonus(wave: waveNumber)
+        let interest = Int(interestRate * Double(min(gold, 500)))
+        let bonus = (hardMode ? 0 : WaveLibrary.clearBonus(wave: waveNumber)) + interest
         earn(bonus)
         fields.removeAll()
         events.append(.waveCleared(number: waveNumber, bonus: bonus))
@@ -1279,12 +1525,26 @@ final class GameEngine {
             earn(tower.stats.income)
             events.append(.towerIncome(towerID: tower.id, at: tower.position, amount: tower.stats.income))
         }
+        for tower in towers where tower.stats.growth > 0 { tower.wavesHeld += 1 }
+        for tower in towers { tower.holdDamage = 0 }
+        for kind in TowerKind.allCases where towers.contains(where: { $0.kind == kind }) { stats.heroWaves[kind, default: 0] += 1 }
+        // An expedition has no victory: its map's waves roll straight on into Endless.
+        if setup.expedition == true && waveNumber == waves.count { isEndless = true }
         if waveNumber == waves.count && !isEndless {
             phase = .victory
             events.append(.victory)
         } else {
             phase = .intermission
-            intermissionRemaining = Self.intermissionDuration
+            intermissionRemaining = intermission
+            if (isEndless || setup.expedition == true) && waveNumber % 3 == 0 {
+                let types = DamageType.allCases.filter { type in towers.contains { $0.stats.damage > 0 && $0.stats.damageType == type } }
+                let newcomers = setup.expedition == true
+                    ? TowerKind.allCases.filter { research.isHeroUnlocked($0) && !$0.isNaval && !allows($0) } : []
+                boonOffer = Boon.offer(seed: setup.seed, wave: waveNumber, taken: boons, types: types,
+                                       powers: !setup.modifiers.contains(.noPowers),
+                                       canLevel: commander.map { $0.level < CommanderKind.maxLevel } ?? false,
+                                       recruits: newcomers)
+            }
         }
     }
 

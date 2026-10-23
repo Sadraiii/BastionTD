@@ -51,7 +51,7 @@ enum Medal: String, CaseIterable, Identifiable {
         case .hardHero: "Beat the Overload map."
         case .fewHeroes: "Win with 6 heroes or fewer on the field."
         case .researcher: "Research 10 upgrade tiers."
-        case .fullRoster: "Recruit all 13 heroes."
+        case .fullRoster: "Recruit all \(TowerKind.allCases.count) heroes."
         case .skyGuard: "Shoot down the Dreadnought."
         }
     }
@@ -80,7 +80,7 @@ enum Medal: String, CaseIterable, Identifiable {
         case .endless25: run.wavesCleared >= 25
         case .endless30: run.wavesCleared >= 30
         case .hardHero: run.victory && run.map.difficulty == .hard
-        case .fewHeroes: run.victory && run.towerCount <= 6
+        case .fewHeroes: run.victory && run.towerCount <= 6 && run.map != .courtyard
         case .researcher: Self.researchedTiers(research) >= 10
         case .fullRoster: TowerKind.allCases.allSatisfy(research.isHeroUnlocked)
         case .skyGuard: run.stats.kills[.dreadnought, default: 0] > 0
