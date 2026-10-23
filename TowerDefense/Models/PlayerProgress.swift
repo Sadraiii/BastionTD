@@ -17,6 +17,7 @@ enum StorageKey {
     static func bestEndless(_ mapID: String) -> String { "progress.endless.\(mapID)" }
     static func daily(_ day: Int) -> String { "progress.daily.\(day)" }
     static let bossRush = "progress.bossRush"
+    static let expedition = "progress.expedition"
     static let combos = "progress.combos"
 }
 
@@ -179,6 +180,13 @@ enum PlayerProgress {
 
     static func recordBossRush(wavesCleared: Int) {
         if wavesCleared > bestBossRush { defaults.set(wavesCleared, forKey: StorageKey.bossRush) }
+    }
+
+    /// Most waves cleared on one expedition.
+    static var bestExpedition: Int { defaults.integer(forKey: StorageKey.expedition) }
+
+    static func recordExpedition(wavesCleared: Int) {
+        if wavesCleared > bestExpedition { defaults.set(wavesCleared, forKey: StorageKey.expedition) }
     }
 
     static func recordDaily(_ day: Int, wavesCleared: Int) {

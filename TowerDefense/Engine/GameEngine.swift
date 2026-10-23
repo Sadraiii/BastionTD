@@ -112,6 +112,8 @@ final class GameEngine {
     private(set) var boons: [Boon] = []
     /// The boons to pick from. The countdown to the next wave waits while it is set.
     private(set) var boonOffer: [Boon]?
+    /// Heroes that joined an expedition's squad through boons, in the order picked.
+    private(set) var recruits: [TowerKind] = []
 
     private struct ScheduledSpawn {
         let time: Double
@@ -230,7 +232,8 @@ final class GameEngine {
 
     /// Whether the match's challenge rules let this hero be recruited.
     func allows(_ kind: TowerKind) -> Bool {
-        (setup.heroPool?.contains(kind) ?? true) && !(setup.modifiers.contains(.noFire) && kind.baseStats.damageType == .fire)
+        ((setup.heroPool?.contains(kind) ?? true) || recruits.contains(kind))
+            && !(setup.modifiers.contains(.noFire) && kind.baseStats.damageType == .fire)
     }
 
     func upgradeStatus(towerID: Int, path: Int) -> UpgradeStatus {
@@ -506,6 +509,7 @@ final class GameEngine {
         case .recharge: rechargeBonus += 0.15
         case .veteran: if let commander { levelUp(commander) }
         case .reach: refreshCombos()
+        case let .recruit(kind): recruits.append(kind)
         }
         return true
     }
@@ -1520,17 +1524,22 @@ final class GameEngine {
         }
         for tower in towers where tower.stats.growth > 0 { tower.wavesHeld += 1 }
         for tower in towers { tower.holdDamage = 0 }
+        // An expedition has no victory: its map's waves roll straight on into Endless.
+        if setup.expedition == true && waveNumber == waves.count { isEndless = true }
         if waveNumber == waves.count && !isEndless {
             phase = .victory
             events.append(.victory)
         } else {
             phase = .intermission
             intermissionRemaining = intermission
-            if isEndless && waveNumber % 3 == 0 {
+            if (isEndless || setup.expedition == true) && waveNumber % 3 == 0 {
                 let types = DamageType.allCases.filter { type in towers.contains { $0.stats.damage > 0 && $0.stats.damageType == type } }
+                let newcomers = setup.expedition == true
+                    ? TowerKind.allCases.filter { research.isHeroUnlocked($0) && !$0.isNaval && !allows($0) } : []
                 boonOffer = Boon.offer(seed: setup.seed, wave: waveNumber, taken: boons, types: types,
                                        powers: !setup.modifiers.contains(.noPowers),
-                                       canLevel: commander.map { $0.level < CommanderKind.maxLevel } ?? false)
+                                       canLevel: commander.map { $0.level < CommanderKind.maxLevel } ?? false,
+                                       recruits: newcomers)
             }
         }
     }

@@ -113,7 +113,7 @@ struct BuildRow: View {
     var body: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 6) {
-                ForEach(TowerKind.allCases) { kind in
+                ForEach(session.heroes) { kind in
                     card(kind).frame(width: 68)
                 }
             }
@@ -137,7 +137,7 @@ struct BuildGrid: View {
         VStack(alignment: .leading, spacing: 6) {
             ScrollView(.vertical, showsIndicators: false) {
                 LazyVGrid(columns: [GridItem(.flexible(), spacing: 8), GridItem(.flexible(), spacing: 8)], spacing: 8) {
-                    ForEach(TowerKind.allCases) { kind in
+                    ForEach(session.heroes) { kind in
                         TowerCard(kind: kind, selected: session.buildKind == kind, affordable: session.gold >= kind.cost,
                                   unlocked: session.isHeroUnlocked(kind)) {
                             session.chooseBuild(kind)

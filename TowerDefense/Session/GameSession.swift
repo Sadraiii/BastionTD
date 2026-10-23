@@ -189,6 +189,8 @@ final class GameSession {
     private(set) var nextWave: [ScoutEntry] = []
     /// The boons to pick from in Endless, while the countdown waits.
     private(set) var boonOffer: [Boon]?
+    /// The heroes in the build panel: all of them, or only a daily's or an expedition's squad.
+    private(set) var heroes: [TowerKind] = []
     private(set) var stats = GameStats()
     private(set) var rewards = RunRewards()
     private(set) var coachEnabled: Bool
@@ -228,7 +230,8 @@ final class GameSession {
         if let saved { replay(saved) }
         if let pool = setup.heroPool {
             let rules = (TowerKind.allCases.filter(pool.contains).map(\.name) + Modifier.allCases.filter(setup.modifiers.contains).map(\.title))
-            showBanner(title: "DAILY CHALLENGE", subtitle: rules.joined(separator: ", ").uppercased(), isBoss: false)
+            showBanner(title: setup.expedition == true ? "EXPEDITION" : "DAILY CHALLENGE",
+                       subtitle: rules.joined(separator: ", ").uppercased(), isBoss: false)
         }
         #if DEBUG
         if ProcessInfo.processInfo.arguments.contains("-richStart") { engine.debugGrantGold(5000) }
@@ -340,9 +343,11 @@ final class GameSession {
                 } else {
                     subtitle = nil
                 }
-                let title = number == totalWaves && !isEndless ? "FINAL WAVE" : "WAVE \(number)"
+                let title = number == totalWaves && !isEndless && setup.expedition != true ? "FINAL WAVE" : "WAVE \(number)"
                 showBanner(title: title, subtitle: subtitle, isBoss: isBoss)
                 if number >= 2 { finishCoach() }
+            case let .waveCleared(number, _) where setup.expedition == true && number == totalWaves:
+                showBanner(title: "ENDLESS MODE", subtitle: "HOW LONG CAN THE BASTION HOLD?", isBoss: false)
             case let .enemyLeaked(_, _, livesLost) where livesLost > 0:
                 damagePulse += 1
             case .goldStolen:
@@ -368,7 +373,8 @@ final class GameSession {
             case .defeat:
                 PlayerProgress.savedMatch = nil
                 outcome = .defeat
-                finishRun(victory: victoryStars > 0)
+                // Endless only comes after the map's waves are beaten.
+                finishRun(victory: engine.isEndless)
             default:
                 break
             }
@@ -413,6 +419,9 @@ final class GameSession {
             PlayerProgress.recordDaily(day, wavesCleared: cleared)
         } else if setup.bossRush {
             PlayerProgress.recordBossRush(wavesCleared: cleared)
+            medals = PlayerProgress.awardMedals(for: run)
+        } else if setup.expedition == true {
+            PlayerProgress.recordExpedition(wavesCleared: cleared)
             medals = PlayerProgress.awardMedals(for: run)
         } else {
             medals = PlayerProgress.awardMedals(for: run)
@@ -487,6 +496,8 @@ final class GameSession {
         let commanderSnapshot = engine.commander.map(Self.snapshot)
         if commander != commanderSnapshot { commander = commanderSnapshot }
         if boonOffer != engine.boonOffer { boonOffer = engine.boonOffer }
+        let allowed = TowerKind.allCases.filter { setup.heroPool == nil || engine.allows($0) }
+        if heroes != allowed { heroes = allowed }
 
         if gateShut != engine.isGateShut {
             gateShut = engine.isGateShut
@@ -765,10 +776,11 @@ final class GameSession {
         sync()
     }
 
-    /// Keeps the research and commander XP of an Endless run the player quits or restarts from the pause menu.
+    /// Keeps the research and commander XP of an Endless run or an expedition the player quits or restarts
+    /// from the pause menu.
     func endRunIfNeeded() {
-        guard outcome == nil, engine.isEndless else { return }
-        finishRun(victory: true)
+        guard outcome == nil, engine.isEndless || setup.expedition == true else { return }
+        finishRun(victory: engine.isEndless)
         // finishRun unpauses; keep the board still while the screen changes.
         isPaused = true
     }

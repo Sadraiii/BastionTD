@@ -6,7 +6,7 @@ struct RootView: View {
     @State private var screen = Screen.home
     @State private var showOnboarding = false
 
-    private enum Screen { case home, research, medals, codex }
+    private enum Screen { case home, research, medals, codex, modes }
     @AppStorage(StorageKey.onboardingSeen) private var onboardingSeen = false
 
     var body: some View {
@@ -34,11 +34,7 @@ struct RootView: View {
                     StartView(
                         onPlay: start,
                         onResume: PlayerProgress.savedMatch.flatMap { $0.rules == SavedMatch.currentRules ? $0 : nil }.map { saved in { resume(saved) } },
-                        onDaily: {
-                            let daily = MatchSetup.daily(for: Date())
-                            start(daily.map, daily.setup)
-                        },
-                        onBossRush: { start(.arena, MatchSetup(bossRush: true)) },
+                        onModes: { withAnimation(.easeOut(duration: 0.2)) { screen = .modes } },
                         onHowToPlay: { showOnboarding = true },
                         onResearch: { withAnimation(.easeOut(duration: 0.2)) { screen = .research } },
                         onMedals: { withAnimation(.easeOut(duration: 0.2)) { screen = .medals } },
@@ -54,6 +50,24 @@ struct RootView: View {
                 case .codex:
                     CodexView { withAnimation(.easeOut(duration: 0.2)) { screen = .home } }
                         .transition(.move(edge: .trailing))
+                case .modes:
+                    ModesView(
+                        onDaily: {
+                            let daily = MatchSetup.daily(for: Date())
+                            start(daily.map, daily.setup)
+                        },
+                        onBossRush: { start(.arena, MatchSetup(bossRush: true)) },
+                        onExpedition: {
+                            let expedition = MatchSetup.expedition(
+                                seed: UInt64.random(in: 1...UInt64.max),
+                                maps: MapDefinition.all.filter(PlayerProgress.isUnlocked),
+                                heroes: TowerKind.allCases.filter(PlayerProgress.research.isHeroUnlocked)
+                            )
+                            start(expedition.map, expedition.setup)
+                        },
+                        onBack: { withAnimation(.easeOut(duration: 0.2)) { screen = .home } }
+                    )
+                    .transition(.move(edge: .trailing))
                 }
             }
 
