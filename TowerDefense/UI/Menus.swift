@@ -152,7 +152,10 @@ struct GameOverView: View {
                 .background(Color(pixel: Pal.ink).opacity(0.5))
 
                 if case .victory = outcome {
-                    button("ENDLESS MODE", style: .gold, action: session.continueEndless)
+                    // Lone Commander is a short mode, and most Endless boons only help heroes.
+                    if !session.isLone {
+                        button("ENDLESS MODE", style: .gold, action: session.continueEndless)
+                    }
                     // The Highlands open by stars, so beating Deep Core may not open the next map.
                     if let next = nextMap, PlayerProgress.isUnlocked(next) {
                         button("NEXT MAP", style: .primary) { onNextMap(next) }

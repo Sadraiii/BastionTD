@@ -12,8 +12,11 @@ struct ControlPanel: View {
                 VStack(spacing: 10) {
                     SideStats(session: session)
                     if let commander = session.commander, session.isCommanderSelected {
-                        CommanderPanel(session: session, commander: commander, compact: false)
-                        Spacer(minLength: 0)
+                        // On shorter phones Lone Commander's action bar leaves too little room for every skill.
+                        ScrollView(.vertical, showsIndicators: false) {
+                            CommanderPanel(session: session, commander: commander, compact: false)
+                                .padding(.bottom, 3)
+                        }
                         if session.isLone { ActionBar(session: session) }
                     } else if let tower = session.selectedTower {
                         TowerInfoPanel(session: session, tower: tower, compact: false)
