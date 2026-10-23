@@ -183,7 +183,8 @@ final class GameScene: SKScene {
     func restoreTowers() {
         guard let engine = session?.engine else { return }
         for tower in engine.towers {
-            let node = TowerNode(towerID: tower.id, kind: tower.kind, tiers: tower.tiers)
+            let node = TowerNode(towerID: tower.id, kind: tower.kind, tiers: tower.tiers,
+                                 mastered: tower.mastery == ResearchState.masteryThresholds.count)
             towerLayer.addChild(node)
             towerNodes[tower.id] = node
         }
@@ -574,7 +575,8 @@ final class GameScene: SKScene {
 
         switch event {
         case let .towerBuilt(id, kind, cell):
-            let node = TowerNode(towerID: id, kind: kind)
+            let node = TowerNode(towerID: id, kind: kind,
+                                 mastered: session?.engine.tower(id: id)?.mastery == ResearchState.masteryThresholds.count)
             let target = toWorld(cell.center)
             node.position = target + CGPoint(x: 0, y: 6)
             towerLayer.addChild(node)

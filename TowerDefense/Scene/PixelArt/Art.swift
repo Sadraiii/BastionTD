@@ -44,8 +44,8 @@ enum Art {
 
     // MARK: Towers
 
-    static func towerBase(_ kind: TowerKind, tiers: [Int]) -> SKTexture {
-        texture("base.\(kind.rawValue).\(tiers[0]).\(tiers[1])") { towerBaseCanvas(kind, tiers: tiers) }
+    static func towerBase(_ kind: TowerKind, tiers: [Int], mastered: Bool = false) -> SKTexture {
+        texture("base.\(kind.rawValue).\(tiers[0]).\(tiers[1]).\(mastered)") { towerBaseCanvas(kind, tiers: tiers, mastered: mastered) }
     }
 
     static func turret(_ kind: TowerKind, tiers: [Int]) -> SKTexture {
@@ -68,7 +68,7 @@ enum Art {
     /// Each hero stands on its own platform, drawn in a slight 3/4 view: a top
     /// surface plus a darker band below it that gives the platform some height.
     /// Returns 20x20 so upgraded heroes can grow past their 16x16 tile.
-    static func towerBaseCanvas(_ kind: TowerKind, tiers: [Int]) -> PixelCanvas {
+    static func towerBaseCanvas(_ kind: TowerKind, tiers: [Int], mastered: Bool = false) -> PixelCanvas {
         var c = PixelCanvas(width: 16, height: 16)
         let accent = Pal.tower(kind)
 
@@ -256,12 +256,17 @@ enum Art {
         }
         big.outline()
         big.stamp(c, x: 2, y: 2)
-        // Tier pips along the front: path 1 in amber, then path 2 in cyan.
+        // Tier pips along the front: path 1 in amber, then path 2 in cyan. A hero with all five mastery stars gets gold bars.
         let pips = tiers[0] + tiers[1]
         var x = 10 - (pips * 3 + 1) / 2
         for i in 0..<pips {
             big.fillRect(x, 16, 4, 3, Pal.ink)
-            big.fillRect(x + 1, 17, 2, 1, i < tiers[0] ? Pal.amber : Pal.cyan)
+            if mastered {
+                big.fillRect(x + 1, 16, 2, 2, Pal.amber)
+                big.fillRect(x + 1, 16, 2, 1, Pal.yellow)
+            } else {
+                big.fillRect(x + 1, 17, 2, 1, i < tiers[0] ? Pal.amber : Pal.cyan)
+            }
             x += 3
         }
         return big
@@ -934,6 +939,15 @@ enum Art {
 
     static func enemyIcon(_ kind: EnemyKind, frame: Int = 0) -> UIImage {
         image("enemyIcon.\(kind.rawValue).\(frame)") { enemyCanvas(kind, frame: frame) }
+    }
+
+    /// A villain not beaten yet, as a dark shape for the Codex.
+    static func enemySilhouette(_ kind: EnemyKind) -> UIImage {
+        image("enemySilhouette.\(kind.rawValue)") {
+            var canvas = PixelCanvas(map: SpriteMaps.enemyFrames(kind)[0]).recolored { _ in Pal.ink }.padded(1)
+            canvas.outline(Pal.slate)
+            return canvas
+        }
     }
 
     static var coreImage: UIImage {

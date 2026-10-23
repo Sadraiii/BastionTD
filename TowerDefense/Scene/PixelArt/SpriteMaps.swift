@@ -1069,7 +1069,7 @@ enum SpriteMaps {
 
     enum Icon: String, CaseIterable {
         case heart, coin, skull, pause, play, fastForward, close, check, star, speaker, speakerOff, upgrade, target, question
-        case flask, lock, bolt, medal
+        case flask, lock, bolt, medal, smallStar
     }
 
     static func icon(_ icon: Icon) -> [String] {
@@ -1110,6 +1110,8 @@ enum SpriteMaps {
             ["...YY", "..YY.", ".YY..", "YYYYY", "..YY.", ".YY..", "YY...", "Y...."]
         case .medal:
             ["RRR...BBB", ".RRR.BBB.", "..RR.BB..", "...YYY...", "..YyyyY..", ".YyYYYYo.", ".YyYYYYo.", ".YYYYYoo.", "..YYooo..", "...ooo..."]
+        case .smallStar:
+            ["..y..", ".yyy.", "yyyyy", ".yYy.", ".Y.Y."]
         }
     }
 }

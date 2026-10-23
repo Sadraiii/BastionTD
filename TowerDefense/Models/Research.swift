@@ -38,9 +38,14 @@ enum Perk: String, CaseIterable, Identifiable {
 /// Which upgrade tiers the player has unlocked in the Research Lab.
 /// Tier 1 of every path is always available; tiers 2-4 are researched in order.
 struct ResearchState: Codable, Equatable {
+    /// Waves a hero must have stayed on the field, over all matches, for each mastery star.
+    static let masteryThresholds = [20, 60, 150, 400, 1000]
+
     private var unlocked: [String: Int] = [:]
     private var heroes: Set<String> = []
     private var perks: Set<String> = []
+    /// Waves each hero has stayed on the field, for mastery. Kept here so a saved match replays with the stars it began with.
+    private var heroWaves: [String: Int] = [:]
 
     func isHeroUnlocked(_ kind: TowerKind) -> Bool {
         kind.unlockCost == 0 || heroes.contains(kind.rawValue)
@@ -63,6 +68,7 @@ struct ResearchState: Codable, Equatable {
         unlocked = try container.decodeIfPresent([String: Int].self, forKey: .unlocked) ?? [:]
         heroes = try container.decodeIfPresent(Set<String>.self, forKey: .heroes) ?? []
         perks = try container.decodeIfPresent(Set<String>.self, forKey: .perks) ?? []
+        heroWaves = try container.decodeIfPresent([String: Int].self, forKey: .heroWaves) ?? [:]
     }
 
     private static func key(_ kind: TowerKind, _ path: Int) -> String { "\(kind.rawValue).\(path)" }
@@ -84,6 +90,17 @@ struct ResearchState: Codable, Equatable {
 
     mutating func unlock(_ kind: TowerKind, path: Int, tier: Int) {
         unlocked[Self.key(kind, path)] = max(unlockedTier(kind, path: path), tier)
+    }
+
+    func wavesOnField(_ kind: TowerKind) -> Int { heroWaves[kind.rawValue] ?? 0 }
+
+    /// Each star adds 2% damage to the hero.
+    func masteryStars(_ kind: TowerKind) -> Int {
+        Self.masteryThresholds.filter { wavesOnField(kind) >= $0 }.count
+    }
+
+    mutating func addHeroWaves(_ kind: TowerKind, _ count: Int) {
+        heroWaves[kind.rawValue, default: 0] += count
     }
 
     /// Everything researched (used by the balance simulation).

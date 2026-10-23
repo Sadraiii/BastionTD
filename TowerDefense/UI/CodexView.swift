@@ -55,24 +55,53 @@ struct CodexView: View {
         .background(Theme.background.ignoresSafeArea())
     }
 
+    /// Bronze, silver and gold.
+    private static let badgeColors = [Pal.copper, Pal.silver, Pal.yellow]
+
+    /// A villain stays a dark "???" until it has been beaten.
     private func villainRow(_ kind: EnemyKind) -> some View {
-        HStack(alignment: .top, spacing: 12) {
-            PixelImage(image: Art.enemyIcon(kind), scale: 2)
+        let seen = PlayerProgress.hasSeen(kind)
+        let kills = PlayerProgress.kills(kind)
+        let badges = PlayerProgress.badges(kind)
+        let nextBadge = PlayerProgress.badgeKills(kind).first { $0 > kills }
+        return HStack(alignment: .top, spacing: 12) {
+            PixelImage(image: seen ? Art.enemyIcon(kind) : Art.enemySilhouette(kind), scale: 2)
                 .frame(width: 48, height: 40)
             VStack(alignment: .leading, spacing: 4) {
-                Text(kind.name.uppercased())
-                    .font(Theme.body(12))
-                    .foregroundStyle(Color(pixel: Pal.enemy(kind)))
-                if !kind.traitTags.isEmpty {
-                    Text(kind.traitTags.joined(separator: " · "))
-                        .font(Theme.body(9))
-                        .foregroundStyle(Theme.highlight)
+                if seen {
+                    HStack(spacing: 6) {
+                        Text(kind.name.uppercased())
+                            .font(Theme.body(12))
+                            .foregroundStyle(Color(pixel: Pal.enemy(kind)))
+                        if badges > 0 {
+                            Text(PlayerProgress.badgeNames[badges - 1])
+                                .font(Theme.body(9))
+                                .foregroundStyle(Theme.border)
+                                .padding(.horizontal, 4)
+                                .background(Color(pixel: Self.badgeColors[badges - 1]))
+                        }
+                    }
+                    if !kind.traitTags.isEmpty {
+                        Text(kind.traitTags.joined(separator: " · "))
+                            .font(Theme.body(9))
+                            .foregroundStyle(Theme.highlight)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    Text(kind.ability)
+                        .font(Theme.body(10, weight: .regular))
+                        .foregroundStyle(Theme.secondaryText)
                         .fixedSize(horizontal: false, vertical: true)
+                    Text("\(kills) DEFEATED" + (nextBadge.map { " · NEXT BADGE AT \($0)" } ?? ""))
+                        .font(Theme.body(9))
+                        .foregroundStyle(Theme.secondaryText)
+                } else {
+                    Text("???")
+                        .font(Theme.body(12))
+                        .foregroundStyle(Theme.secondaryText)
+                    Text("NOT BEATEN YET")
+                        .font(Theme.body(9))
+                        .foregroundStyle(Theme.secondaryText)
                 }
-                Text(kind.ability)
-                    .font(Theme.body(10, weight: .regular))
-                    .foregroundStyle(Theme.secondaryText)
-                    .fixedSize(horizontal: false, vertical: true)
             }
             Spacer(minLength: 0)
         }

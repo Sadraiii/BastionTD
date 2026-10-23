@@ -20,6 +20,7 @@ enum StorageKey {
     static let expedition = "progress.expedition"
     static func lone(_ kind: CommanderKind) -> String { "progress.lone.\(kind.rawValue)" }
     static let combos = "progress.combos"
+    static func kills(_ kind: EnemyKind) -> String { "progress.kills.\(kind.rawValue)" }
 }
 
 /// Persistent settings and campaign progress.
@@ -150,6 +151,22 @@ enum PlayerProgress {
         return true
     }
 
+    /// Adds a match's waves on the field toward hero mastery. Returns a line for each star earned.
+    static func addHeroWaves(_ waves: [TowerKind: Int]) -> [String] {
+        var state = research
+        var lines: [String] = []
+        for kind in TowerKind.allCases {
+            guard let count = waves[kind], count > 0 else { continue }
+            let before = state.masteryStars(kind)
+            state.addHeroWaves(kind, count)
+            for star in before..<state.masteryStars(kind) {
+                lines.append("\(kind.name.uppercased()): MASTERY STAR \(star + 1) OF 5")
+            }
+        }
+        research = state
+        return lines
+    }
+
     // MARK: Map unlocks and records
 
     /// The Highlands open once the other worlds hold this many stars.
@@ -244,5 +261,39 @@ enum PlayerProgress {
         guard found.insert(name).inserted else { return false }
         defaults.set(Array(found), forKey: StorageKey.combos)
         return true
+    }
+
+    // MARK: Bestiary
+
+    static let badgeNames = ["BRONZE", "SILVER", "GOLD"]
+    static let badgeRewards = [1, 3, 6]
+
+    /// Lifetime kills a villain needs for each badge.
+    static func badgeKills(_ kind: EnemyKind) -> [Int] { kind.isBoss ? [1, 10, 50] : [25, 250, 1000] }
+
+    static func kills(_ kind: EnemyKind) -> Int { defaults.integer(forKey: StorageKey.kills(kind)) }
+
+    static func badges(_ kind: EnemyKind) -> Int { badgeKills(kind).filter { kills(kind) >= $0 }.count }
+
+    /// Villains on maps already won, so the Codex isn't dark for players who beat them before kills were kept.
+    private static let seenOnMaps = Set(MapDefinition.all.filter { bestStars(for: $0) > 0 }.flatMap { $0.waves.flatMap(\.kinds) })
+
+    static func hasSeen(_ kind: EnemyKind) -> Bool { kills(kind) > 0 || seenOnMaps.contains(kind) }
+
+    /// Adds a match's kills toward the Codex badges and pays for each new badge.
+    static func addKills(_ counts: [EnemyKind: Int]) -> (lines: [String], points: Int) {
+        var lines: [String] = []
+        var points = 0
+        for kind in EnemyKind.codex {
+            guard let count = counts[kind], count > 0 else { continue }
+            let before = badges(kind)
+            defaults.set(kills(kind) + count, forKey: StorageKey.kills(kind))
+            for badge in before..<badges(kind) {
+                lines.append("\(badgeNames[badge]) BADGE: \(kind.name.uppercased())")
+                points += badgeRewards[badge]
+            }
+        }
+        researchPoints += points
+        return (lines, points)
     }
 }

@@ -62,6 +62,8 @@ struct TowerCard: View {
     let selected: Bool
     let affordable: Bool
     let unlocked: Bool
+    /// Hero mastery stars, shown down the top-right corner.
+    let stars: Int
     let action: () -> Void
 
     var body: some View {
@@ -101,6 +103,12 @@ struct TowerCard: View {
                     .overlay(Rectangle().stroke(Theme.border, lineWidth: 1))
                     .padding(6)
             }
+            .overlay(alignment: .topTrailing) {
+                VStack(spacing: 1) {
+                    ForEach(0..<stars, id: \.self) { _ in PixelIcon(icon: .smallStar, scale: 1, outlined: false) }
+                }
+                .padding(6)
+            }
             .offset(y: selected ? 3 : 0)
             .opacity(!unlocked || affordable || selected ? 1 : 0.55)
         }
@@ -129,7 +137,7 @@ struct BuildRow: View {
 
     private func card(_ kind: TowerKind) -> some View {
         TowerCard(kind: kind, selected: session.buildKind == kind, affordable: session.gold >= kind.cost,
-                  unlocked: session.isHeroUnlocked(kind)) {
+                  unlocked: session.isHeroUnlocked(kind), stars: session.engine.research.masteryStars(kind)) {
             session.chooseBuild(kind)
         }
     }
@@ -144,7 +152,7 @@ struct BuildGrid: View {
                 LazyVGrid(columns: [GridItem(.flexible(), spacing: 8), GridItem(.flexible(), spacing: 8)], spacing: 8) {
                     ForEach(session.heroes) { kind in
                         TowerCard(kind: kind, selected: session.buildKind == kind, affordable: session.gold >= kind.cost,
-                                  unlocked: session.isHeroUnlocked(kind)) {
+                                  unlocked: session.isHeroUnlocked(kind), stars: session.engine.research.masteryStars(kind)) {
                             session.chooseBuild(kind)
                         }
                     }

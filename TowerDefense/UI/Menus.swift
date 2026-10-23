@@ -174,7 +174,7 @@ struct GameOverView: View {
     @ViewBuilder
     private var rewardsBlock: some View {
         let rewards = session.rewards
-        if rewards.researchPoints > 0 || !rewards.medals.isEmpty {
+        if rewards.researchPoints > 0 || !rewards.medals.isEmpty || !rewards.stars.isEmpty {
             VStack(spacing: 6) {
                 HStack(spacing: 6) {
                     PixelIcon(icon: .flask, scale: 2)
@@ -186,6 +186,22 @@ struct GameOverView: View {
                         Text("MEDAL: \(medal.title.uppercased())")
                             .font(Theme.body(11))
                             .foregroundStyle(Theme.highlight)
+                    }
+                }
+                ForEach(rewards.stars, id: \.self) { line in
+                    HStack(spacing: 6) {
+                        PixelIcon(icon: .star, scale: 1)
+                        Text(line)
+                            .font(Theme.body(11))
+                            .foregroundStyle(Theme.gold)
+                    }
+                }
+                ForEach(rewards.badges, id: \.self) { line in
+                    HStack(spacing: 6) {
+                        PixelIcon(icon: .skull, scale: 1)
+                        Text(line)
+                            .font(Theme.body(11))
+                            .foregroundStyle(Theme.text)
                     }
                 }
             }

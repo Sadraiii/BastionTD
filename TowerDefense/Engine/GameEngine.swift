@@ -9,6 +9,8 @@ struct GameStats: Equatable {
     var livesLost = 0
     var powersUsed = 0
     var damageDealt: Double = 0
+    /// For each hero, the waves cleared while one or more stood on the field, toward mastery.
+    var heroWaves: [TowerKind: Int] = [:]
 }
 
 enum PlacementResult: Equatable {
@@ -270,6 +272,7 @@ final class GameEngine {
         guard !phase.isOver, placementCheck(kind, at: cell) == .ok else { return nil }
         gold -= kind.cost
         let tower = Tower(id: makeID(), kind: kind, cell: cell, onHighGround: map.highGround.contains(cell))
+        tower.mastery = research.masteryStars(kind)
         if kind.holdsPath { tower.holdDistances = paths.map { $0.distance(to: cell) } }
         towers.append(tower)
         towersByCell[cell] = tower
@@ -1524,6 +1527,7 @@ final class GameEngine {
         }
         for tower in towers where tower.stats.growth > 0 { tower.wavesHeld += 1 }
         for tower in towers { tower.holdDamage = 0 }
+        for kind in TowerKind.allCases where towers.contains(where: { $0.kind == kind }) { stats.heroWaves[kind, default: 0] += 1 }
         // An expedition has no victory: its map's waves roll straight on into Endless.
         if setup.expedition == true && waveNumber == waves.count { isEndless = true }
         if waveNumber == waves.count && !isEndless {

@@ -108,6 +108,9 @@ struct WaveBanner: Equatable, Identifiable {
 struct RunRewards: Equatable {
     var researchPoints = 0
     var medals: [Medal] = []
+    /// New hero mastery stars and Codex badges, one line each.
+    var stars: [String] = []
+    var badges: [String] = []
 }
 
 /// A match in progress, stored as the player's commands and the step each happened on.
@@ -209,6 +212,10 @@ final class GameSession {
     @ObservationIgnored private var demoClock: Double = 0
     @ObservationIgnored private var save: SavedMatch
     @ObservationIgnored private var bankedCommanderXP = 0
+    @ObservationIgnored private var bankedKills: [EnemyKind: Int] = [:]
+    @ObservationIgnored private var bankedHeroWaves: [TowerKind: Int] = [:]
+    /// Villains killed this match, so each new Codex entry is announced once.
+    @ObservationIgnored private var killedKinds: Set<EnemyKind> = []
     @ObservationIgnored private var scoutedWave = -1
     @ObservationIgnored private var gateShut = false
 
@@ -291,10 +298,14 @@ final class GameSession {
             switch event {
             case let .towerUpgraded(_, _, tier):
                 highestTier = max(highestTier, tier)
+            case let .enemyKilled(_, kind, _, _):
+                killedKinds.insert(kind)
             case .victory:
                 victoryStars = Self.stars(lives: engine.lives, starting: engine.startingLives)
                 awardedPoints = researchPoints(wavesCleared: engine.wavesCleared, victory: true)
                 bankedCommanderXP = engine.commander?.earnedXP ?? 0
+                bankedKills = engine.stats.kills
+                bankedHeroWaves = engine.stats.heroWaves
             default:
                 break
             }
@@ -358,6 +369,10 @@ final class GameSession {
                 showToast("GOLD STOLEN")
             case .groundCollapsed:
                 showToast("THE GROUND CAVES IN")
+            case let .enemyKilled(_, kind, _, _):
+                if killedKinds.insert(kind).inserted && EnemyKind.codex.contains(kind) && !PlayerProgress.hasSeen(kind) {
+                    showToast("NEW CODEX ENTRY: \(kind.name.uppercased())")
+                }
             case let .towerSold(towerID, _, _):
                 if towerID == selectedTowerID { selectedTowerID = nil }
             case let .towerUpgraded(_, _, tier):
@@ -440,9 +455,15 @@ final class GameSession {
             PlayerProgress.addCommanderXP(commander.kind, isLone ? xp * 3 : xp)
             bankedCommanderXP = commander.earnedXP
         }
+        let badges = PlayerProgress.addKills(engine.stats.kills.merging(bankedKills.mapValues { -$0 }, uniquingKeysWith: +))
+        let stars = PlayerProgress.addHeroWaves(engine.stats.heroWaves.merging(bankedHeroWaves.mapValues { -$0 }, uniquingKeysWith: +))
+        bankedKills = engine.stats.kills
+        bankedHeroWaves = engine.stats.heroWaves
         rewards = RunRewards(
-            researchPoints: rewards.researchPoints + earned + medals.reduce(0) { $0 + $1.reward },
-            medals: rewards.medals + medals
+            researchPoints: rewards.researchPoints + earned + badges.points + medals.reduce(0) { $0 + $1.reward },
+            medals: rewards.medals + medals,
+            stars: rewards.stars + stars,
+            badges: rewards.badges + badges.lines
         )
     }
 

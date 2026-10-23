@@ -18,6 +18,8 @@ final class TowerNode: SKNode {
     let towerID: Int
     let kind: TowerKind
     private(set) var tiers: [Int]
+    /// All five mastery stars: the tier pips are gold.
+    private let mastered: Bool
     private let base: SKSpriteNode
     private let turret: SKSpriteNode
     private let badge = SKSpriteNode(texture: Art.powerReady)
@@ -33,11 +35,12 @@ final class TowerNode: SKNode {
 
     private enum VisualState { case normal, frenzied, disabled }
 
-    init(towerID: Int, kind: TowerKind, tiers: [Int] = [0, 0]) {
+    init(towerID: Int, kind: TowerKind, tiers: [Int] = [0, 0], mastered: Bool = false) {
         self.towerID = towerID
         self.kind = kind
         self.tiers = tiers
-        base = SKSpriteNode(texture: Art.towerBase(kind, tiers: tiers))
+        self.mastered = mastered
+        base = SKSpriteNode(texture: Art.towerBase(kind, tiers: tiers, mastered: mastered))
         turret = SKSpriteNode(texture: Art.turret(kind, tiers: tiers))
         leaves = kind == .bramble ? (0..<3).map { _ in SKSpriteNode(texture: Art.leaf) } : []
         guardFill = kind.holdsPath ? SKSpriteNode(color: Pal.mist.uiColor, size: CGSize(width: 12, height: 2)) : nil
@@ -90,7 +93,7 @@ final class TowerNode: SKNode {
 
     func setTiers(_ tiers: [Int]) {
         self.tiers = tiers
-        base.texture = Art.towerBase(kind, tiers: tiers)
+        base.texture = Art.towerBase(kind, tiers: tiers, mastered: mastered)
         turret.texture = Art.turret(kind, tiers: tiers)
     }
 
