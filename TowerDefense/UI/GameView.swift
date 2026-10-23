@@ -212,7 +212,7 @@ struct CoachBanner: View {
     }
 }
 
-/// The boons offered between Endless waves. The countdown waits until one is picked.
+/// The boons offered after every third wave. The countdown waits until one is picked.
 struct BoonPicker: View {
     let boons: [Boon]
     let onPick: (Int) -> Void

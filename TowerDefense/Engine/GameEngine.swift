@@ -108,7 +108,7 @@ final class GameEngine {
     private(set) var time: Double = 0
     /// Build tiles the Sinkmaw has caved in, in the order they fell.
     private(set) var pits: [GridPoint] = []
-    /// Boons taken in Endless, in the order picked.
+    /// Boons taken, in the order picked.
     private(set) var boons: [Boon] = []
     /// The boons to pick from. The countdown to the next wave waits while it is set.
     private(set) var boonOffer: [Boon]?

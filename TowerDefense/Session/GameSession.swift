@@ -187,7 +187,7 @@ final class GameSession {
     private(set) var bossBar: BossBar?
     /// The villains of the next wave while it can be called; empty during a wave.
     private(set) var nextWave: [ScoutEntry] = []
-    /// The boons to pick from in Endless, while the countdown waits.
+    /// The boons to pick from, while the countdown waits.
     private(set) var boonOffer: [Boon]?
     /// The heroes in the build panel: all of them, or only a daily's or an expedition's squad.
     private(set) var heroes: [TowerKind] = []
